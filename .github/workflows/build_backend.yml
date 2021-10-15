@@ -1,0 +1,25 @@
+name: Build and test backend
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Add clippy as a component
+      run: rustup component add clippy
+      working-directory: adventskalender-backend
+    - name: Build
+      run: cargo build --verbose
+      working-directory: adventskalender-backend
+    - name: Check code style
+      run: cargo fmt --all -- --check
+      working-directory: adventskalender-backend
+    - name: Run tests
+      run: cargo test --verbose
+      working-directory: adventskalender-backend
