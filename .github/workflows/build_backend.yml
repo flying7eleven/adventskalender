@@ -10,6 +10,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+    - name: Install libpq
+      run: sudo apt-get install -y libpq-dev
     - uses: actions/checkout@v2
     - name: Add clippy as a component
       run: rustup component add clippy
