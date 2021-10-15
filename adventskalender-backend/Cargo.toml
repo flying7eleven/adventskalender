@@ -12,3 +12,16 @@ publish = false
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[dependencies.chrono]
+version = "0.4.19"
+default-features = false
+features = ["clock"]
+
+[dependencies.log]
+version = "0.4.14"
+default-features = false
+
+[dependencies.fern]
+version = "0.6.0"
+default-features = false
