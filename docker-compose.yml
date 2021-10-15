@@ -4,7 +4,7 @@ services:
     container_name: adventskalender_database
     image: postgres:14
     volumes:
-      - ./volumes/postgres_data:/var/lib/postgresql/data:rw
+      - ./.volumes/postgres_data:/var/lib/postgresql/data:rw
     environment:
       - POSTGRES_USER=debuguser
       - POSTGRES_PASSWORD=debugpassword
