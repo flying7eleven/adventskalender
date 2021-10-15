@@ -25,3 +25,12 @@ default-features = false
 [dependencies.fern]
 version = "0.6.0"
 default-features = false
+
+[dependencies.diesel]
+version = "1.4.8"
+default-features = false
+features = ["postgres", "chrono"]
+
+[dependencies.diesel_migrations]
+version = "1.4.0"
+default-features = false
