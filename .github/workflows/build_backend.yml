@@ -13,10 +13,9 @@ jobs:
     - name: Install libpq
       run: sudo apt-get install -y libpq-dev
     - uses: actions/checkout@v2
-    - name: Add clippy as a component
-      run: rustup component add clippy
-      working-directory: adventskalender-backend
-    - name: Build
+    - name: Install the required rust toolchain
+      uses: actions-rs/toolchain@v1
+    - name: Build the backenbd
       run: cargo build --verbose
       working-directory: adventskalender-backend
     - name: Check code style
