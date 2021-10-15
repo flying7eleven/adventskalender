@@ -1,0 +1,16 @@
+version: "2"
+services:
+  personal_image_gallery_database:
+    container_name: adventskalender_database
+    image: postgres:14
+    volumes:
+      - ./volumes/postgres_data:/var/lib/postgresql/data:rw
+    environment:
+      - POSTGRES_USER=debuguser
+      - POSTGRES_PASSWORD=debugpassword
+      - POSTGRES_DB=pmg
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    restart: "unless-stopped"
+    ports:
+      - "5432:5432"
