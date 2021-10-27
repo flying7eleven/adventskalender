@@ -35,3 +35,8 @@ features = ["postgres", "chrono"]
 [dependencies.diesel_migrations]
 version = "1.4.0"
 default-features = false
+
+[build-dependencies.vergen]
+version = "5.1.16"
+default-features = false
+features = ["git"]
