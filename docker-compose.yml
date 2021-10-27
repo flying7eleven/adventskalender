@@ -1,6 +1,6 @@
 version: "2"
 services:
-  personal_image_gallery_database:
+  adventskalender_database:
     container_name: adventskalender_database
     image: postgres:14
     volumes:

@@ -1,3 +1,27 @@
+use diesel::PgConnection;
+
+#[cfg(debug_assertions)]
+#[macro_use]
+extern crate diesel_migrations;
+
+#[cfg(debug_assertions)]
+embed_migrations!("migrations/");
+
+#[cfg(debug_assertions)]
+pub fn run_migrations(connection: &PgConnection) {
+    use log::debug;
+    match embedded_migrations::run(connection) {
+        Ok(_) => debug!("Successfully ran the database migrations"),
+        Err(_) => panic!("Failed to run the database migrations, terminating..."),
+    }
+}
+
+#[cfg(not(debug_assertions))]
+pub fn run_migrations(_: &PgConnection) {
+    use log::debug;
+    debug!("Not running any migration since we are in a production build");
+}
+
 fn setup_logging(verbosity_level: i32) {
     use chrono::Utc;
     use log::LevelFilter;
@@ -38,8 +62,8 @@ fn setup_logging(verbosity_level: i32) {
 }
 
 fn main() {
-    use diesel::{Connection, PgConnection};
-    use log::{error, info};
+    use diesel::Connection;
+    use log::{debug, error, info};
     use std::env;
 
     // setup the logging of the application based on if we are in debug or release mode
@@ -72,4 +96,8 @@ fn main() {
         return;
     }
     let database_connection = maybe_database_connection.unwrap();
+    debug!("Successfully connected to the database server");
+
+    // ensure the database is setup correctly
+    run_migrations(&database_connection);
 }
