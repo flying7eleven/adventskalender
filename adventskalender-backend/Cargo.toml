@@ -1,7 +1,7 @@
 [package]
 name = "adventskalender-backend"
 version = "2021.12.0"
-edition = "2018"
+edition = "2021"
 authors = ["Tim Janke <tim+github@janke.biz>"]
 description = "A simple tool for organizing a christmas raffle (like a advent calendar)"
 license = "MIT"
@@ -9,6 +9,7 @@ readme = "README.md"
 repository = "https://github.com/flying7eleven/adventskalender"
 exclude = [".github/", ".gitignore"]
 publish = false
+rust-version = "1.56"
 
 [badges]
 maintenance = { status = "actively-developed" }
