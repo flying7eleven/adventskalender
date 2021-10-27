@@ -40,4 +40,4 @@ default-features = false
 [build-dependencies.vergen]
 version = "5.1.16"
 default-features = false
-features = ["git"]
+features = ["git", "rustc"]
