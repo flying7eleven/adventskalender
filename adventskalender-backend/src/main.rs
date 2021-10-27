@@ -47,5 +47,8 @@ fn main() {
     setup_logging(1);
 
     // just inform the user that we are starting up
-    info!("Starting adventskalender backend...")
+    info!(
+        "Starting adventskalender backend ({})...",
+        env!("VERGEN_GIT_SEMVER")
+    );
 }

@@ -8,6 +8,7 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/flying7eleven/adventskalender"
 exclude = [".github/", ".gitignore"]
+build = "build.rs"
 publish = false
 rust-version = "1.56"
 
