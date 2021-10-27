@@ -1,0 +1,27 @@
+name: Build backend and publush Docker container
+on:
+  push:
+    tags: '[0-9]+.[0-9]+.[0-9]+'
+jobs:
+  build_and_release:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: adventskalender-backend
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: latest
+          labels: ${{ steps.meta.outputs.labels }}
