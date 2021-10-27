@@ -38,7 +38,9 @@ fn setup_logging(verbosity_level: i32) {
 }
 
 fn main() {
-    use log::info;
+    use diesel::{Connection, PgConnection};
+    use log::{error, info};
+    use std::env;
 
     // setup the logging of the application based on if we are in debug or release mode
     #[cfg(debug_assertions)]
@@ -51,4 +53,23 @@ fn main() {
         "Starting adventskalender backend ({})...",
         env!("VERGEN_GIT_SEMVER")
     );
+
+    // get the configuration for the database server and terminate if something is missing
+    let database_connection_url =
+        env::var("ADVENTSKALENDER_DB_CONNECTION").unwrap_or("".to_string());
+    if database_connection_url.is_empty() {
+        error!("Could not get the configuration for the database server. Ensure ADVENTSKALENDER_DB_CONNECTION is set properly");
+        return;
+    }
+
+    // get a connection to the database server
+    let maybe_database_connection = PgConnection::establish(&database_connection_url);
+    if maybe_database_connection.is_err() {
+        error!(
+            "Could not connect to the database server with the supplied URL. The error was: {}",
+            maybe_database_connection.err().unwrap()
+        );
+        return;
+    }
+    let database_connection = maybe_database_connection.unwrap();
 }
