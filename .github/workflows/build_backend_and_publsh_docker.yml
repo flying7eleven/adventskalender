@@ -1,4 +1,4 @@
-name: Build backend and publush Docker container
+name: Build backend and frontend and pubish Docker container
 on:
   push:
     tags: '[0-9]+.[0-9]+.[0-9]+'
