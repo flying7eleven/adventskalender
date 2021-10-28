@@ -1,4 +1,4 @@
-name: Build backend and frontend and pubish Docker container
+name: Build pubish backend container
 on:
   push:
     tags: '[0-9]+.[0-9]+.[0-9]+'
@@ -33,22 +33,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: adventskalender-backend
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-      - name: Extract meta data for the docker container (frontend)
-        id: meta
-        uses: docker/metadata-action@v3
-        with:
-          images: ghcr.io/flying7eleven/adventskalender-frontend
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-      - name: Build and push Docker image (frontend)
-        uses: docker/build-push-action@v2
-        with:
-          context: adventskalender-frontend
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
