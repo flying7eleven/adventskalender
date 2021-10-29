@@ -91,8 +91,8 @@ async fn main() {
     // just inform the user that we are starting up
     info!(
         "Starting adventskalender backend ({}, build with rustc {})...",
-        option_env!("VERGEN_GIT_SEMVER").unwrap_or("<unknown>"),
-        option_env!("VERGEN_RUSTC_SEMVER").unwrap_or("<unknown>")
+        env!("VERGEN_GIT_SEMVER"),
+        env!("VERGEN_RUSTC_SEMVER")
     );
 
     // get the configuration for the database server and terminate if something is missing
