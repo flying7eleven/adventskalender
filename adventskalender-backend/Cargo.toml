@@ -18,11 +18,12 @@ maintenance = { status = "actively-developed" }
 [dependencies.rocket]
 version = "0.5.0-rc.1"
 default-features = false
+features = ["json"]
 
 [dependencies.rocket_contrib]
 version = "0.4.10"
 default-features = false
-features = ["diesel_postgres_pool", "json"]
+features = ["diesel_postgres_pool"]
 
 [dependencies.chrono]
 version = "0.4.19"

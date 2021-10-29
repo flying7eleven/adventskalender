@@ -1457,6 +1457,7 @@ dependencies = [
  "rocket_codegen 0.5.0-rc.1",
  "rocket_http 0.5.0-rc.1",
  "serde",
+ "serde_json",
  "state 0.5.2",
  "tempfile",
  "time 0.2.27",
@@ -1511,8 +1512,6 @@ dependencies = [
  "r2d2",
  "rocket 0.4.10",
  "rocket_contrib_codegen",
- "serde",
- "serde_json",
 ]
 
 [[package]]
