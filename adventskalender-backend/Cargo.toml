@@ -38,6 +38,10 @@ default-features = false
 version = "0.6.0"
 default-features = false
 
+[dependencies.serde]
+version = "1.0.130"
+default-features = false
+
 [dependencies.diesel]
 version = "1.4.8"
 default-features = false

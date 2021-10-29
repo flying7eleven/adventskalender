@@ -13,6 +13,7 @@ dependencies = [
  "log",
  "rocket",
  "rocket_sync_db_pools",
+ "serde",
  "vergen",
 ]
 
