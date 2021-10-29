@@ -4,9 +4,6 @@ use diesel::PgConnection;
 #[macro_use]
 extern crate diesel_migrations;
 
-#[macro_use]
-extern crate rocket;
-
 #[cfg(debug_assertions)]
 embed_migrations!("migrations/");
 
@@ -69,16 +66,13 @@ fn setup_logging(verbosity_level: i32) {
         .unwrap();
 }
 
-#[get("/")]
-fn index() -> &'static str {
-    "Hello, world!"
-}
-
 #[rocket::main]
 async fn main() {
     use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
+    use adventskalender_backend::routes::index;
     use diesel::Connection;
     use log::{debug, error, info};
+    use rocket::routes;
     use std::env;
 
     // setup the logging of the application based on if we are in debug or release mode

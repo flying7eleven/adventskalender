@@ -10,6 +10,7 @@ use chrono::NaiveDate;
 use schema::participants;
 
 pub mod fairings;
+pub mod routes;
 mod schema;
 
 #[derive(Queryable, Identifiable)]
