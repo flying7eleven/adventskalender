@@ -10,7 +10,7 @@ ENV PATH=/root/.cargo/bin:$PATH
 
 # copy the source files and build the backend in release-mode
 COPY . /usr/src/app
-WORKDIR /usr/src/app
+WORKDIR /usr/src/app/adventskalender-backend
 RUN cargo build --release
 
 # configure the acutal container for running the backend
@@ -21,7 +21,7 @@ RUN apt update && \
     apt install -y libpq5 curl
 
 # copy the files for running the container
-COPY --from=build --chown=1001 /usr/src/app/target/release/adventskalender-backend /usr/local/bin/adventskalender-backend
+COPY --from=build --chown=1001 /usr/src/app/adventskalender-backend/target/release/adventskalender-backend /usr/local/bin/adventskalender-backend
 
 # set the work dir for the backend
 WORKDIR /usr/local/bin
