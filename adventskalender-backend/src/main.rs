@@ -69,7 +69,9 @@ fn setup_logging(verbosity_level: i32) {
 #[rocket::main]
 async fn main() {
     use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
-    use adventskalender_backend::routes::get_number_of_participants_who_already_won;
+    use adventskalender_backend::routes::{
+        get_number_of_participants_who_already_won, pick_a_random_participant_from_raffle_list,
+    };
     use diesel::Connection;
     use log::{debug, error, info};
     use rocket::routes;
@@ -113,9 +115,15 @@ async fn main() {
     run_migrations(&database_connection);
 
     // mount all supported routes and launch the rocket :)
-    rocket::build()
+    let _ = rocket::build()
         .attach(AdventskalenderDatabaseConnection::fairing())
-        .mount("/", routes![get_number_of_participants_who_already_won])
+        .mount(
+            "/",
+            routes![
+                get_number_of_participants_who_already_won,
+                pick_a_random_participant_from_raffle_list
+            ],
+        )
         .launch()
         .await;
 }

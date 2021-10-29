@@ -53,3 +53,53 @@ pub async fn get_number_of_participants_who_already_won(
     // really happened, we return an internal server error
     Err(Status::InternalServerError)
 }
+
+#[derive(Serialize)]
+pub struct Participant {
+    /// The internally used id for the participant.
+    pub id: i32,
+    /// The first name of the participant.
+    pub first_name: String,
+    /// The last name of the participant.
+    pub last_name: String,
+}
+
+#[get("/participants/pick")]
+pub async fn pick_a_random_participant_from_raffle_list(
+    db_connection: AdventskalenderDatabaseConnection,
+) -> Result<Json<Participant>, Status> {
+    use crate::models::Participant as DatabaseParticipant;
+    use crate::schema::participants::dsl::{participants, won_on};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use rand::seq::SliceRandom;
+
+    // try to fetch the information and construct the corresponding data structure we want to return
+    let maybe_result = db_connection
+        .run(|connection| {
+            if let Ok(participants_in_raffle) = participants
+                .filter(won_on.is_null())
+                .load::<DatabaseParticipant>(connection)
+            {
+                if let Some(chosen_participant) =
+                    participants_in_raffle.choose(&mut rand::thread_rng())
+                {
+                    return Some(Json(Participant {
+                        id: chosen_participant.id,
+                        first_name: chosen_participant.first_name.clone(),
+                        last_name: chosen_participant.last_name.clone(),
+                    }));
+                }
+            }
+            return None;
+        })
+        .await;
+
+    // if we could fetch a result from the database, return the requested information
+    if maybe_result.is_some() {
+        return Ok(maybe_result.unwrap());
+    }
+
+    // if we reach this step, we could not request the required information. Since we do not know what
+    // really happened, we return an internal server error
+    Err(Status::InternalServerError)
+}
