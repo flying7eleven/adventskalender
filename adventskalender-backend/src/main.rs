@@ -70,7 +70,8 @@ fn setup_logging(verbosity_level: i32) {
 async fn main() {
     use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
     use adventskalender_backend::routes::{
-        get_number_of_participants_who_already_won, pick_a_random_participant_from_raffle_list,
+        get_number_of_participants_who_already_won, mark_participant_as_won,
+        pick_a_random_participant_from_raffle_list,
     };
     use diesel::Connection;
     use log::{debug, error, info};
@@ -121,7 +122,8 @@ async fn main() {
             "/",
             routes![
                 get_number_of_participants_who_already_won,
-                pick_a_random_participant_from_raffle_list
+                pick_a_random_participant_from_raffle_list,
+                mark_participant_as_won,
             ],
         )
         .launch()

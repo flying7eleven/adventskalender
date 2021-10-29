@@ -103,3 +103,26 @@ pub async fn pick_a_random_participant_from_raffle_list(
     // really happened, we return an internal server error
     Err(Status::InternalServerError)
 }
+
+#[get("/participants/won/<participant_id>")]
+pub async fn mark_participant_as_won(
+    db_connection: AdventskalenderDatabaseConnection,
+    participant_id: i32,
+) -> Status {
+    use crate::schema::participants::dsl::{id, participants, won_on};
+    use chrono::Utc;
+    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
+
+    // try to update the requested participant and return if we succeeded or not
+    return db_connection
+        .run(move |connection| {
+            if let Ok(_) = update(participants.filter(id.eq(participant_id)))
+                .set(won_on.eq(Utc::now().naive_utc().date()))
+                .execute(connection)
+            {
+                return Status::NoContent;
+            }
+            return Status::NotFound;
+        })
+        .await;
+}
