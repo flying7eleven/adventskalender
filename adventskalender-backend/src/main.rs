@@ -76,6 +76,7 @@ fn index() -> &'static str {
 
 #[rocket::main]
 async fn main() {
+    use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
     use diesel::Connection;
     use log::{debug, error, info};
     use std::env;
@@ -94,6 +95,7 @@ async fn main() {
     );
 
     // get the configuration for the database server and terminate if something is missing
+    // TODO: read from Rocket.toml to have just one place where we have to set it
     let database_connection_url =
         env::var("ADVENTSKALENDER_DB_CONNECTION").unwrap_or("".to_string());
     if database_connection_url.is_empty() {
@@ -117,5 +119,9 @@ async fn main() {
     run_migrations(&database_connection);
 
     // mount all supported routes and launch the rocket :)
-    rocket::build().mount("/", routes![index]).launch().await;
+    rocket::build()
+        .attach(AdventskalenderDatabaseConnection::fairing())
+        .mount("/", routes![index])
+        .launch()
+        .await;
 }
