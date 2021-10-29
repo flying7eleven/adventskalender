@@ -1,5 +1,3 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
 #[macro_use]
 extern crate diesel;
 #[cfg(not(debug_assertions))]
@@ -10,6 +8,7 @@ use chrono::NaiveDate;
 use schema::participants;
 
 pub mod fairings;
+pub mod models;
 pub mod routes;
 mod schema;
 
