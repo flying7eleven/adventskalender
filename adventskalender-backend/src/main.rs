@@ -4,6 +4,9 @@ use diesel::PgConnection;
 #[macro_use]
 extern crate diesel_migrations;
 
+#[macro_use]
+extern crate rocket;
+
 #[cfg(debug_assertions)]
 embed_migrations!("migrations/");
 
@@ -57,11 +60,19 @@ fn setup_logging(verbosity_level: i32) {
         .level_for("reqwest", LevelFilter::Off)
         .level_for("want", LevelFilter::Off)
         .level_for("mio", LevelFilter::Off)
+        .level_for("rocket", LevelFilter::Error)
+        .level_for("_", LevelFilter::Error)
         .apply()
         .unwrap();
 }
 
-fn main() {
+#[get("/")]
+fn index() -> &'static str {
+    "Hello, world!"
+}
+
+#[rocket::main]
+async fn main() {
     use diesel::Connection;
     use log::{debug, error, info};
     use std::env;
@@ -101,4 +112,7 @@ fn main() {
 
     // ensure the database is setup correctly
     run_migrations(&database_connection);
+
+    // mount all supported routes and launch the rocket :)
+    rocket::build().mount("/", routes![index]).launch().await;
 }
