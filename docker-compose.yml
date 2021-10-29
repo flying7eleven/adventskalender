@@ -1,4 +1,4 @@
-version: "2"
+version: "3"
 services:
   adventskalender_database:
     container_name: adventskalender_database
@@ -6,11 +6,36 @@ services:
     volumes:
       - ./.volumes/postgres_data:/var/lib/postgresql/data:rw
     environment:
-      - POSTGRES_USER=debuguser
+      - POSTGRES_USER=adventskalender
       - POSTGRES_PASSWORD=debugpassword
       - POSTGRES_DB=adventskalender
       - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     restart: "unless-stopped"
+    networks:
+      - adventskalender
     ports:
       - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U adventskalender" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  adventskalender_backend:
+    container_name: adventskalender_backend
+    image: adventskalender-backend:local
+    environment:
+      - ADVENTSKALENDER_DB_CONNECTION=postgres://adventskalender:debugpassword@adventskalender_database/adventskalender
+    restart: "unless-stopped"
+    depends_on:
+      - adventskalender_database
+    networks:
+      - adventskalender
+    healthcheck:
+      test: [ "CMD-SHELL", "curl --fail http://127.0.0.1:8000/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+networks:
+  adventskalender:
+    driver: bridge
