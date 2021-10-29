@@ -1,9 +1,9 @@
 -- the table which will hold the possible participants
 CREATE TABLE participants
 (
-    id         INTEGER UNIQUE NOT NULL PRIMARY KEY,
-    first_name VARCHAR(32)    NOT NULL,
-    last_name  VARCHAR(32)    NOT NULL,
+    id         SERIAL PRIMARY KEY,
+    first_name VARCHAR(32) NOT NULL,
+    last_name  VARCHAR(32) NOT NULL,
     won_on     DATE DEFAULT NULL
 );
 
