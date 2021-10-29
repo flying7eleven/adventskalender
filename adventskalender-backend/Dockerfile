@@ -18,16 +18,19 @@ FROM debian:bullseye
 
 # install the required dependencies
 RUN apt update && \
-    apt install -y libpq5
+    apt install -y libpq5 curl
 
 # copy the files for running the container
 COPY --from=build --chown=1001 /usr/src/app/target/release/adventskalender-backend /usr/local/bin/adventskalender-backend
 
-#
+# set the work dir for the backend
 WORKDIR /usr/local/bin
 
 # configure the user(-id) for the running process
 USER 1001
+
+# expose the backend port
+EXPOSE 8000/tcp
 
 # startup the backend
 CMD exec /usr/local/bin/adventskalender-backend
