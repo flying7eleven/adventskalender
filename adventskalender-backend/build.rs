@@ -1,5 +1,10 @@
 use vergen::{vergen, Config};
 
 fn main() {
-    let _ = vergen(Config::default());
+    if let Err(error) = vergen(Config::default()) {
+        panic!(
+            "Could not extract the required version information. The error was: {}",
+            error
+        );
+    }
 }
