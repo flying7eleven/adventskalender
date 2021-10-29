@@ -103,7 +103,12 @@ async fn main() {
         return;
     }
 
-    // get a connection to the database server
+    // just wait for 10 seconds until we continue. This is just an ugly fix that we have to wait until the database server
+    // has spun up
+    info!("Waiting for 10 seconds to ensure that the database had enough time to spin up...");
+    std::thread::sleep(std::time::Duration::from_secs(10));
+
+    // try to get a connection to the database server
     let maybe_database_connection = PgConnection::establish(&database_connection_url);
     if maybe_database_connection.is_err() {
         error!(
@@ -129,6 +134,7 @@ async fn main() {
     ));
 
     // mount all supported routes and launch the rocket :)
+    info!("Database preparations done and starting up the API endpoints now...");
     let _ = rocket::custom(database_figment)
         .attach(AdventskalenderDatabaseConnection::fairing())
         .mount(
