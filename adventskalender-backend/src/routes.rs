@@ -99,9 +99,9 @@ pub async fn pick_a_random_participant_from_raffle_list(
         return Ok(maybe_result.unwrap());
     }
 
-    // if we reach this step, we could not request the required information. Since we do not know what
-    // really happened, we return an internal server error
-    Err(Status::InternalServerError)
+    // if we could not get a result, it seems that all participants where picked at some point. Return
+    // NOT FOUND to indicate that
+    Err(Status::NotFound)
 }
 
 #[get("/participants/won/<participant_id>")]
