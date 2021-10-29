@@ -15,7 +15,10 @@ pub fn run_migrations(connection: &PgConnection) {
     use log::debug;
     match embedded_migrations::run(connection) {
         Ok(_) => debug!("Successfully ran the database migrations"),
-        Err(_) => panic!("Failed to run the database migrations, terminating..."),
+        Err(error) => panic!(
+            "Failed to run the database migrations. The error was: {}. Terminating...",
+            error
+        ),
     }
 }
 
