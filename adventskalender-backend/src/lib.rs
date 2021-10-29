@@ -9,6 +9,7 @@ extern crate diesel_migrations;
 use chrono::NaiveDate;
 use schema::participants;
 
+mod fairings;
 mod schema;
 
 #[derive(Queryable, Identifiable)]
