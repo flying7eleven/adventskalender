@@ -126,3 +126,44 @@ pub async fn mark_participant_as_won(
         })
         .await;
 }
+
+#[derive(Serialize)]
+pub struct HealthCheck {
+    /// A flag which indicates if the database is healthy or not.
+    pub database_healthy: bool,
+    /// A flag which indicates if the backend itself is healthy or not.
+    pub backend_healthy: bool,
+}
+
+#[get("/health")]
+pub async fn check_backend_health(
+    db_connection: AdventskalenderDatabaseConnection,
+) -> Result<Json<HealthCheck>, Status> {
+    use crate::schema::participants::dsl::participants;
+    use diesel::expression::count::count_star;
+    use diesel::{QueryDsl, RunQueryDsl};
+    use log::{debug, error};
+
+    // check if the connection to the database is working or not
+    let database_is_healthy = db_connection
+        .run(|connection| {
+            if let Err(error) = participants.select(count_star()).first::<i64>(connection) {
+                error!("The health check of the database connection failed with the following error: {}", error);
+                return false;
+            }
+            debug!("Last health check was successful");
+            return true;
+        })
+        .await;
+
+    // if the database is healthy, we can return the status immediately
+    if database_is_healthy {
+        return Ok(Json(HealthCheck {
+            database_healthy: database_is_healthy,
+            backend_healthy: true,
+        }));
+    }
+
+    // if seems that the health check failed, indicate that by returning a 500
+    Err(Status::InternalServerError)
+}
