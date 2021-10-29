@@ -75,6 +75,10 @@ async fn main() {
     };
     use diesel::Connection;
     use log::{debug, error, info};
+    use rocket::figment::{
+        util::map,
+        value::{Map, Value},
+    };
     use rocket::routes;
     use std::env;
 
@@ -92,7 +96,6 @@ async fn main() {
     );
 
     // get the configuration for the database server and terminate if something is missing
-    // TODO: read from Rocket.toml to have just one place where we have to set it
     let database_connection_url =
         env::var("ADVENTSKALENDER_DB_CONNECTION").unwrap_or("".to_string());
     if database_connection_url.is_empty() {
@@ -115,8 +118,18 @@ async fn main() {
     // ensure the database is setup correctly
     run_migrations(&database_connection);
 
+    // configure the database pool based on the supplied connection URL
+    let adventskalender_database_config: Map<_, Value> = map! {
+        "url" => database_connection_url.into(),
+        "pool_size" => 25.into()
+    };
+    let database_figment = rocket::Config::figment().merge((
+        "databases",
+        map!["adventskalender" => adventskalender_database_config],
+    ));
+
     // mount all supported routes and launch the rocket :)
-    let _ = rocket::build()
+    let _ = rocket::custom(database_figment)
         .attach(AdventskalenderDatabaseConnection::fairing())
         .mount(
             "/",
