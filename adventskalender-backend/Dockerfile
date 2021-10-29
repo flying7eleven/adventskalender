@@ -5,7 +5,7 @@ FROM debian:bullseye AS build
 RUN apt update && \
     apt install -y curl build-essential libpq-dev && \
     curl https://sh.rustup.rs -sSf | \
-    sh -s -- --default-toolchain nightly -y
+    sh -s -- --default-toolchain stable -y
 ENV PATH=/root/.cargo/bin:$PATH
 
 # copy the source files and build the backend in release-mode
