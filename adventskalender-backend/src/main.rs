@@ -40,7 +40,8 @@ fn setup_logging(verbosity_level: i32) {
         _3_or_more => base_config.level(LevelFilter::Trace),
     };
 
-    // define how a logging line in the logfile as well as the console should look like
+    // define how a logging line should look like and attatch the streams to which the output will be
+    // written to
     let file_config = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -51,8 +52,7 @@ fn setup_logging(verbosity_level: i32) {
                 message
             ))
         })
-        .chain(fern::log_file("adventskalender.log").unwrap())
-        .chain(std::io::stdout());
+        .chain(std::io::stderr());
 
     // now chain everything together and get ready for actually logging stuff
     base_config
