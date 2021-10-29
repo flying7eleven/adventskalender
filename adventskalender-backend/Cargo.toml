@@ -15,6 +15,10 @@ rust-version = "1.56"
 [badges]
 maintenance = { status = "actively-developed" }
 
+[dependencies.rocket]
+version = "0.5.0-rc.1"
+default-features = false
+
 [dependencies.chrono]
 version = "0.4.19"
 default-features = false
