@@ -1,5 +1,5 @@
 -- the table which will hold the possible users and their passwords
-CREATE TABLE participants
+CREATE TABLE users
 (
     id            INTEGER UNIQUE NOT NULL PRIMARY KEY,
     username      VARCHAR(64)    NOT NULL,
