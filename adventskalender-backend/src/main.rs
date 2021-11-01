@@ -65,6 +65,7 @@ async fn main() {
         value::{Map, Value},
     };
     use rocket::routes;
+    use rocket::Config as RocketConfig;
     use std::env;
 
     // select the logging level from a set environment variable
@@ -123,10 +124,15 @@ async fn main() {
         "url" => database_connection_url.into(),
         "pool_size" => 25.into()
     };
-    let database_figment = rocket::Config::figment().merge((
-        "databases",
-        map!["adventskalender" => adventskalender_database_config],
-    ));
+
+    // rocket configuration figment
+    let database_figment = RocketConfig::figment()
+        .merge((
+            "databases",
+            map!["adventskalender" => adventskalender_database_config],
+        ))
+        .merge(("port", 5479))
+        .merge(("address", std::net::Ipv4Addr::new(0, 0, 0, 0)));
 
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");

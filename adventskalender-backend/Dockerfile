@@ -30,7 +30,7 @@ WORKDIR /usr/local/bin
 USER 1001
 
 # expose the backend port
-EXPOSE 8000/tcp
+EXPOSE 5479/tcp
 
 # startup the backend
 CMD exec /usr/local/bin/adventskalender-backend

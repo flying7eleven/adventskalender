@@ -33,7 +33,7 @@ services:
     networks:
       - adventskalender
     ports:
-      - "8000:8000" # just needs to be exported for debugging purposes
+      - "5479:5479" # just needs to be exported for debugging purposes
     healthcheck:
       test: [ "CMD-SHELL", "curl --fail http://127.0.0.1:8000/health" ]
       interval: 10s
