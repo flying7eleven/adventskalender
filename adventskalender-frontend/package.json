@@ -27,8 +27,8 @@
     "typescript": "^4.4.4"
   },
   "scripts": {
-    "start": "craco start",
-    "build": "GENERATE_SOURCEMAP=false craco build",
+    "start": "react-scripts start",
+    "build": "GENERATE_SOURCEMAP=false react-scripts build",
     "check-format": "prettier --list-different \"{{public,src,scripts,types},.}/**/*.{js,jsx,ts,tsx,md,scss,css,json,htm,html}\" .prettierrc",
     "format": "prettier --write \"{{public,src,scripts,types},.}/**/*.{js,jsx,ts,tsx,md,scss,css,json,htm,html}\" .prettierrc",
     "lint": "tslint --format stylish {src,scripts}/**/*.{ts,tsx}"
