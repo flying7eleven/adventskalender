@@ -1,10 +1,9 @@
 {
-  "short_name": "Adventskalender",
-  "name": "Adventskalender - A simple raffle for a company-wide advent calendar",
-  "icons": [
-  ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+    "short_name": "Adventskalender",
+    "name": "Adventskalender - A simple raffle for a company-wide advent calendar",
+    "icons": [],
+    "start_url": ".",
+    "display": "standalone",
+    "theme_color": "#000000",
+    "background_color": "#ffffff"
 }
