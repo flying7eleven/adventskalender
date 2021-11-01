@@ -7,6 +7,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
 pub mod fairings;
+pub mod guards;
 pub mod models;
 pub mod routes;
 mod schema;

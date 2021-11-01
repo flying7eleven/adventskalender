@@ -1,4 +1,5 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
+use crate::guards::AuthenticatedUser;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{get, post, State};
@@ -17,10 +18,18 @@ pub struct ParticipantCount {
 #[get("/participants/count")]
 pub async fn get_number_of_participants_who_already_won(
     db_connection: AdventskalenderDatabaseConnection,
+    authenticated_user: AuthenticatedUser,
 ) -> Result<Json<ParticipantCount>, Status> {
     use crate::schema::participants::dsl::{id, participants, won_on};
     use diesel::dsl::count;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::debug;
+
+    // log that a user queried the statistics for the participants
+    debug!(
+        "The user {} requested the statistics for the participants of the raffle",
+        authenticated_user.username
+    );
 
     // try to fetch the information and construct the corresponding data structure we want to return
     let maybe_result = db_connection
@@ -67,10 +76,12 @@ pub struct Participant {
 #[get("/participants/pick")]
 pub async fn pick_a_random_participant_from_raffle_list(
     db_connection: AdventskalenderDatabaseConnection,
+    authenticated_user: AuthenticatedUser,
 ) -> Result<Json<Participant>, Status> {
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::{debug, error};
     use rand::seq::SliceRandom;
 
     // try to fetch the information and construct the corresponding data structure we want to return
@@ -96,11 +107,20 @@ pub async fn pick_a_random_participant_from_raffle_list(
 
     // if we could fetch a result from the database, return the requested information
     if maybe_result.is_some() {
-        return Ok(maybe_result.unwrap());
+        let result = maybe_result.unwrap();
+        debug!(
+            "The user {} picked the participant with the id {} as a new winner",
+            authenticated_user.username, result.id
+        );
+        return Ok(result);
     }
 
     // if we could not get a result, it seems that all participants where picked at some point. Return
     // NOT FOUND to indicate that
+    error!(
+        "The user {} tried to pick a new winner but we could not find one",
+        authenticated_user.username
+    );
     Err(Status::NotFound)
 }
 
@@ -108,10 +128,12 @@ pub async fn pick_a_random_participant_from_raffle_list(
 pub async fn mark_participant_as_won(
     db_connection: AdventskalenderDatabaseConnection,
     participant_id: i32,
+    authenticated_user: AuthenticatedUser,
 ) -> Status {
     use crate::schema::participants::dsl::{id, participants, won_on};
     use chrono::Utc;
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::{debug, error};
 
     // try to update the requested participant and return if we succeeded or not
     return db_connection
@@ -120,8 +142,10 @@ pub async fn mark_participant_as_won(
                 .set(won_on.eq(Utc::now().naive_utc().date()))
                 .execute(connection)
             {
+                debug!("The user {} marked the user with the id {} as 'already won'", authenticated_user.username, participant_id);
                 return Status::NoContent;
             }
+            error!("The user {} tried to mark the user with the id {} as 'already won' but we failed to do so", authenticated_user.username, participant_id);
             return Status::NotFound;
         })
         .await;
