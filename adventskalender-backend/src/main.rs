@@ -1,4 +1,5 @@
 use diesel::PgConnection;
+use log::LevelFilter;
 
 #[macro_use]
 extern crate diesel_migrations;
@@ -15,20 +16,14 @@ pub fn run_migrations(connection: &PgConnection) {
     }
 }
 
-fn setup_logging(verbosity_level: i32) {
+fn setup_logging(logging_level: LevelFilter) {
     use chrono::Utc;
-    use log::LevelFilter;
 
     // create an instance for the Dispatcher to create a new logging configuration
     let mut base_config = fern::Dispatch::new();
 
-    // determine the logging level based on the verbosity the user chose
-    base_config = match verbosity_level {
-        0 => base_config.level(LevelFilter::Warn),
-        1 => base_config.level(LevelFilter::Info),
-        2 => base_config.level(LevelFilter::Debug),
-        _3_or_more => base_config.level(LevelFilter::Trace),
-    };
+    // set the corresponding logging level
+    base_config = base_config.level(logging_level);
 
     // define how a logging line should look like and attatch the streams to which the output will be
     // written to
@@ -72,11 +67,21 @@ async fn main() {
     use rocket::routes;
     use std::env;
 
-    // setup the logging of the application based on if we are in debug or release mode
-    #[cfg(debug_assertions)]
-    setup_logging(3);
-    #[cfg(not(debug_assertions))]
-    setup_logging(1);
+    // select the logging level from a set environment variable
+    let logging_level = match env::var("ADVENTSKALENDER_LOGGING_LEVEL") {
+        Ok(value) => match value.to_lowercase().as_str() {
+            "trace" => LevelFilter::Trace,
+            "debug" => LevelFilter::Debug,
+            "info" => LevelFilter::Info,
+            "warn" => LevelFilter::Warn,
+            "error" => LevelFilter::Error,
+            _ => LevelFilter::Info,
+        },
+        Err(_) => LevelFilter::Info,
+    };
+
+    // setup the logging of the application based on the environment variable
+    setup_logging(logging_level);
 
     // just inform the user that we are starting up
     info!(

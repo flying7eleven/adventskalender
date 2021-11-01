@@ -25,12 +25,15 @@ services:
     container_name: adventskalender_backend
     image: adventskalender-backend:local
     environment:
+      - ADVENTSKALENDER_LOGGING_LEVEL=trace
       - ADVENTSKALENDER_DB_CONNECTION=postgres://adventskalender:debugpassword@adventskalender_database/adventskalender
     restart: "unless-stopped"
     depends_on:
       - adventskalender_database
     networks:
       - adventskalender
+    ports:
+      - "8000:8000" # just needs to be exported for debugging purposes
     healthcheck:
       test: [ "CMD-SHELL", "curl --fail http://127.0.0.1:8000/health" ]
       interval: 10s
