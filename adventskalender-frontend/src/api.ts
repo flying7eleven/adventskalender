@@ -5,3 +5,7 @@ export interface ParticipantCount {
     number_of_participants_won: number;
     number_of_participants_still_in_raffle: number;
 }
+
+export interface AccessToken {
+    access_token: string;
+}
