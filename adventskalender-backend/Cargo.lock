@@ -12,6 +12,7 @@ dependencies = [
  "diesel_migrations",
  "fern",
  "jsonwebtoken",
+ "lazy_static",
  "log",
  "rand",
  "rocket",
