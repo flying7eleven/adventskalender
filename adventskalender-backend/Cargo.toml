@@ -20,6 +20,11 @@ version = "0.5.0-rc.1"
 default-features = false
 features = ["json"]
 
+[dependencies.rocket_cors]
+git = "https://github.com/lawliet89/rocket_cors.git"
+branch = "master"
+default-features = false
+
 [dependencies.rocket_sync_db_pools]
 version = "0.1.0-rc.1"
 default-features = false

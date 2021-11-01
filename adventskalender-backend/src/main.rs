@@ -64,8 +64,10 @@ async fn main() {
         util::map,
         value::{Map, Value},
     };
+    use rocket::http::Method;
     use rocket::routes;
     use rocket::Config as RocketConfig;
+    use rocket_cors::{AllowedHeaders, AllowedOrigins};
     use std::env;
 
     // select the logging level from a set environment variable
@@ -134,10 +136,23 @@ async fn main() {
         .merge(("port", 5479))
         .merge(("address", std::net::Ipv4Addr::new(0, 0, 0, 0)));
 
+    // prepare the fairing for the CORS headers
+    let allowed_origins = AllowedOrigins::All;
+    let cors_header = rocket_cors::CorsOptions {
+        allowed_origins,
+        allowed_methods: vec![Method::Get].into_iter().map(From::from).collect(),
+        allowed_headers: AllowedHeaders::All,
+        allow_credentials: true,
+        ..Default::default()
+    }
+    .to_cors()
+    .unwrap();
+
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");
     let _ = rocket::custom(database_figment)
         .attach(AdventskalenderDatabaseConnection::fairing())
+        .attach(cors_header)
         .mount(
             "/",
             routes![
