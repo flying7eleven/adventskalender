@@ -5,3 +5,7 @@
 This repository contains a quite simple setup for running a raffle for the first twenty-four days of
 december (advent calender-like). Therefore, a list of names is stored in a database from which a
 number of people are randomly selected for a day as winners.
+
+## Building and running it locally
+1. Build the backend container by going into the root directory of the repository and typing the following command: `docker buildx build -f adventskalender-backend/Dockerfile -t adventskalender-backend:local .`
+2. Type `docker-compose up -d` for stating up the debug database and the backend which connects to it
