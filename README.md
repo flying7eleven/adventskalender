@@ -9,3 +9,4 @@ number of people are randomly selected for a day as winners.
 ## Building and running it locally
 1. Build the backend container by going into the root directory of the repository and typing the following command: `docker buildx build -f adventskalender-backend/Dockerfile -t adventskalender-backend:local .`
 2. Type `docker-compose up -d` for stating up the debug database and the backend which connects to it
+3. Import `adventskalender-backend/example_data.sql` to the database used by the backend
