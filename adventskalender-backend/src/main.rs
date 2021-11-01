@@ -1,13 +1,9 @@
 use diesel::PgConnection;
 
-#[cfg(debug_assertions)]
 #[macro_use]
 extern crate diesel_migrations;
-
-#[cfg(debug_assertions)]
 embed_migrations!("migrations/");
 
-#[cfg(debug_assertions)]
 pub fn run_migrations(connection: &PgConnection) {
     use log::debug;
     match embedded_migrations::run(connection) {
@@ -17,12 +13,6 @@ pub fn run_migrations(connection: &PgConnection) {
             error
         ),
     }
-}
-
-#[cfg(not(debug_assertions))]
-pub fn run_migrations(_: &PgConnection) {
-    use log::debug;
-    debug!("Not running any migration since we are in a production build");
 }
 
 fn setup_logging(verbosity_level: i32) {
