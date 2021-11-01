@@ -7,3 +7,10 @@ pub struct Participant {
     pub last_name: String,
     pub won_on: Option<NaiveDate>,
 }
+
+#[derive(Queryable, Clone)]
+pub struct User {
+    pub id: i32,
+    pub username: String,
+    pub password_hash: String,
+}

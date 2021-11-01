@@ -53,10 +53,12 @@ fn setup_logging(logging_level: LevelFilter) {
 
 #[rocket::main]
 async fn main() {
-    use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
+    use adventskalender_backend::fairings::{
+        AdventskalenderDatabaseConnection, BackendConfiguration,
+    };
     use adventskalender_backend::routes::{
-        check_backend_health, get_number_of_participants_who_already_won, mark_participant_as_won,
-        pick_a_random_participant_from_raffle_list,
+        check_backend_health, get_login_token, get_number_of_participants_who_already_won,
+        mark_participant_as_won, pick_a_random_participant_from_raffle_list,
     };
     use diesel::Connection;
     use log::{debug, error, info};
@@ -101,6 +103,17 @@ async fn main() {
         return;
     }
 
+    // get the psk for the token signature
+    let token_signature_psk =
+        env::var("ADVENTSKALENDER_TOKEN_SIGNATURE_PSK").unwrap_or("".to_string());
+    if token_signature_psk.is_empty() {
+        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_TOKEN_SIGNATURE_PSK is set properly");
+        return;
+    }
+    let backend_config = BackendConfiguration {
+        token_signature_psk: token_signature_psk.to_string(),
+    };
+
     // just wait for 10 seconds until we continue. This is just an ugly fix that we have to wait until the database server
     // has spun up
     info!("Waiting for 10 seconds to ensure that the database had enough time to spin up...");
@@ -140,7 +153,10 @@ async fn main() {
     let allowed_origins = AllowedOrigins::All;
     let cors_header = rocket_cors::CorsOptions {
         allowed_origins,
-        allowed_methods: vec![Method::Get].into_iter().map(From::from).collect(),
+        allowed_methods: vec![Method::Get, Method::Post]
+            .into_iter()
+            .map(From::from)
+            .collect(),
         allowed_headers: AllowedHeaders::All,
         allow_credentials: true,
         ..Default::default()
@@ -153,9 +169,11 @@ async fn main() {
     let _ = rocket::custom(database_figment)
         .attach(AdventskalenderDatabaseConnection::fairing())
         .attach(cors_header)
+        .manage(backend_config)
         .mount(
             "/",
             routes![
+                get_login_token,
                 get_number_of_participants_who_already_won,
                 pick_a_random_participant_from_raffle_list,
                 mark_participant_as_won,
