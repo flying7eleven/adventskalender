@@ -1,0 +1,13 @@
+{
+  "extends": ["tslint-config-airbnb-base", "tslint-config-prettier", "tslint-react"],
+  "rules": {
+    "no-unused-variable": false,
+    "no-use-before-declare": false,
+    "variable-name": false,
+    "jsx-no-multiline-js": false,
+    "cyclomatic-complexity": false,
+    "array-type": [true, "array"],
+    "jsx-boolean-value": [true, "never"],
+    "no-magic-numbers": false
+  }
+}
