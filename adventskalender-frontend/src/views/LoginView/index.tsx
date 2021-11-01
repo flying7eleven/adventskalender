@@ -10,9 +10,11 @@ import Typography from '@mui/material/Typography';
 import { API_BACKEND_URL, AccessToken } from '../../api';
 import { useState } from 'react';
 
-export const LoginView = () => {
-    const [accessToken, setAccessToken] = useState<AccessToken>({ access_token: '' });
+interface Props {
+    persistToken: (token: AccessToken) => void;
+}
 
+export const LoginView = (props: Props) => {
     const usernameField = useRef<HTMLInputElement>(null);
     const passwordField = useRef<HTMLInputElement>(null);
 
@@ -36,7 +38,7 @@ export const LoginView = () => {
         })
             .then((response) => response.json())
             .then((token: AccessToken) => {
-                setAccessToken(token);
+                props.persistToken(token);
             });
     };
 

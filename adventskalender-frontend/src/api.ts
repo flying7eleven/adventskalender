@@ -7,5 +7,5 @@ export interface ParticipantCount {
 }
 
 export interface AccessToken {
-    access_token: string;
+    accessToken: string;
 }
