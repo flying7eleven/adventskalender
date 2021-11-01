@@ -12,4 +12,4 @@ INSERT INTO participants VALUES (DEFAULT, 'Tenth', 'User', NULL);
 INSERT INTO participants VALUES (DEFAULT, 'Won', 'User', '2021-11-01');
 
 -- insert the demo users for authentication
-INSERT INTO users VALUES (DEFAULT, 'demouser', '$2y$16$0Fw5t3TfqCSByFlxOxWCLOfrbUnMlbDJuxC6G11RvHy01FSWN5b4C'); -- demopassword
+INSERT INTO users VALUES (DEFAULT, 'demouser', '$2y$10$biaBP9HfkEp7oS.6Z6zOdOFTWFhO6hLQF2dXX3o0c9azOtE5sAzsW'); -- demopassword
