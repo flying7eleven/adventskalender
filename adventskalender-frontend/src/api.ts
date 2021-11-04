@@ -17,6 +17,12 @@ export interface ParticipantCount {
     number_of_participants_still_in_raffle: number;
 }
 
+export interface Participant {
+    id: number;
+    first_name: string;
+    last_name: string;
+}
+
 export interface AccessToken {
     accessToken: string;
 }

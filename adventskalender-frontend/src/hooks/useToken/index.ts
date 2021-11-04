@@ -42,15 +42,5 @@ export const useToken = () => {
         window.sessionStorage.setItem('adventskalender:token', JSON.stringify(newToken));
     };
 
-    const getAuthenicationHeader = () => {
-        // if the token is not valid, do not return a valid bearer header
-        if (!isTokenValid()) {
-            return '';
-        }
-
-        // otherwise return the header
-        return `Bearer ${token.accessToken}`;
-    };
-
-    return { isTokenValid, invalidateToken, storeNewToken, getAuthenicationHeader };
+    return { isTokenValid, invalidateToken, storeNewToken, token };
 };
