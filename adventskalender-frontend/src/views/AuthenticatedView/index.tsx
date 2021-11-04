@@ -187,7 +187,7 @@ export const AuthenticatedView = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-            <Grid container columns={12} spacing={2}>
+            <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
                 <Grid item xs={12}>
                     <TopControlBar title={'Adventskalender'} actionTitle={'Logout'} actionHandler={invalidateToken} />
                 </Grid>
@@ -200,10 +200,13 @@ export const AuthenticatedView = () => {
                 <Grid item>
                     <OutlinedCard headline={'Participants still eligible'} value={`${participantCount.number_of_participants_still_in_raffle}`} description={'people are still able to win'} />
                 </Grid>
-                <Grid item xs={12}>
-                    <LoadingButton variant="contained" loading={loadingNewWinner} onClick={pickNewWinner}>
-                        Pick new winner
-                    </LoadingButton>
+                <Grid container columns={12} spacing={4} justifyContent={'center'} alignItems={'center'}>
+                    <Grid item>
+                        <br />
+                        <LoadingButton variant="contained" loading={loadingNewWinner} onClick={pickNewWinner}>
+                            Pick new winner
+                        </LoadingButton>
+                    </Grid>
                 </Grid>
             </Grid>
         </>
