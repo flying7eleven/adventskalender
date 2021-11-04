@@ -1,0 +1,20 @@
+name: Build and test frontend
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install the dependencies
+      run: npm ci
+      working-directory: adventskalender-frontend
+    - name: Build the frontend
+      run: npm run build
+      working-directory: adventskalender-frontend
+    - name: Run tests
+      run: npm run test
+      working-directory: adventskalender-frontend
