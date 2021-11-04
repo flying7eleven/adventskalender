@@ -8,7 +8,6 @@ import Grid from '@mui/material/Grid';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
 import { API_BACKEND_URL, AccessToken } from '../../api';
-import { useState } from 'react';
 
 interface Props {
     persistToken: (token: AccessToken) => void;

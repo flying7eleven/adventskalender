@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import jwt, { decode } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { AccessToken } from '../../api';
 
 export const useToken = () => {
@@ -37,10 +37,20 @@ export const useToken = () => {
         window.sessionStorage.removeItem('adventskalender:token');
     };
 
-    const storeNewToken = (token: AccessToken) => {
-        setToken(token);
-        window.sessionStorage.setItem('adventskalender:token', JSON.stringify(token));
+    const storeNewToken = (newToken: AccessToken) => {
+        setToken(newToken);
+        window.sessionStorage.setItem('adventskalender:token', JSON.stringify(newToken));
     };
 
-    return { isTokenValid, invalidateToken, storeNewToken };
+    const getAuthenicationHeader = () => {
+        // if the token is not valid, do not return a valid bearer header
+        if (!isTokenValid()) {
+            return '';
+        }
+
+        // otherwise return the header
+        return `Bearer ${token.accessToken}`;
+    };
+
+    return { isTokenValid, invalidateToken, storeNewToken, getAuthenicationHeader };
 };

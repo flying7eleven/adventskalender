@@ -3,12 +3,20 @@ import { ParticipantCount, API_BACKEND_URL } from '../../api';
 import { OutlinedCard } from '../../components/OutlinedCard';
 import { TopControlBar } from '../../components/TopControlBar';
 import Grid from '@mui/material/Grid';
+import { useToken } from '../../hooks/useToken';
 
 export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
+    const { getAuthenicationHeader } = useToken();
 
     useEffect(() => {
-        fetch(`${API_BACKEND_URL}/participants/count`, { method: 'GET' })
+        fetch(`${API_BACKEND_URL}/participants/count`, {
+            method: 'GET',
+            headers: {
+                Authorization: getAuthenicationHeader(),
+                'Content-type': 'application/json; charset=UTF-8',
+            },
+        })
             .then((res) => res.json())
             .then((parsedJson) => {
                 setParticipantCount(parsedJson);
