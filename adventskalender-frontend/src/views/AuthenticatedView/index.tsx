@@ -54,7 +54,11 @@ export const AuthenticatedView = () => {
     }, [token.accessToken]);
 
     const pickNewWinner = () => {
+        // first we have to set the button into a loading state, so the user cannot fetch another winner until we are
+        // done processing the first request
         setLoadingNewWinner(true);
+
+        // try to pick a new winner from the backend
         fetch(`${API_BACKEND_URL}/participants/pick`, {
             method: 'GET',
             headers: {
@@ -62,28 +66,64 @@ export const AuthenticatedView = () => {
                 'Content-type': 'application/json; charset=UTF-8',
             },
         })
-            .then((res) => res.json())
+            .then((res) => {
+                // if the call was successful, we expect to have received a valid JSON object. Convert it to an object
+                // and return it for further processing
+                if (res.status === 200) {
+                    return res.json();
+                }
+
+                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                // the user should automatically be redirected to the login page
+                if (res.status === 401 || res.status === 403) {
+                    invalidateToken();
+                    return;
+                }
+
+                // if the status was 404, we do not have any participants left in the raffle which can be picked. Show
+                // a dialog to the user which indicates that
+                // TODO: this
+
+                // in all other cases, we expect that there was an unknown error. We indicate that to the user by showing
+                // a proper error dialog
+                // TODO: this
+            })
             .then((parsedJson: Participant) => {
-                // the winner was selected and has to be set to have one before showing it to the user
+                // since we got a valid winner from the backend, we have to tell the backend that we received it before
+                // we show it to the user. For this we have to do another call to the backend before we can re-enable
+                // the button again
                 fetch(`${API_BACKEND_URL}/participants/won/${parsedJson.id}`, {
                     method: 'GET',
                     headers: {
                         Authorization: `Bearer ${token.accessToken}`,
                         'Content-type': 'application/json; charset=UTF-8',
                     },
-                })
-                    .then(() => {
-                        // TODO: show it to the user
+                }).then((res) => {
+                    // if we got a 204, this indicates that the server marked the given participant as won and we are able
+                    // to ...
+                    if (res.status === 204) {
+                        // show the name to the user and...
+                        // TODO this
+
+                        // ... re-enable the button, so the user can select another winner
                         setLoadingNewWinner(false);
-                    })
-                    .catch((error) => {
-                        setIsErrorDialogOpen(true);
-                        setLoadingNewWinner(false);
-                    });
-            })
-            .catch((error) => {
-                setIsErrorDialogOpen(true);
-                setLoadingNewWinner(false);
+                        return;
+                    }
+
+                    // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                    // the user should automatically be redirected to the login page
+                    if (res.status === 401 || res.status === 403) {
+                        invalidateToken();
+                        return;
+                    }
+
+                    // on all other return codes, we should not show a name to the user. Instead we show an error message
+                    // that an unknown error happened ...
+                    // TODO this
+
+                    // ... and re-enable the button. The user can now re-pick a new winner
+                    setLoadingNewWinner(false);
+                });
             });
     };
 
