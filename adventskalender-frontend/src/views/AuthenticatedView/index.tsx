@@ -22,7 +22,13 @@ export const AuthenticatedView = () => {
         setIsErrorDialogOpen(false);
     };
 
-    useEffect(() => {
+    const updateParticipantCounters = () => {
+        // if we do not have a access token, skip fetching the infos
+        if (token.accessToken.length === 0) {
+            return;
+        }
+
+        // since we have a token, we can query the backend for the participant count
         fetch(`${API_BACKEND_URL}/participants/count`, {
             method: 'GET',
             headers: {
@@ -48,10 +54,14 @@ export const AuthenticatedView = () => {
                 // them here too
                 // TODO: this
             })
-            .then((parsedJson) => {
+            .then((parsedJson: ParticipantCount) => {
                 setParticipantCount(parsedJson);
             });
-    }, [token.accessToken]);
+    };
+
+    useEffect(() => {
+        updateParticipantCounters();
+    }, []);
 
     const pickNewWinner = () => {
         // first we have to set the button into a loading state, so the user cannot fetch another winner until we are
@@ -107,6 +117,9 @@ export const AuthenticatedView = () => {
 
                         // ... re-enable the button, so the user can select another winner
                         setLoadingNewWinner(false);
+
+                        // the last step is to ensure the counters will get updated
+                        updateParticipantCounters();
                         return;
                     }
 

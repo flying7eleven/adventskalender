@@ -24,7 +24,9 @@ export const TopControlBar = (props: Props) => {
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                         {props.title}
                     </Typography>
-                    <Button color="inherit">{props.actionTitle}</Button>
+                    <Button color="inherit" onClick={props.actionHandler}>
+                        {props.actionTitle}
+                    </Button>
                 </Toolbar>
             </AppBar>
         </Box>
