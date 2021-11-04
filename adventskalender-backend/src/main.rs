@@ -171,7 +171,7 @@ async fn main() {
         .attach(cors_header)
         .manage(backend_config)
         .mount(
-            "/",
+            "/v1",
             routes![
                 get_login_token,
                 get_number_of_participants_who_already_won,
