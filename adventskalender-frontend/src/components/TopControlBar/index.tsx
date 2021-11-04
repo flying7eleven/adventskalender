@@ -10,10 +10,16 @@ import MenuIcon from '@mui/icons-material/Menu';
 interface Props {
     title: string;
     actionTitle: string;
-    actionHandler: () => void;
+    actionHandler?: () => void;
 }
 
 export const TopControlBar = (props: Props) => {
+    const handleActionButtonClick = () => {
+        if (props.actionHandler) {
+            props.actionHandler();
+        }
+    };
+
     return (
         <Box sx={{ flexGrow: 1 }}>
             <AppBar position="static">
@@ -24,7 +30,7 @@ export const TopControlBar = (props: Props) => {
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                         {props.title}
                     </Typography>
-                    <Button color="inherit" onClick={props.actionHandler}>
+                    <Button color="inherit" onClick={handleActionButtonClick}>
                         {props.actionTitle}
                     </Button>
                 </Toolbar>
