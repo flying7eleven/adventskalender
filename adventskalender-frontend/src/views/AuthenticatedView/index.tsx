@@ -30,7 +30,24 @@ export const AuthenticatedView = () => {
                 'Content-type': 'application/json; charset=UTF-8',
             },
         })
-            .then((res) => res.json())
+            .then((res) => {
+                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
+                // object and proceed processing it
+                if (res.status === 200) {
+                    return res.json();
+                }
+
+                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                // the user should automatically be redirected to the login page
+                if (res.status === 401 || res.status === 403) {
+                    invalidateToken();
+                    return;
+                }
+
+                // there should never be other status codes which have to be handled, but just in case, we'll handle
+                // them here too
+                // TODO: this
+            })
             .then((parsedJson) => {
                 setParticipantCount(parsedJson);
             });
