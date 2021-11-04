@@ -1,4 +1,4 @@
-export const API_BACKEND_URL = 'http://127.0.0.1:5479';
+export const API_BACKEND_URL = '/api/v1';
 
 export interface ParticipantCount {
     number_of_participants: number;
