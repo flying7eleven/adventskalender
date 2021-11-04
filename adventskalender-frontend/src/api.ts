@@ -1,4 +1,15 @@
-export const API_BACKEND_URL = '/api/v1';
+const determineApiUrl = () => {
+    if (window.location && process.env.NODE_ENV === 'production') {
+        const locationValue = `${window.location}`;
+        if (locationValue.slice(-1) === '/') {
+            return `${locationValue}api`;
+        }
+        return `${locationValue}/api`;
+    }
+    return 'http://localhost:5479';
+};
+
+export const API_BACKEND_URL = `${determineApiUrl()}/v1`;
 
 export interface ParticipantCount {
     number_of_participants: number;
