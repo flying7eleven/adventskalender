@@ -16,10 +16,15 @@ export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState(false);
     const { invalidateToken, token } = useToken();
-    const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
+    const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
+    const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
 
-    const handleErrorDialogClose = () => {
-        setIsErrorDialogOpen(false);
+    const handleUnknownErrorDialogClose = () => {
+        setIsUnknownErrorDialogOpen(false);
+    };
+
+    const handleNoParticipantsErrorDialogOpenClose = () => {
+        setIsNoParticipantsErrorDialogOpen(false);
     };
 
     const updateParticipantCounters = () => {
@@ -95,11 +100,17 @@ export const AuthenticatedView = () => {
 
                 // if the status was 404, we do not have any participants left in the raffle which can be picked. Show
                 // a dialog to the user which indicates that
-                // TODO: this
+                if (res.status === 404) {
+                    setIsNoParticipantsErrorDialogOpen(true);
+                    setLoadingNewWinner(false);
+                    return Promise.reject();
+                }
 
                 // in all other cases, we expect that there was an unknown error. We indicate that to the user by showing
                 // a proper error dialog
-                // TODO: this
+                setIsUnknownErrorDialogOpen(true);
+                setLoadingNewWinner(false);
+                return Promise.reject();
             })
             .then((parsedJson: Participant) => {
                 // since we got a valid winner from the backend, we have to tell the backend that we received it before
@@ -152,13 +163,26 @@ export const AuthenticatedView = () => {
 
     return (
         <>
-            <Dialog open={isErrorDialogOpen} onClose={handleErrorDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
+            <Dialog open={isUnknownErrorDialogOpen} onClose={handleUnknownErrorDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">Error on picking a new winner</DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="alert-dialog-description">We could not pick a new winner. Maybe we are out of participant who did not win so far?</DialogContentText>
+                    <DialogContentText id="alert-dialog-description">
+                        We could not pick a new winner since an unknown error occurred. Please try reloading the page and try to pick a new winner.
+                    </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleErrorDialogClose} autoFocus>
+                    <Button onClick={handleUnknownErrorDialogClose} autoFocus>
+                        Ok
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            <Dialog open={isNoParticipantsErrorDialogOpen} onClose={handleNoParticipantsErrorDialogOpenClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
+                <DialogTitle id="alert-dialog-title">Error on picking a new winner</DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="alert-dialog-description">It seems that there are no participants left who did not win so far. I guess the raffle is over now :).</DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleNoParticipantsErrorDialogOpenClose} autoFocus>
                         Ok
                     </Button>
                 </DialogActions>
