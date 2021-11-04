@@ -47,7 +47,7 @@ export const AuthenticatedView = () => {
                 // the user should automatically be redirected to the login page
                 if (res.status === 401 || res.status === 403) {
                     invalidateToken();
-                    return;
+                    return Promise.reject();
                 }
 
                 // there should never be other status codes which have to be handled, but just in case, we'll handle
@@ -56,6 +56,9 @@ export const AuthenticatedView = () => {
             })
             .then((parsedJson: ParticipantCount) => {
                 setParticipantCount(parsedJson);
+            })
+            .catch(() => {
+                /* we do not have to anything here */
             });
     };
 
@@ -87,7 +90,7 @@ export const AuthenticatedView = () => {
                 // the user should automatically be redirected to the login page
                 if (res.status === 401 || res.status === 403) {
                     invalidateToken();
-                    return;
+                    return Promise.reject();
                 }
 
                 // if the status was 404, we do not have any participants left in the raffle which can be picked. Show
@@ -108,35 +111,42 @@ export const AuthenticatedView = () => {
                         Authorization: `Bearer ${token.accessToken}`,
                         'Content-type': 'application/json; charset=UTF-8',
                     },
-                }).then((res) => {
-                    // if we got a 204, this indicates that the server marked the given participant as won and we are able
-                    // to ...
-                    if (res.status === 204) {
-                        // show the name to the user and...
+                })
+                    .then((res) => {
+                        // if we got a 204, this indicates that the server marked the given participant as won and we are able
+                        // to ...
+                        if (res.status === 204) {
+                            // show the name to the user and...
+                            // TODO this
+
+                            // ... re-enable the button, so the user can select another winner
+                            setLoadingNewWinner(false);
+
+                            // the last step is to ensure the counters will get updated
+                            updateParticipantCounters();
+                            return;
+                        }
+
+                        // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                        // the user should automatically be redirected to the login page
+                        if (res.status === 401 || res.status === 403) {
+                            invalidateToken();
+                            return Promise.reject();
+                        }
+
+                        // on all other return codes, we should not show a name to the user. Instead we show an error message
+                        // that an unknown error happened ...
                         // TODO this
 
-                        // ... re-enable the button, so the user can select another winner
+                        // ... and re-enable the button. The user can now re-pick a new winner
                         setLoadingNewWinner(false);
-
-                        // the last step is to ensure the counters will get updated
-                        updateParticipantCounters();
-                        return;
-                    }
-
-                    // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                    // the user should automatically be redirected to the login page
-                    if (res.status === 401 || res.status === 403) {
-                        invalidateToken();
-                        return;
-                    }
-
-                    // on all other return codes, we should not show a name to the user. Instead we show an error message
-                    // that an unknown error happened ...
-                    // TODO this
-
-                    // ... and re-enable the button. The user can now re-pick a new winner
-                    setLoadingNewWinner(false);
-                });
+                    })
+                    .catch(() => {
+                        /* we do not have to anything here */
+                    });
+            })
+            .catch(() => {
+                /* we do not have to anything here */
             });
     };
 
