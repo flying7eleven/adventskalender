@@ -5,11 +5,22 @@ import { TopControlBar } from '../../components/TopControlBar';
 import Grid from '@mui/material/Grid';
 import { useToken } from '../../hooks/useToken';
 import LoadingButton from '@mui/lab/LoadingButton';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 
 export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState(false);
     const { invalidateToken, token } = useToken();
+    const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
+
+    const handleErrorDialogClose = () => {
+        setIsErrorDialogOpen(false);
+    };
 
     useEffect(() => {
         fetch(`${API_BACKEND_URL}/participants/count`, {
@@ -36,13 +47,42 @@ export const AuthenticatedView = () => {
         })
             .then((res) => res.json())
             .then((parsedJson: Participant) => {
-                console.log(parsedJson);
+                // the winner was selected and has to be set to have one before showing it to the user
+                fetch(`${API_BACKEND_URL}/participants/won/${parsedJson.id}`, {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${token.accessToken}`,
+                        'Content-type': 'application/json; charset=UTF-8',
+                    },
+                })
+                    .then(() => {
+                        // TODO: show it to the user
+                        setLoadingNewWinner(false);
+                    })
+                    .catch((error) => {
+                        setIsErrorDialogOpen(true);
+                        setLoadingNewWinner(false);
+                    });
+            })
+            .catch((error) => {
+                setIsErrorDialogOpen(true);
                 setLoadingNewWinner(false);
             });
     };
 
     return (
         <>
+            <Dialog open={isErrorDialogOpen} onClose={handleErrorDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
+                <DialogTitle id="alert-dialog-title">Error on picking a new winner</DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="alert-dialog-description">We could not pick a new winner. Maybe we are out of participant who did not win so far?</DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleErrorDialogClose} autoFocus>
+                        Ok
+                    </Button>
+                </DialogActions>
+            </Dialog>
             <Grid container columns={12} spacing={2}>
                 <Grid item xs={12}>
                     <TopControlBar title={'Adventskalender'} actionTitle={'Logout'} actionHandler={invalidateToken} />
