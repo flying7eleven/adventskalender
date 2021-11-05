@@ -11,7 +11,7 @@ export const AuthenticationProvider = ({ children }: { children: React.ReactNode
         return { accessToken: '' };
     });
 
-    const signin = (username: string, password: string, callback: VoidFunction) => {
+    const signin = (username: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction) => {
         // prepare the data for the authentication request
         const requestData = {
             username,
@@ -26,11 +26,20 @@ export const AuthenticationProvider = ({ children }: { children: React.ReactNode
                 'Content-type': 'application/json; charset=UTF-8',
             },
         })
+            .then((response) => {
+                if (response.status !== 200) {
+                    return Promise.reject();
+                }
+                return response;
+            })
             .then((response) => response.json())
             .then((receivedToken: AccessToken) => {
                 setToken(receivedToken);
                 window.sessionStorage.setItem('adventskalender:token', JSON.stringify(receivedToken));
-                callback();
+                successCallback();
+            })
+            .catch(() => {
+                failCallback();
             });
     };
 

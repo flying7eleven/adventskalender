@@ -3,7 +3,7 @@ import { AccessToken } from '../../api';
 
 interface AuthContextType {
     token: AccessToken;
-    signin: (user: string, password: string, callback: VoidFunction) => void;
+    signin: (user: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction) => void;
     signout: (callback: VoidFunction) => void;
 }
 
