@@ -1,6 +1,6 @@
 [package]
 name = "adventskalender-backend"
-version = "2021.11.4"
+version = "2021.11.5"
 edition = "2021"
 authors = ["Tim Janke <tim+github@janke.biz>"]
 description = "A simple tool for organizing a christmas raffle (like a advent calendar)"
