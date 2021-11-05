@@ -13,10 +13,17 @@ import DialogTitle from '@mui/material/DialogTitle';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 
+interface WinnerInformation {
+    firstName: string;
+    lastName: String;
+}
+
 export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState(false);
+    const [lastWinner, setLastWinner] = useState<WinnerInformation>({ firstName: '', lastName: '' });
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
+    const [isLastWinnerDialogOpen, setIsLastWinnerDialogOpen] = useState(false);
     const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
     const auth = useAuthentication();
     const navigate = useNavigate();
@@ -27,6 +34,10 @@ export const AuthenticatedView = () => {
 
     const handleUnknownErrorDialogClose = () => {
         setIsUnknownErrorDialogOpen(false);
+    };
+
+    const handleLastWinnerDialogClose = () => {
+        setIsLastWinnerDialogOpen(false);
     };
 
     const handleNoParticipantsErrorDialogOpenClose = () => {
@@ -75,6 +86,7 @@ export const AuthenticatedView = () => {
 
     useEffect(() => {
         updateParticipantCounters();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const pickNewWinner = () => {
@@ -134,7 +146,8 @@ export const AuthenticatedView = () => {
                         // to ...
                         if (res.status === 204) {
                             // show the name to the user and...
-                            // TODO this
+                            setLastWinner({ firstName: parsedJson.first_name, lastName: parsedJson.last_name });
+                            setIsLastWinnerDialogOpen(true);
 
                             // ... re-enable the button, so the user can select another winner
                             setLoadingNewWinner(false);
@@ -169,6 +182,23 @@ export const AuthenticatedView = () => {
 
     return (
         <>
+            <Dialog open={isLastWinnerDialogOpen} onClose={handleLastWinnerDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
+                <DialogTitle id="alert-dialog-title">A new winner!</DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="alert-dialog-description">
+                        The participant who won today is{' '}
+                        <b>
+                            {lastWinner.firstName} {lastWinner.lastName}
+                        </b>
+                        ! Congratulation!
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleLastWinnerDialogClose} autoFocus>
+                        Ok
+                    </Button>
+                </DialogActions>
+            </Dialog>
             <Dialog open={isUnknownErrorDialogOpen} onClose={handleUnknownErrorDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">Error on picking a new winner</DialogTitle>
                 <DialogContent>
