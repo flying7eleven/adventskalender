@@ -7,13 +7,19 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
-import { API_BACKEND_URL, AccessToken } from '../../api';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuthentication } from '../../hooks/useAuthentication';
 
-interface Props {
-    persistToken: (token: AccessToken) => void;
-}
+interface Props {}
 
 export const LoginView = (props: Props) => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const auth = useAuthentication();
+
+    const state = location.state as { from: Location };
+    const from = state ? state.from.pathname : '/';
+
     const usernameField = useRef<HTMLInputElement>(null);
     const passwordField = useRef<HTMLInputElement>(null);
 
@@ -21,24 +27,15 @@ export const LoginView = (props: Props) => {
         // ensure that we do not handle the actual submit event anymore
         event.preventDefault();
 
-        // prepare the data for the authentication request
-        const requestData = {
-            username: usernameField?.current?.value,
-            password: passwordField?.current?.value,
-        };
-
-        // try to get the token
-        fetch(`${API_BACKEND_URL}/auth/token`, {
-            method: 'POST',
-            body: JSON.stringify(requestData),
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-        })
-            .then((response) => response.json())
-            .then((token: AccessToken) => {
-                props.persistToken(token);
-            });
+        auth.signin(usernameField?.current?.value || '', passwordField?.current?.value || '', () => {
+            // Send them back to the page they tried to visit when they were
+            // redirected to the login page. Use { replace: true } so we don't create
+            // another entry in the history stack for the login page.  This means that
+            // when they get to the protected page and click the back button, they
+            // won't end up back on the login page, which is also really nice for the
+            // user experience.
+            navigate(from, { replace: true });
+        });
     };
 
     return (

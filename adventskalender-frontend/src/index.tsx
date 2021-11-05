@@ -2,31 +2,37 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import CssBaseline from '@mui/material/CssBaseline';
-import { AuthenticatedView } from './views/AuthenticatedView';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthenticationProvider } from './components/AuthenticationProvider';
 import { LoginView } from './views/LoginView';
-import { useToken } from './hooks/useToken';
+import { RequireAuthentication } from './components/RequireAuthentication';
+import { AuthenticatedView } from './views/AuthenticatedView';
 
 const theme = createTheme();
 
-const App = () => {
-    const { isTokenValid, storeNewToken } = useToken();
-
-    // if we are not authenticated, show the login view
-    if (!isTokenValid()) {
-        return <LoginView persistToken={storeNewToken} />;
-    }
-
-    // if we are authenticated, we can show the app as expected
-    return <AuthenticatedView />;
-};
-
 ReactDOM.render(
     <React.StrictMode>
-        <ThemeProvider theme={theme}>
-            <CssBaseline />
-            <App />
-        </ThemeProvider>
+        <BrowserRouter>
+            <ThemeProvider theme={theme}>
+                <CssBaseline />
+                <AuthenticationProvider>
+                    <Routes>
+                        <Route>
+                            <Route
+                                path="/"
+                                element={
+                                    <RequireAuthentication>
+                                        <AuthenticatedView />
+                                    </RequireAuthentication>
+                                }
+                            />
+                            <Route path="/login" element={<LoginView />} />
+                        </Route>
+                    </Routes>
+                </AuthenticationProvider>
+            </ThemeProvider>
+        </BrowserRouter>
     </React.StrictMode>,
     document.getElementById('root')
 );

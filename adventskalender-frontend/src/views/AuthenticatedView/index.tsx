@@ -3,7 +3,6 @@ import { ParticipantCount, API_BACKEND_URL, Participant } from '../../api';
 import { OutlinedCard } from '../../components/OutlinedCard';
 import { TopControlBar } from '../../components/TopControlBar';
 import Grid from '@mui/material/Grid';
-import { useToken } from '../../hooks/useToken';
 import LoadingButton from '@mui/lab/LoadingButton';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -11,13 +10,20 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import { useAuthentication } from '../../hooks/useAuthentication';
+import { useNavigate } from 'react-router-dom';
 
 export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState(false);
-    const { invalidateToken, token } = useToken();
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
     const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
+    const auth = useAuthentication();
+    const navigate = useNavigate();
+
+    const logoutUser = () => {
+        auth.signout(() => navigate('/'));
+    };
 
     const handleUnknownErrorDialogClose = () => {
         setIsUnknownErrorDialogOpen(false);
@@ -29,7 +35,7 @@ export const AuthenticatedView = () => {
 
     const updateParticipantCounters = () => {
         // if we do not have a access token, skip fetching the infos
-        if (token.accessToken.length === 0) {
+        if (auth.token.accessToken.length === 0) {
             return;
         }
 
@@ -37,7 +43,7 @@ export const AuthenticatedView = () => {
         fetch(`${API_BACKEND_URL}/participants/count`, {
             method: 'GET',
             headers: {
-                Authorization: `Bearer ${token.accessToken}`,
+                Authorization: `Bearer ${auth.token.accessToken}`,
                 'Content-type': 'application/json; charset=UTF-8',
             },
         })
@@ -51,7 +57,7 @@ export const AuthenticatedView = () => {
                 // if it seems that we are not authorized, invalidate the token. By invalidating the token,
                 // the user should automatically be redirected to the login page
                 if (res.status === 401 || res.status === 403) {
-                    invalidateToken();
+                    logoutUser();
                     return Promise.reject();
                 }
 
@@ -80,7 +86,7 @@ export const AuthenticatedView = () => {
         fetch(`${API_BACKEND_URL}/participants/pick`, {
             method: 'GET',
             headers: {
-                Authorization: `Bearer ${token.accessToken}`,
+                Authorization: `Bearer ${auth.token.accessToken}`,
                 'Content-type': 'application/json; charset=UTF-8',
             },
         })
@@ -94,7 +100,7 @@ export const AuthenticatedView = () => {
                 // if it seems that we are not authorized, invalidate the token. By invalidating the token,
                 // the user should automatically be redirected to the login page
                 if (res.status === 401 || res.status === 403) {
-                    invalidateToken();
+                    logoutUser();
                     return Promise.reject();
                 }
 
@@ -119,7 +125,7 @@ export const AuthenticatedView = () => {
                 fetch(`${API_BACKEND_URL}/participants/won/${parsedJson.id}`, {
                     method: 'GET',
                     headers: {
-                        Authorization: `Bearer ${token.accessToken}`,
+                        Authorization: `Bearer ${auth.token.accessToken}`,
                         'Content-type': 'application/json; charset=UTF-8',
                     },
                 })
@@ -141,7 +147,7 @@ export const AuthenticatedView = () => {
                         // if it seems that we are not authorized, invalidate the token. By invalidating the token,
                         // the user should automatically be redirected to the login page
                         if (res.status === 401 || res.status === 403) {
-                            invalidateToken();
+                            logoutUser();
                             return Promise.reject();
                         }
 
@@ -189,7 +195,7 @@ export const AuthenticatedView = () => {
             </Dialog>
             <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
                 <Grid item xs={12}>
-                    <TopControlBar title={'Adventskalender'} actionTitle={'Logout'} actionHandler={invalidateToken} />
+                    <TopControlBar title={'Adventskalender'} actionTitle={'Logout'} actionHandler={logoutUser} />
                 </Grid>
                 <Grid item>
                     <OutlinedCard headline={'Overall participants'} value={`${participantCount.number_of_participants}`} description={'people are in the raffle'} />
