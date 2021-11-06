@@ -12,8 +12,9 @@
     "@mui/icons-material": "^5.0.5",
     "@emotion/react": "^11.5.0",
     "@emotion/styled": "^11.3.0",
-    "react-router-dom": "6.0.0",
-    "react-router": "6.0.0"
+    "react-router-dom": "^6.0.0",
+    "react-router": "^6.0.0",
+    "react-intl": "^5.21.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^5.14.1",
