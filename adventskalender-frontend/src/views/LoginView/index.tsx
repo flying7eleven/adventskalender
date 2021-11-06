@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { Alert, Snackbar } from '@mui/material';
+import { Localized } from '../../components/Localized';
 
 export const LoginView = () => {
     const navigate = useNavigate();
@@ -56,7 +57,7 @@ export const LoginView = () => {
         <>
             <Snackbar open={isSnackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
                 <Alert onClose={handleSnackbarClose} severity="error" sx={{ width: '100%' }}>
-                    Failed to authenticate with the given credentials. Are you sure they are correct?
+                    <Localized translation={'login.alerts.failed_login.message'} />
                 </Alert>
             </Snackbar>
             <Grid container component="main" sx={{ height: '100vh' }}>
@@ -87,13 +88,33 @@ export const LoginView = () => {
                             <LockOutlinedIcon />
                         </Avatar>
                         <Typography component="h1" variant="h5">
-                            Sign in
+                            <Localized translation={'login.headlines.signin'} />
                         </Typography>
                         <Box component="form" noValidate onSubmit={requestAuthorizationToken} sx={{ mt: 1 }}>
-                            <TextField margin="normal" required fullWidth id="username" label="Username" name="username" autoComplete="username" autoFocus inputRef={usernameField} />
-                            <TextField margin="normal" required fullWidth name="password" label="Password" type="password" id="password" autoComplete="current-password" inputRef={passwordField} />
+                            <TextField
+                                margin="normal"
+                                required
+                                fullWidth
+                                id="username"
+                                label={<Localized translation={'login.forms.login.username_field_label'} />}
+                                name="username"
+                                autoComplete="username"
+                                autoFocus
+                                inputRef={usernameField}
+                            />
+                            <TextField
+                                margin="normal"
+                                required
+                                fullWidth
+                                name="password"
+                                label={<Localized translation={'login.forms.login.password_field_label'} />}
+                                type="password"
+                                id="password"
+                                autoComplete="current-password"
+                                inputRef={passwordField}
+                            />
                             <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>
-                                Sign In
+                                {<Localized translation={'login.forms.login.sign_in_button'} />}
                             </Button>
                         </Box>
                     </Box>
