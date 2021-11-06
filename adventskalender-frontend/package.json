@@ -13,9 +13,7 @@
     "@emotion/react": "^11.5.0",
     "@emotion/styled": "^11.3.0",
     "react-router-dom": "^6.0.0",
-    "react-router": "^6.0.0",
-    "react-i18next": "^11.13.0",
-    "i18next": "^21.4.0"
+    "react-router": "^6.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^5.14.1",
