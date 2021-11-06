@@ -9,8 +9,9 @@ number of people are randomly selected for a day as winners.
 
 ## Building and running it locally
 1. Build the backend container by going into the root directory of the repository and typing the following command: `docker buildx build -f adventskalender-backend/Dockerfile -t adventskalender-backend:local .`
-2. Type `docker-compose up -d` for stating up the debug database and the backend which connects to it
-3. Import `adventskalender-backend/example_data.sql` to the database used by the backend
+2. Build the frontend container by going into the root directory of the repository and typing the following command: `docker buildx build -t adventskalender-frontend:local adventskalender-frontend`
+3. Type `docker-compose up -d` for stating up the debug database and the backend which connects to it
+4. Import `adventskalender-backend/example_data.sql` to the database used by the backend
 
 ## Get an access token for the backend
 Just use `curl --verbose --header "Content-Type: application/json" --request POST --data '{"username":"demouser","password":"demopassword"}'  http://localhost:5479/auth/token` for getting a corresponding token
