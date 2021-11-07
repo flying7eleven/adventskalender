@@ -13,6 +13,7 @@ interface Props {
 interface LocalizationContextType {
     resources: ResourceDefinitions;
     translate: (key: string) => string;
+    translateWithPlaceholder: (key: string, placeholder: string) => string;
 }
 
 export const LocalizationContext = createContext<LocalizationContextType>(null!);
@@ -57,7 +58,11 @@ export const LocalizationProvider = (props: Props) => {
         return translatedValue;
     };
 
-    const value = { resources: props.resources, translate: getTranslatedString };
+    const getTranslatedStringWithPlaceholder = (key: string, placeholder: string) => {
+        return getTranslatedString(key).replace('%PLACEHOLDER%', placeholder);
+    };
+
+    const value = { resources: props.resources, translate: getTranslatedString, translateWithPlaceholder: getTranslatedStringWithPlaceholder };
 
     return <LocalizationContext.Provider value={value}>{props.children}</LocalizationContext.Provider>;
 };
