@@ -14,6 +14,7 @@ import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { LocalizationContext } from '../../components/LocalizationProvider';
 import { Localized } from '../../components/Localized';
+import { PickNewWinner } from '../../components/PickNewWinner';
 
 interface WinnerInformation {
     firstName: string;
@@ -262,9 +263,7 @@ export const AuthenticatedView = () => {
                 <Grid container columns={12} spacing={4} justifyContent={'center'} alignItems={'center'}>
                     <Grid item>
                         <br />
-                        <LoadingButton variant="contained" loading={loadingNewWinner} onClick={pickNewWinner}>
-                            <Localized translationKey={'dashboard.pick_winner_button'} />
-                        </LoadingButton>
+                        <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} />
                     </Grid>
                 </Grid>
             </Grid>
