@@ -225,7 +225,7 @@ export const AuthenticatedView = () => {
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleUnknownErrorDialogClose} autoFocus>
+                    <Button onClick={handleNoParticipantsErrorDialogOpenClose} autoFocus>
                         <Localized translationKey={'dashboard.dialogs.no_participants_left.accept_button'} />
                     </Button>
                 </DialogActions>
