@@ -3,17 +3,53 @@
         "headlines": {
             "signin": "Sign in"
         },
-        "forms": {
-            "login": {
-                "sign_in_button": "Sign in",
-                "username_field_label": "Username",
-                "password_field_label": "Password"
-            }
+        "form": {
+            "sign_in_button": "Sign in",
+            "username_field_label": "Username",
+            "password_field_label": "Password"
         },
         "alerts": {
             "failed_login": {
                 "message": "Failed to authenticate with the given credentials. Are you sure they are correct?"
             }
         }
+    },
+    "dashboard": {
+        "navigation": {
+            "app_title": "Adventskalender",
+            "logout_button": "Logout"
+        },
+        "cards": {
+            "total": {
+                "title": "Overall participants",
+                "description": "people are in the raffle"
+            },
+            "won": {
+                "title": "Participants who won",
+                "description": "people already won in the raffle"
+            },
+            "eligible": {
+                "title": "Participants still eligible",
+                "description": "people are still able to win"
+            }
+        },
+        "dialogs": {
+            "a_new_winner": {
+                "title": "A new winner",
+                "text": "The participant who won today is %PLACEHOLDER%! Congratulation!",
+                "accept_button": "Okay"
+            },
+            "no_participants_left": {
+                "title": "Error on picking a new winner",
+                "text": "It seems that there are no participants left who did not win so far. I guess the raffle is over now :).",
+                "accept_button": "Okay"
+            },
+            "unknown_error": {
+                "title": "Error on picking a new winner",
+                "text": "We could not pick a new winner since an unknown error occurred. Please try reloading the page and try to pick a new winner.",
+                "accept_button": "Okay"
+            }
+        },
+        "pick_winner_button": "Pick a new winner"
     }
 }

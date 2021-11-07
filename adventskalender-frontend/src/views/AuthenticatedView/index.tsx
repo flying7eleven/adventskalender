@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { ParticipantCount, API_BACKEND_URL, Participant } from '../../api';
 import { OutlinedCard } from '../../components/OutlinedCard';
 import { TopControlBar } from '../../components/TopControlBar';
@@ -12,6 +12,8 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
+import { LocalizationContext } from '../../components/LocalizationProvider';
+import { Localized } from '../../components/Localized';
 
 interface WinnerInformation {
     firstName: string;
@@ -27,6 +29,7 @@ export const AuthenticatedView = () => {
     const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
     const auth = useAuthentication();
     const navigate = useNavigate();
+    const localizationContext = useContext(LocalizationContext);
 
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
@@ -183,64 +186,84 @@ export const AuthenticatedView = () => {
     return (
         <>
             <Dialog open={isLastWinnerDialogOpen} onClose={handleLastWinnerDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
-                <DialogTitle id="alert-dialog-title">A new winner!</DialogTitle>
+                <DialogTitle id="alert-dialog-title">
+                    <Localized translationKey={'dashboard.dialogs.a_new_winner.title'} />
+                </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        The participant who won today is{' '}
-                        <b>
-                            {lastWinner.firstName} {lastWinner.lastName}
-                        </b>
-                        ! Congratulation!
+                        <Localized translationKey={'dashboard.dialogs.a_new_winner.text'} placeholder={`${lastWinner.firstName} ${lastWinner.lastName}`} />
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleLastWinnerDialogClose} autoFocus>
-                        Ok
+                        <Localized translationKey={'dashboard.dialogs.a_new_winner.accept_button'} />
                     </Button>
                 </DialogActions>
             </Dialog>
             <Dialog open={isUnknownErrorDialogOpen} onClose={handleUnknownErrorDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
-                <DialogTitle id="alert-dialog-title">Error on picking a new winner</DialogTitle>
+                <DialogTitle id="alert-dialog-title">
+                    <Localized translationKey={'dashboard.dialogs.unknown_error.title'} />
+                </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        We could not pick a new winner since an unknown error occurred. Please try reloading the page and try to pick a new winner.
+                        <Localized translationKey={'dashboard.dialogs.unknown_error.text'} />
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleUnknownErrorDialogClose} autoFocus>
-                        Ok
+                        <Localized translationKey={'dashboard.dialogs.unknown_error.accept_button'} />
                     </Button>
                 </DialogActions>
             </Dialog>
             <Dialog open={isNoParticipantsErrorDialogOpen} onClose={handleNoParticipantsErrorDialogOpenClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
-                <DialogTitle id="alert-dialog-title">Error on picking a new winner</DialogTitle>
+                <DialogTitle id="alert-dialog-title">
+                    <Localized translationKey={'dashboard.dialogs.no_participants_left.title'} />
+                </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="alert-dialog-description">It seems that there are no participants left who did not win so far. I guess the raffle is over now :).</DialogContentText>
+                    <DialogContentText id="alert-dialog-description">
+                        <Localized translationKey={'dashboard.dialogs.no_participants_left.text'} />
+                    </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleNoParticipantsErrorDialogOpenClose} autoFocus>
-                        Ok
+                    <Button onClick={handleUnknownErrorDialogClose} autoFocus>
+                        <Localized translationKey={'dashboard.dialogs.no_participants_left.accept_button'} />
                     </Button>
                 </DialogActions>
             </Dialog>
             <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
                 <Grid item xs={12}>
-                    <TopControlBar title={'Adventskalender'} actionTitle={'Logout'} actionHandler={logoutUser} />
+                    <TopControlBar
+                        title={localizationContext.translate('dashboard.navigation.app_title')}
+                        actionTitle={localizationContext.translate('dashboard.navigation.logout_button')}
+                        actionHandler={logoutUser}
+                    />
                 </Grid>
                 <Grid item>
-                    <OutlinedCard headline={'Overall participants'} value={`${participantCount.number_of_participants}`} description={'people are in the raffle'} />
+                    <OutlinedCard
+                        headline={localizationContext.translate('dashboard.cards.total.title')}
+                        value={`${participantCount.number_of_participants}`}
+                        description={localizationContext.translate('dashboard.cards.total.description')}
+                    />
                 </Grid>
                 <Grid item>
-                    <OutlinedCard headline={'Participants who won'} value={`${participantCount.number_of_participants_won}`} description={'people already won in the raffle'} />
+                    <OutlinedCard
+                        headline={localizationContext.translate('dashboard.cards.won.title')}
+                        value={`${participantCount.number_of_participants_won}`}
+                        description={localizationContext.translate('dashboard.cards.won.description')}
+                    />
                 </Grid>
                 <Grid item>
-                    <OutlinedCard headline={'Participants still eligible'} value={`${participantCount.number_of_participants_still_in_raffle}`} description={'people are still able to win'} />
+                    <OutlinedCard
+                        headline={localizationContext.translate('dashboard.cards.eligible.title')}
+                        value={`${participantCount.number_of_participants_still_in_raffle}`}
+                        description={localizationContext.translate('dashboard.cards.eligible.description')}
+                    />
                 </Grid>
                 <Grid container columns={12} spacing={4} justifyContent={'center'} alignItems={'center'}>
                     <Grid item>
                         <br />
                         <LoadingButton variant="contained" loading={loadingNewWinner} onClick={pickNewWinner}>
-                            Pick new winner
+                            <Localized translationKey={'dashboard.pick_winner_button'} />
                         </LoadingButton>
                     </Grid>
                 </Grid>

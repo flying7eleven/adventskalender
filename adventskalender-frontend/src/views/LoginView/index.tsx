@@ -96,7 +96,7 @@ export const LoginView = () => {
                                 required
                                 fullWidth
                                 id="username"
-                                label={<Localized translationKey={'login.forms.login.username_field_label'} />}
+                                label={<Localized translationKey={'login.form.username_field_label'} />}
                                 name="username"
                                 autoComplete="username"
                                 autoFocus
@@ -107,14 +107,14 @@ export const LoginView = () => {
                                 required
                                 fullWidth
                                 name="password"
-                                label={<Localized translationKey={'login.forms.login.password_field_label'} />}
+                                label={<Localized translationKey={'login.form.password_field_label'} />}
                                 type="password"
                                 id="password"
                                 autoComplete="current-password"
                                 inputRef={passwordField}
                             />
                             <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>
-                                {<Localized translationKey={'login.forms.login.sign_in_button'} />}
+                                {<Localized translationKey={'login.form.sign_in_button'} />}
                             </Button>
                         </Box>
                     </Box>
