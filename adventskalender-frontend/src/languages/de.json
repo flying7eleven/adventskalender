@@ -1,0 +1,55 @@
+{
+    "login": {
+        "headlines": {
+            "signin": "Anmelden"
+        },
+        "form": {
+            "sign_in_button": "Anmelden",
+            "username_field_label": "Benutzername",
+            "password_field_label": "Passwort"
+        },
+        "alerts": {
+            "failed_login": {
+                "message": "Fehler bei der Authentifizierung mit den eingegebenen Informationen. Sind Sie sicher, dass diese korrekt sind?"
+            }
+        }
+    },
+    "dashboard": {
+        "navigation": {
+            "app_title": "Adventskalender",
+            "logout_button": "Abmelden"
+        },
+        "cards": {
+            "total": {
+                "title": "Alle Teilnehmer:innen",
+                "description": "Personen sind in der Datenbank"
+            },
+            "won": {
+                "title": "Gewinner:innen",
+                "description": "Personen die bereits gewonnen haben"
+            },
+            "eligible": {
+                "title": "Noch im Lostopf",
+                "description": "Personen können noch gewinnen"
+            }
+        },
+        "dialogs": {
+            "a_new_winner": {
+                "title": "Ein:e neue:r Gewinner:in",
+                "text": "Heute hat %PLACEHOLDER% gewonnen!",
+                "accept_button": "Okay"
+            },
+            "no_participants_left": {
+                "title": "Fehler beim ziehen einer neuen Person",
+                "text": "Es scheint das es keine Teilnehmer:innen mehr gibt, welche noch nicht gewonnen haben. Scheinbar sind wir durch :)",
+                "accept_button": "Okay"
+            },
+            "unknown_error": {
+                "title": "Fehler beim ziehen einer neuen Person",
+                "text": "Es konnte keine neue Person gezogen werden. Bitte die Webseite einfach noch einmal neu laden und es erneut ausprobieren",
+                "accept_button": "Okay"
+            }
+        },
+        "pick_winner_button": "Neue:n Gewinner:in ziehen"
+    }
+}

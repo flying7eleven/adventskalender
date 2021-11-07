@@ -10,7 +10,7 @@ import { RequireAuthentication } from './components/RequireAuthentication';
 import { AuthenticatedView } from './views/AuthenticatedView';
 import { LocalizationProvider } from './components/LocalizationProvider';
 import English from './languages/en.json';
-import German from './languages/en.json';
+import German from './languages/de.json';
 
 // determine the users locale and create a theme we want to use in the whole app
 const theme = createTheme();
