@@ -5,3 +5,4 @@ target/
 *~
 *.tmp
 *.log
+real_data.sql
