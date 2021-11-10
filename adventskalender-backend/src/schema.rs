@@ -4,6 +4,8 @@ table! {
         first_name -> Varchar,
         last_name -> Varchar,
         won_on -> Nullable<Date>,
+        picked_by -> Nullable<Varchar>,
+        picking_time -> Nullable<Timestamp>,
     }
 }
 
