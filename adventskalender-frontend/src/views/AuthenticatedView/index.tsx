@@ -23,7 +23,14 @@ interface WinnerInformation {
 
 export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
-    const [loadingNewWinner, setLoadingNewWinner] = useState(false);
+    const [loadingNewWinner, setLoadingNewWinner] = useState<boolean>(false);
+    const [selectedDay, setSelectedDay] = useState<number>(() => {
+        const today = new Date().getUTCDate();
+        if (today < 1 || today > 24) {
+            return 1;
+        }
+        return today;
+    });
     const [lastWinner, setLastWinner] = useState<WinnerInformation>({ firstName: '', lastName: '' });
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
     const [isLastWinnerDialogOpen, setIsLastWinnerDialogOpen] = useState(false);
@@ -34,6 +41,10 @@ export const AuthenticatedView = () => {
 
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
+    };
+
+    const handleDateSelectionChange = (newDay: number) => {
+        setSelectedDay(newDay);
     };
 
     const handleUnknownErrorDialogClose = () => {
@@ -137,7 +148,7 @@ export const AuthenticatedView = () => {
             .then((parsedJson: Participant) => {
                 const requestData = {
                     participant_id: parsedJson.id,
-                    picked_for_date: '2021-12-24', // TODO: we have to put in the selected date here
+                    picked_for_date: `${new Date().getFullYear()}-12-${selectedDay}`,
                 };
 
                 // since we got a valid winner from the backend, we have to tell the backend that we received it before
@@ -279,7 +290,7 @@ export const AuthenticatedView = () => {
                         <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} />
                     </Grid>
                     <Grid item xs={1}>
-                        <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} />
+                        <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
                     </Grid>
                 </Grid>
             </Grid>
