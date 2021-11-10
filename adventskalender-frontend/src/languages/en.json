@@ -50,6 +50,7 @@
                 "accept_button": "Okay"
             }
         },
-        "pick_winner_button": "Pick a new winner"
+        "pick_winner_button": "Pick a new winner",
+        "day_selection": "Day of the win"
     }
 }

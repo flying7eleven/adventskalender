@@ -50,6 +50,7 @@
                 "accept_button": "Okay"
             }
         },
-        "pick_winner_button": "Neue:n Gewinner:in ziehen"
+        "pick_winner_button": "Neue:n Gewinner:in ziehen",
+        "day_selection": "Tag des Gewinns"
     }
 }

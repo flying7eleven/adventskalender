@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, ReactNode } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { ParticipantCount, API_BACKEND_URL, Participant } from '../../api';
 import { OutlinedCard } from '../../components/OutlinedCard';
 import { TopControlBar } from '../../components/TopControlBar';
@@ -14,11 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { LocalizationContext } from '../../components/LocalizationProvider';
 import { Localized } from '../../components/Localized';
 import { PickNewWinner } from '../../components/PickNewWinner';
-import Select, { SelectChangeEvent } from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import InputLabel from '@mui/material/InputLabel';
-import FormControl from '@mui/material/FormControl';
-import Box from '@mui/material/Box';
+import { WinningDaySelector } from '../../components/WinningDaySelector';
 
 interface WinnerInformation {
     firstName: string;
@@ -28,7 +24,6 @@ interface WinnerInformation {
 export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState(false);
-    const [selectedCalendarDay, setSelectedCalendarDay] = useState<number>(1);
     const [lastWinner, setLastWinner] = useState<WinnerInformation>({ firstName: '', lastName: '' });
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
     const [isLastWinnerDialogOpen, setIsLastWinnerDialogOpen] = useState(false);
@@ -52,10 +47,6 @@ export const AuthenticatedView = () => {
     const handleNoParticipantsErrorDialogOpenClose = () => {
         setIsNoParticipantsErrorDialogOpen(false);
     };
-
-    const handleChange = (event: SelectChangeEvent<number>, child: ReactNode) => {
-        setSelectedCalendarDay(1);
-    }
 
     const updateParticipantCounters = () => {
         // if we do not have a access token, skip fetching the infos
@@ -285,25 +276,10 @@ export const AuthenticatedView = () => {
                 </Grid>
                 <Grid container columns={12} spacing={4} justifyContent={'center'} alignItems={'center'}>
                     <Grid item>
-                        <br />
-                        <Box sx={{ minWidth: 120 }}>
-                            <FormControl fullWidth>
-                                <InputLabel id="demo-simple-select-label">Age</InputLabel>
-                                <Select
-                                    labelId="demo-simple-select-label"
-                                    id="demo-simple-select"
-                                    value={selectedCalendarDay}
-                                    label="Age"
-                                    onChange={handleChange}
-                                >
-                                    {}
-                                    <MenuItem value={10}>Ten</MenuItem>
-                                    <MenuItem value={20}>Twenty</MenuItem>
-                                    <MenuItem value={30}>Thirty</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Box>
                         <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} />
+                    </Grid>
+                    <Grid item xs={1}>
+                        <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} />
                     </Grid>
                 </Grid>
             </Grid>
