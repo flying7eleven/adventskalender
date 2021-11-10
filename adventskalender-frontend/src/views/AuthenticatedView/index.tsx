@@ -168,6 +168,14 @@ export const AuthenticatedView = () => {
                             return Promise.reject();
                         }
 
+                        // for all other messages which are not okay, we show an unknown error to the user, re-enable
+                        // the picking button and terminate here
+                        if (!res.ok) {
+                            setIsUnknownErrorDialogOpen(true);
+                            setLoadingNewWinner(false);
+                            return;
+                        }
+
                         // on all other return codes, we should not show a name to the user. Instead we show an error message
                         // that an unknown error happened ...
                         // TODO this
