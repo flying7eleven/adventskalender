@@ -1,5 +1,6 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
 use crate::guards::AuthenticatedUser;
+use chrono::NaiveDate;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{get, post, State};
@@ -124,10 +125,18 @@ pub async fn pick_a_random_participant_from_raffle_list(
     Err(Status::NotFound)
 }
 
-#[get("/participants/won/<participant_id>")]
+#[derive(Serialize, Deserialize)]
+pub struct PickingInformation {
+    /// The participant who was picked as a winner
+    participant_id: i32,
+    /// The date for which the winner was picked
+    picked_for_date: NaiveDate,
+}
+
+#[post("/participants/won", data = "<picking_information>")]
 pub async fn mark_participant_as_won(
     db_connection: AdventskalenderDatabaseConnection,
-    participant_id: i32,
+    picking_information: Json<PickingInformation>,
     authenticated_user: AuthenticatedUser,
 ) -> Status {
     use crate::models::ParticipantPicking;
@@ -141,20 +150,20 @@ pub async fn mark_participant_as_won(
         .run(move |connection| {
             // create the struct with the update information for the picked user
             let participant_info = ParticipantPicking {
-                won_on: Some(Utc::now().naive_utc().date()),
+                won_on: Some(picking_information.picked_for_date),
                 picking_time: Some(Utc::now().naive_utc()),
                 picked_by: Some(authenticated_user.username.clone())
             };
 
             // do the actual update of the database
-            if let Ok(_) = update(participants.filter(id.eq(participant_id)))
+            if let Ok(_) = update(participants.filter(id.eq(picking_information.participant_id)))
                 .set(&participant_info)
                 .execute(connection)
             {
-                debug!("The user {} marked the user with the id {} as 'already won'", authenticated_user.username, participant_id);
+                debug!("The user {} marked the user with the id {} as 'already won'", authenticated_user.username, picking_information.participant_id);
                 return Status::NoContent;
             }
-            error!("The user {} tried to mark the user with the id {} as 'already won' but we failed to do so", authenticated_user.username, participant_id);
+            error!("The user {} tried to mark the user with the id {} as 'already won' but we failed to do so", authenticated_user.username, picking_information.participant_id);
             return Status::NotFound;
         })
         .await;

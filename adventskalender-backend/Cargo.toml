@@ -37,7 +37,7 @@ features = ["diesel_postgres_pool"]
 [dependencies.chrono]
 version = "0.4.19"
 default-features = false
-features = ["clock"]
+features = ["clock", "serde"]
 
 [dependencies.log]
 version = "0.4.14"
