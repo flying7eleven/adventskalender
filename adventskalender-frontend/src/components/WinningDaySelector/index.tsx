@@ -18,12 +18,35 @@ export const WinningDaySelector = (props: Props) => {
         }
     };
 
+    const getWeekDay = (day: number) => {
+        const dateString = new Date(`${new Date().getFullYear()}-12-${day}`);
+        switch (dateString.getDay()) {
+            case 0:
+                return 'So';
+            case 1:
+                return 'Mo';
+            case 2:
+                return 'Di';
+            case 3:
+                return 'Mi';
+            case 4:
+                return 'Do';
+            case 5:
+                return 'Fr';
+            case 6:
+                return 'Sa';
+            default:
+                throw Error();
+        }
+    };
+
     const getListOfDays = () => {
-        let menuEntries = [];
+        const menuEntries = [];
         for (let i = 1; i < 25; i++) {
+            const text = `${getWeekDay(i)}, ${i}. Dezember`;
             menuEntries.push(
                 <MenuItem key={`menu-item-${i}`} value={i}>
-                    {i}
+                    {text}
                 </MenuItem>
             );
         }

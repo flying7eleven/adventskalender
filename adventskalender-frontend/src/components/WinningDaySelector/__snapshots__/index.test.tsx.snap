@@ -28,7 +28,7 @@ exports[`WinningDaySelector component Matches the snapshot 1`] = `
       role="button"
       tabIndex={0}
     >
-      1
+      Mi, 1. Dezember
     </div>
     <input
       aria-hidden={true}
