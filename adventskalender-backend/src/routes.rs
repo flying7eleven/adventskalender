@@ -130,7 +130,8 @@ pub async fn mark_participant_as_won(
     participant_id: i32,
     authenticated_user: AuthenticatedUser,
 ) -> Status {
-    use crate::schema::participants::dsl::{id, participants, won_on};
+    use crate::models::ParticipantPicking;
+    use crate::schema::participants::dsl::{id, participants};
     use chrono::Utc;
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
@@ -138,8 +139,16 @@ pub async fn mark_participant_as_won(
     // try to update the requested participant and return if we succeeded or not
     return db_connection
         .run(move |connection| {
+            // create the struct with the update information for the picked user
+            let participant_info = ParticipantPicking {
+                won_on: Some(Utc::now().naive_utc().date()),
+                picking_time: Some(Utc::now().naive_utc()),
+                picked_by: Some(authenticated_user.username.clone())
+            };
+
+            // do the actual update of the database
             if let Ok(_) = update(participants.filter(id.eq(participant_id)))
-                .set(won_on.eq(Utc::now().naive_utc().date()))
+                .set(&participant_info)
                 .execute(connection)
             {
                 debug!("The user {} marked the user with the id {} as 'already won'", authenticated_user.username, participant_id);

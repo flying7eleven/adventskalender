@@ -1,4 +1,5 @@
-use chrono::NaiveDate;
+use crate::schema::participants;
+use chrono::{NaiveDate, NaiveDateTime};
 
 #[derive(Queryable)]
 pub struct Participant {
@@ -6,6 +7,16 @@ pub struct Participant {
     pub first_name: String,
     pub last_name: String,
     pub won_on: Option<NaiveDate>,
+    pub picked_by: Option<String>,
+    pub picking_time: Option<NaiveDateTime>,
+}
+
+#[derive(AsChangeset)]
+#[table_name = "participants"]
+pub struct ParticipantPicking {
+    pub won_on: Option<NaiveDate>,
+    pub picked_by: Option<String>,
+    pub picking_time: Option<NaiveDateTime>,
 }
 
 #[derive(Queryable, Clone)]
