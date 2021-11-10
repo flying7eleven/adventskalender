@@ -135,11 +135,17 @@ export const AuthenticatedView = () => {
                 return Promise.reject();
             })
             .then((parsedJson: Participant) => {
+                const requestData = {
+                    participant_id: parsedJson.id,
+                    picked_for_date: '2021-12-24', // TODO: we have to put in the selected date here
+                };
+
                 // since we got a valid winner from the backend, we have to tell the backend that we received it before
                 // we show it to the user. For this we have to do another call to the backend before we can re-enable
                 // the button again
-                fetch(`${API_BACKEND_URL}/participants/won/${parsedJson.id}`, {
-                    method: 'GET',
+                fetch(`${API_BACKEND_URL}/participants/won`, {
+                    method: 'POST',
+                    body: JSON.stringify(requestData),
                     headers: {
                         Authorization: `Bearer ${auth.token.accessToken}`,
                         'Content-type': 'application/json; charset=UTF-8',
