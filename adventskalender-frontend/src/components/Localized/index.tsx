@@ -9,7 +9,7 @@ interface Props {
 export const Localized = (props: Props) => {
     const localizationContext = useContext(LocalizationContext);
     if (props.placeholder) {
-        return <>{localizationContext.translateWithPlaceholder(props.translationKey, props.placeholder)}</>;
+        return <span dangerouslySetInnerHTML={{ __html: localizationContext.translateWithPlaceholder(props.translationKey, props.placeholder) }} />;
     }
     return <>{localizationContext.translate(props.translationKey)}</>;
 };

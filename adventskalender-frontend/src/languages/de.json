@@ -40,7 +40,7 @@
         "dialogs": {
             "a_new_winner": {
                 "title": "Ein:e neue:r Gewinner:in",
-                "text": "Heute hat %PLACEHOLDER% gewonnen!",
+                "text": "Heute hat <b>%PLACEHOLDER%</b> gewonnen!",
                 "accept_button": "Okay"
             },
             "no_participants_left": {
