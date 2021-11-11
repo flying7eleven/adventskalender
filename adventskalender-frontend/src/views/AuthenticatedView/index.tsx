@@ -15,6 +15,7 @@ import { LocalizationContext } from '../../components/LocalizationProvider';
 import { Localized } from '../../components/Localized';
 import { PickNewWinner } from '../../components/PickNewWinner';
 import { WinningDaySelector } from '../../components/WinningDaySelector';
+import { Stack } from '@mui/material';
 
 interface WinnerInformation {
     firstName: string;
@@ -147,6 +148,7 @@ export const AuthenticatedView = () => {
 
     useEffect(() => {
         updateWinnerCounter();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDay]);
 
     const getSelectedDateAsString = () => `${new Date().getFullYear()}-12-${selectedDay}`;
@@ -334,20 +336,20 @@ export const AuthenticatedView = () => {
                     />
                 </Grid>
             </Grid>
+            <br />
             <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
                 <Grid item>
                     <OutlinedCard
-                        headline={localizationContext.translate('dashboard.cards.eligible.title')}
+                        headline={localizationContext.translate('dashboard.cards.pick_new_winner.title')}
                         value={
-                            <>
-                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} />
+                            <Stack spacing={2}>
+                                <br />
                                 <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
-                                <div>
-                                    There are {winnersOnSelectedDay} winners on the date {getSelectedDateAsString()}
-                                </div>
-                            </>
+                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} />
+                                <br />
+                            </Stack>
                         }
-                        description={localizationContext.translate('dashboard.cards.eligible.description')}
+                        description={localizationContext.translateWithPlaceholder('dashboard.cards.pick_new_winner.description', winnersOnSelectedDay.toString())}
                     />
                 </Grid>
             </Grid>

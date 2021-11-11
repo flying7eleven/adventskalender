@@ -31,6 +31,10 @@
             "eligible": {
                 "title": "Noch im Lostopf",
                 "description": "Personen können noch gewinnen"
+            },
+            "pick_new_winner": {
+                "title": "Eine:n neue:n Gewinner:in ziehen",
+                "description": "An diesem Tag gibt es %PLACEHOLDER% Gewinner:innen."
             }
         },
         "dialogs": {

@@ -31,6 +31,10 @@
             "eligible": {
                 "title": "Participants still eligible",
                 "description": "people are still able to win"
+            },
+            "pick_new_winner": {
+                "title": "Pick a new winner",
+                "description": "There are %PLACEHOLDER% winner(s) on the selected day."
             }
         },
         "dialogs": {
