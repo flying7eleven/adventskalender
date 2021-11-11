@@ -1,7 +1,9 @@
 import { createContext, ReactNode } from 'react';
 
 interface ResourceDefinitions {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     english: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     german: any;
 }
 
@@ -16,9 +18,11 @@ interface LocalizationContextType {
     translateWithPlaceholder: (key: string, placeholder: string) => string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 export const LocalizationContext = createContext<LocalizationContextType>(null!);
 
 export const LocalizationProvider = (props: Props) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const deepFind = (obj: any, path: string) => {
         const paths = path.split('.');
         let current = obj;

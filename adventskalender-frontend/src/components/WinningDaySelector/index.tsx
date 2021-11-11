@@ -14,6 +14,7 @@ interface Props {
 export const WinningDaySelector = (props: Props) => {
     const localizationContext = useContext(LocalizationContext);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const handleChange = (firedEvent: SelectChangeEvent, _: ReactNode) => {
         if (props.changeHandler) {
             const selectedNumber = parseInt(firedEvent.target.value, 10);

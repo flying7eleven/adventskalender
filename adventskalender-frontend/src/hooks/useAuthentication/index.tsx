@@ -7,6 +7,7 @@ interface AuthContextType {
     signout: (callback: VoidFunction) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 export const AuthenticationContext = createContext<AuthContextType>(null!);
 
 export const useAuthentication = () => {

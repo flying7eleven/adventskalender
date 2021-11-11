@@ -19,7 +19,7 @@ import { Stack } from '@mui/material';
 
 interface WinnerInformation {
     firstName: string;
-    lastName: String;
+    lastName: string;
 }
 
 export const AuthenticatedView = () => {
