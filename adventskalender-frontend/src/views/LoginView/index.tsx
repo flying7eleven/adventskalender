@@ -12,7 +12,11 @@ import { useAuthentication } from '../../hooks/useAuthentication';
 import { Alert, Snackbar } from '@mui/material';
 import { Localized } from '../../components/Localized';
 
-export const LoginView = () => {
+interface Props {
+    isDark: boolean;
+}
+
+export const LoginView = (props: Props) => {
     const navigate = useNavigate();
     const location = useLocation();
     const auth = useAuthentication();
@@ -53,6 +57,13 @@ export const LoginView = () => {
         );
     };
 
+    const getCorrectImage = () => {
+        if (props.isDark) {
+            return 'images/loginDark.jpg';
+        }
+        return 'images/loginLight.jpg';
+    };
+
     return (
         <>
             <Snackbar open={isSnackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
@@ -67,7 +78,7 @@ export const LoginView = () => {
                     sm={4}
                     md={7}
                     sx={{
-                        backgroundImage: 'url(images/login.jpg)',
+                        backgroundImage: `url(${getCorrectImage()})`,
                         backgroundRepeat: 'no-repeat',
                         backgroundColor: (t) => (t.palette.mode === 'light' ? t.palette.grey[50] : t.palette.grey[900]),
                         backgroundSize: 'cover',

@@ -41,7 +41,7 @@ const App = () => {
                                         </RequireAuthentication>
                                     }
                                 />
-                                <Route path="/login" element={<LoginView />} />
+                                <Route path="/login" element={<LoginView isDark={prefersDarkMode} />} />
                             </Route>
                         </Routes>
                     </AuthenticationProvider>
