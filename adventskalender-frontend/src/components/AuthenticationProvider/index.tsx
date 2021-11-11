@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import * as React from 'react';
 import { AuthenticationContext } from '../../hooks/useAuthentication';
 import { AccessToken, API_BACKEND_URL } from '../../api';
 

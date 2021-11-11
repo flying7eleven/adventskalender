@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { StrictMode, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -54,8 +54,8 @@ const App = () => {
 // determine the users locale and create a theme we want to use in the whole app
 
 ReactDOM.render(
-    <React.StrictMode>
+    <StrictMode>
         <App />
-    </React.StrictMode>,
+    </StrictMode>,
     document.getElementById('root')
 );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { ParticipantCount, API_BACKEND_URL, Participant } from '../../api';
 import { OutlinedCard } from '../../components/OutlinedCard';
 import { TopControlBar } from '../../components/TopControlBar';

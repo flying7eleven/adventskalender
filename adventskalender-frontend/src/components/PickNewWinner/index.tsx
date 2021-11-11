@@ -1,5 +1,4 @@
 import LoadingButton from '@mui/lab/LoadingButton';
-import React from 'react';
 
 interface Props {
     onRequestWinner: () => void;
