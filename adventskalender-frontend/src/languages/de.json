@@ -55,6 +55,18 @@
             }
         },
         "pick_winner_button": "Neue:n Gewinner:in ziehen",
-        "day_selection": "Tag des Gewinns"
+        "day_selection": "Tag des Gewinns",
+        "weekdays": {
+            "monday_short": "Mo.",
+            "tuesday_short": "Di.",
+            "wednesday_short": "Mi.",
+            "thursday_short": "Do.",
+            "friday_short": "Fr.",
+            "saturday_short": "Sa.",
+            "sunday_short": "So."
+        },
+        "months": {
+            "december": "Dezember"
+        }
     }
 }

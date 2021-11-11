@@ -2,7 +2,8 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useContext } from 'react';
+import { LocalizationContext } from '../LocalizationProvider';
 
 interface Props {
     changeHandler?: (selected: number) => void;
@@ -11,9 +12,11 @@ interface Props {
 }
 
 export const WinningDaySelector = (props: Props) => {
+    const localizationContext = useContext(LocalizationContext);
+
     const handleChange = (firedEvent: SelectChangeEvent, _: ReactNode) => {
         if (props.changeHandler) {
-            const selectedNumber = parseInt(firedEvent.target.value);
+            const selectedNumber = parseInt(firedEvent.target.value, 10);
             props.changeHandler(selectedNumber);
         }
     };
@@ -22,19 +25,19 @@ export const WinningDaySelector = (props: Props) => {
         const dateString = new Date(`${new Date().getFullYear()}-12-${day}`);
         switch (dateString.getDay()) {
             case 0:
-                return 'So';
+                return localizationContext.translate('dashboard.weekdays.sunday_short');
             case 1:
-                return 'Mo';
+                return localizationContext.translate('dashboard.weekdays.monday_short');
             case 2:
-                return 'Di';
+                return localizationContext.translate('dashboard.weekdays.tuesday_short');
             case 3:
-                return 'Mi';
+                return localizationContext.translate('dashboard.weekdays.wednesday_short');
             case 4:
-                return 'Do';
+                return localizationContext.translate('dashboard.weekdays.thursday_short');
             case 5:
-                return 'Fr';
+                return localizationContext.translate('dashboard.weekdays.friday_short');
             case 6:
-                return 'Sa';
+                return localizationContext.translate('dashboard.weekdays.saturday_short');
             default:
                 throw Error();
         }
@@ -43,7 +46,7 @@ export const WinningDaySelector = (props: Props) => {
     const getListOfDays = () => {
         const menuEntries = [];
         for (let i = 1; i < 25; i++) {
-            const text = `${getWeekDay(i)}, ${i}. Dezember`;
+            const text = `${getWeekDay(i)}, ${i}. ${localizationContext.translate('dashboard.months.december')}`;
             menuEntries.push(
                 <MenuItem key={`menu-item-${i}`} value={i}>
                     {text}

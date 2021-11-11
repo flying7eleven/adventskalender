@@ -55,6 +55,18 @@
             }
         },
         "pick_winner_button": "Pick a new winner",
-        "day_selection": "Day of the win"
+        "day_selection": "Day of the win",
+        "weekdays": {
+            "monday_short": "Mom",
+            "tuesday_short": "Tue",
+            "wednesday_short": "Wed",
+            "thursday_short": "Thu",
+            "friday_short": "Fri",
+            "saturday_short": "Sat",
+            "sunday_short": "Sun"
+        },
+        "months": {
+            "december": "December"
+        }
     }
 }

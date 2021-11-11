@@ -20,6 +20,6 @@ exports[`PickNewWinner component Matches the snapshot 1`] = `
   tabIndex={0}
   type="button"
 >
-  Pick a new winner
+  Some text
 </button>
 `;

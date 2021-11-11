@@ -345,7 +345,7 @@ export const AuthenticatedView = () => {
                             <Stack spacing={2}>
                                 <br />
                                 <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
-                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} />
+                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} label={localizationContext.translate('dashboard.pick_winner_button')} />
                                 <br />
                             </Stack>
                         }
