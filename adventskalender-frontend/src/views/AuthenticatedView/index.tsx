@@ -333,7 +333,9 @@ export const AuthenticatedView = () => {
                         description={localizationContext.translate('dashboard.cards.eligible.description')}
                     />
                 </Grid>
-                <Grid item xs={6}>
+            </Grid>
+            <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
+                <Grid item>
                     <OutlinedCard
                         headline={localizationContext.translate('dashboard.cards.eligible.title')}
                         value={
