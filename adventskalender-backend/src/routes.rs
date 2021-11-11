@@ -74,6 +74,48 @@ pub struct Participant {
     pub last_name: String,
 }
 
+#[get("/participants/won/<date_as_str>/count")]
+pub async fn count_won_participants_on_day(
+    db_connection: AdventskalenderDatabaseConnection,
+    authenticated_user: AuthenticatedUser,
+    date_as_str: &str,
+) -> Result<Json<usize>, Status> {
+    use crate::models::Participant as DatabaseParticipant;
+    use crate::schema::participants::dsl::{participants, won_on};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::debug;
+    use std::str::FromStr;
+
+    // if we cannot parse the input date, we received a bad parameter and we have to react to it
+    let maybe_date = NaiveDate::from_str(date_as_str);
+    if maybe_date.is_err() {
+        return Err(Status::BadRequest);
+    }
+
+    // try to fetch the information and construct the corresponding data structure we want to return
+    let maybe_result = db_connection
+        .run(move |connection| {
+            if let Ok(participants_won_on_date) = participants
+                .filter(won_on.eq(maybe_date.unwrap()))
+                .load::<DatabaseParticipant>(connection)
+            {
+                return Some(participants_won_on_date);
+            }
+            return None;
+        })
+        .await;
+
+    // if we got a result, count the participants and return the amount
+    if maybe_result.is_some() {
+        let winner_count = maybe_result.unwrap().len();
+        debug!("The user {} queried the number of winners for the {}. The answer is: {} participants won on that day so far", authenticated_user.username, date_as_str, winner_count);
+        return Ok(Json(winner_count));
+    }
+
+    // it seems that we could not gather the requested information
+    Err(Status::InternalServerError)
+}
+
 #[get("/participants/pick")]
 pub async fn pick_a_random_participant_from_raffle_list(
     db_connection: AdventskalenderDatabaseConnection,
@@ -160,10 +202,10 @@ pub async fn mark_participant_as_won(
                 .set(&participant_info)
                 .execute(connection)
             {
-                debug!("The user {} marked the user with the id {} as 'already won'", authenticated_user.username, picking_information.participant_id);
+                debug!("The user {} marked the user with the id {} as 'won on {}'", authenticated_user.username, picking_information.participant_id, picking_information.picked_for_date);
                 return Status::NoContent;
             }
-            error!("The user {} tried to mark the user with the id {} as 'already won' but we failed to do so", authenticated_user.username, picking_information.participant_id);
+            error!("The user {} tried to mark the user with the id {} as 'won on {}' but we failed to do so", authenticated_user.username, picking_information.participant_id, picking_information.picked_for_date);
             return Status::NotFound;
         })
         .await;
