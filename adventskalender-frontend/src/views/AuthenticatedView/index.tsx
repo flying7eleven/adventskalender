@@ -24,6 +24,7 @@ interface WinnerInformation {
 export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState<boolean>(false);
+    const [winnersOnSelectedDay, setWinnersOnSelectedDay] = useState<number>(0);
     const [selectedDay, setSelectedDay] = useState<number>(() => {
         const today = new Date().getUTCDate();
         if (today < 1 || today > 24) {
@@ -57,6 +58,46 @@ export const AuthenticatedView = () => {
 
     const handleNoParticipantsErrorDialogOpenClose = () => {
         setIsNoParticipantsErrorDialogOpen(false);
+    };
+
+    const updateWinnerCounter = () => {
+        // if we do not have a access token, skip fetching the infos
+        if (auth.token.accessToken.length === 0) {
+            return;
+        }
+
+        // since we have a token, we can query the backend for the winner count for the selected day
+        fetch(`${API_BACKEND_URL}/participants/won/${getSelectedDateAsString()}/count`, {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${auth.token.accessToken}`,
+                'Content-type': 'application/json; charset=UTF-8',
+            },
+        })
+            .then((res) => {
+                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
+                // object and proceed processing it
+                if (res.status === 200) {
+                    return res.json();
+                }
+
+                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                // the user should automatically be redirected to the login page
+                if (res.status === 401 || res.status === 403) {
+                    logoutUser();
+                    return Promise.reject();
+                }
+
+                // there should never be other status codes which have to be handled, but just in case, we'll handle
+                // them here too
+                // TODO: this
+            })
+            .then((parsedJson: number) => {
+                setWinnersOnSelectedDay(parsedJson);
+            })
+            .catch(() => {
+                /* we do not have to anything here */
+            });
     };
 
     const updateParticipantCounters = () => {
@@ -104,6 +145,12 @@ export const AuthenticatedView = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        updateWinnerCounter();
+    }, [selectedDay]);
+
+    const getSelectedDateAsString = () => `${new Date().getFullYear()}-12-${selectedDay}`;
+
     const pickNewWinner = () => {
         // first we have to set the button into a loading state, so the user cannot fetch another winner until we are
         // done processing the first request
@@ -148,7 +195,7 @@ export const AuthenticatedView = () => {
             .then((parsedJson: Participant) => {
                 const requestData = {
                     participant_id: parsedJson.id,
-                    picked_for_date: `${new Date().getFullYear()}-12-${selectedDay}`,
+                    picked_for_date: getSelectedDateAsString(),
                 };
 
                 // since we got a valid winner from the backend, we have to tell the backend that we received it before
@@ -175,6 +222,7 @@ export const AuthenticatedView = () => {
 
                             // the last step is to ensure the counters will get updated
                             updateParticipantCounters();
+                            updateWinnerCounter();
                             return;
                         }
 
@@ -264,34 +312,41 @@ export const AuthenticatedView = () => {
                         actionHandler={logoutUser}
                     />
                 </Grid>
-                <Grid item>
+                <Grid item xs={2}>
                     <OutlinedCard
                         headline={localizationContext.translate('dashboard.cards.total.title')}
                         value={`${participantCount.number_of_participants}`}
                         description={localizationContext.translate('dashboard.cards.total.description')}
                     />
                 </Grid>
-                <Grid item>
+                <Grid item xs={2}>
                     <OutlinedCard
                         headline={localizationContext.translate('dashboard.cards.won.title')}
                         value={`${participantCount.number_of_participants_won}`}
                         description={localizationContext.translate('dashboard.cards.won.description')}
                     />
                 </Grid>
-                <Grid item>
+                <Grid item xs={2}>
                     <OutlinedCard
                         headline={localizationContext.translate('dashboard.cards.eligible.title')}
                         value={`${participantCount.number_of_participants_still_in_raffle}`}
                         description={localizationContext.translate('dashboard.cards.eligible.description')}
                     />
                 </Grid>
-                <Grid container columns={12} spacing={4} justifyContent={'center'} alignItems={'center'}>
-                    <Grid item>
-                        <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} />
-                    </Grid>
-                    <Grid item xs={1}>
-                        <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
-                    </Grid>
+                <Grid item xs={6}>
+                    <OutlinedCard
+                        headline={localizationContext.translate('dashboard.cards.eligible.title')}
+                        value={
+                            <>
+                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} />
+                                <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
+                                <div>
+                                    There are {winnersOnSelectedDay} winners on the date {getSelectedDateAsString()}
+                                </div>
+                            </>
+                        }
+                        description={localizationContext.translate('dashboard.cards.eligible.description')}
+                    />
                 </Grid>
             </Grid>
         </>
