@@ -74,15 +74,76 @@ pub struct Participant {
     pub last_name: String,
 }
 
+pub async fn get_won_participants_on_day(
+    db_connection: AdventskalenderDatabaseConnection,
+    date: NaiveDate,
+) -> Result<Vec<Participant>, ()> {
+    use crate::models::Participant as DatabaseParticipant;
+    use crate::schema::participants::dsl::{participants, won_on};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+
+    // try to get all participants who won on a specific day from the database
+    return db_connection
+        .run(move |connection| {
+            if let Ok(participants_won_on_date) = participants
+                .filter(won_on.eq(date))
+                .load::<DatabaseParticipant>(connection)
+            {
+                return Ok(participants_won_on_date
+                    .iter()
+                    .map(|item| Participant {
+                        id: item.id,
+                        first_name: item.first_name.clone(),
+                        last_name: item.last_name.clone(),
+                    })
+                    .collect());
+            }
+            return Err(());
+        })
+        .await;
+}
+
+#[get("/participants/won/<date_as_str>")]
+pub async fn get_won_participants_on_day_route(
+    db_connection: AdventskalenderDatabaseConnection,
+    _authenticated_user: AuthenticatedUser,
+    date_as_str: &str,
+) -> Result<Json<Vec<Participant>>, Status> {
+    use log::{debug, error};
+    use std::str::FromStr;
+
+    // if we cannot parse the input date, we received a bad parameter and we have to react to it
+    let maybe_date = NaiveDate::from_str(date_as_str);
+    if maybe_date.is_err() {
+        return Err(Status::BadRequest);
+    }
+
+    // try to fetch the information, if this fails, return an error
+    let maybe_result = get_won_participants_on_day(db_connection, maybe_date.unwrap()).await;
+    if maybe_result.is_err() {
+        error!(
+            "Could not query the won participants for the {}",
+            date_as_str
+        );
+        return Err(Status::InternalServerError);
+    }
+
+    // if we reach this step, we can return the participants who won
+    let won_participants = maybe_result.unwrap();
+    debug!(
+        "Returning {} participants who won on {}",
+        won_participants.len(),
+        date_as_str
+    );
+    Ok(Json(won_participants))
+}
+
 #[get("/participants/won/<date_as_str>/count")]
 pub async fn count_won_participants_on_day(
     db_connection: AdventskalenderDatabaseConnection,
     authenticated_user: AuthenticatedUser,
     date_as_str: &str,
 ) -> Result<Json<usize>, Status> {
-    use crate::models::Participant as DatabaseParticipant;
-    use crate::schema::participants::dsl::{participants, won_on};
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::debug;
     use std::str::FromStr;
 
@@ -93,20 +154,10 @@ pub async fn count_won_participants_on_day(
     }
 
     // try to fetch the information and construct the corresponding data structure we want to return
-    let maybe_result = db_connection
-        .run(move |connection| {
-            if let Ok(participants_won_on_date) = participants
-                .filter(won_on.eq(maybe_date.unwrap()))
-                .load::<DatabaseParticipant>(connection)
-            {
-                return Some(participants_won_on_date);
-            }
-            return None;
-        })
-        .await;
+    let maybe_result = get_won_participants_on_day(db_connection, maybe_date.unwrap()).await;
 
     // if we got a result, count the participants and return the amount
-    if maybe_result.is_some() {
+    if maybe_result.is_ok() {
         let winner_count = maybe_result.unwrap().len();
         debug!("The user {} queried the number of winners for the {}. The answer is: {} participants won on that day so far", authenticated_user.username, date_as_str, winner_count);
         return Ok(Json(winner_count));

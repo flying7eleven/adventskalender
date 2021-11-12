@@ -58,8 +58,8 @@ async fn main() {
     };
     use adventskalender_backend::routes::{
         check_backend_health, count_won_participants_on_day, get_login_token,
-        get_number_of_participants_who_already_won, mark_participant_as_won_route,
-        pick_a_random_participant_from_raffle_list,
+        get_number_of_participants_who_already_won, get_won_participants_on_day_route,
+        mark_participant_as_won_route, pick_a_random_participant_from_raffle_list,
         pick_multiple_random_participant_from_raffle_list,
     };
     use diesel::Connection;
@@ -179,6 +179,7 @@ async fn main() {
                 get_number_of_participants_who_already_won,
                 pick_a_random_participant_from_raffle_list,
                 pick_multiple_random_participant_from_raffle_list,
+                get_won_participants_on_day_route,
                 count_won_participants_on_day,
                 mark_participant_as_won_route,
                 check_backend_health,
