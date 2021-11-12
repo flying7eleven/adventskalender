@@ -117,7 +117,7 @@ pub async fn count_won_participants_on_day(
 }
 
 pub async fn pick_random_participants_from_database(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection: &AdventskalenderDatabaseConnection,
     count: usize,
 ) -> Option<Vec<Participant>> {
     use crate::models::Participant as DatabaseParticipant;
@@ -155,8 +155,8 @@ pub async fn pick_a_random_participant_from_raffle_list(
 ) -> Result<Json<Participant>, Status> {
     use log::{debug, error};
 
-    // try to fetch the information and construct the corresponding data structure we want to return
-    let maybe_result = pick_random_participants_from_database(db_connection, 1).await;
+    // try to get one random pick from the database (it is not marked as won after this call)
+    let maybe_result = pick_random_participants_from_database(&db_connection, 1).await;
 
     // if we could fetch a result from the database, return the requested information
     if maybe_result.is_some() {
@@ -186,13 +186,67 @@ pub async fn pick_a_random_participant_from_raffle_list(
     Err(Status::NotFound)
 }
 
-#[get("/participants/pick/<count>")]
+#[get("/participants/pick/<count>/for/<date>")]
 pub async fn pick_multiple_random_participant_from_raffle_list(
     db_connection: AdventskalenderDatabaseConnection,
     authenticated_user: AuthenticatedUser,
-    count: i32,
+    count: usize,
+    date: &str,
 ) -> Result<Json<Participant>, Status> {
-    Err(Status::InternalServerError)
+    use log::{debug, error};
+    use std::str::FromStr;
+
+    // if we cannot parse the input date, we received a bad parameter and we have to react to it
+    let maybe_date = NaiveDate::from_str(date);
+    if maybe_date.is_err() {
+        return Err(Status::BadRequest);
+    }
+
+    // try to get the number of random picks from the database (they are not marked as won after this call)
+    let maybe_result = pick_random_participants_from_database(&db_connection, count).await;
+
+    // if we could fetch a result from the database, return the requested information
+    if maybe_result.is_some() {
+        let result = maybe_result.unwrap();
+
+        // ensure that we got exactly one result for this call. Otherwise something went wrong
+        if result.len() != count {
+            error!("Got {} participants who won from the database but we expected to receive {} winners", result.len(), count);
+            return Err(Status::InternalServerError);
+        }
+
+        // after we have all participants we wanted to select, we have to mark them as won before we can
+        // return them
+        let won_participant_ids = result.iter().map(|p| p.id).collect();
+        if mark_participant_as_won(
+            db_connection,
+            won_participant_ids,
+            maybe_date.unwrap(),
+            authenticated_user.username.clone(),
+        )
+        .await
+        .is_err()
+        {
+            error!("Failed to mark all picked participants as won. Returning an error since it is not guaranteed that the pick would be genuine.");
+            return Err(Status::InternalServerError);
+        }
+
+        // log that we picked a winner and return it
+        let participant_who_won = result.get(0).unwrap();
+        debug!(
+            "The user {} picked the participant with the id {} as a new winner",
+            authenticated_user.username, participant_who_won.id
+        );
+        return Ok(Json(participant_who_won.clone()));
+    }
+
+    // if we could not get a result, it seems that all participants where picked at some point. Return
+    // NOT FOUND to indicate that
+    error!(
+        "The user {} tried to pick a new winner but we could not find one",
+        authenticated_user.username
+    );
+    Err(Status::NotFound)
 }
 
 #[derive(Serialize, Deserialize)]
