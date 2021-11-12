@@ -6,6 +6,7 @@ import { ReactNode } from 'react';
 
 interface Props {
     changeHandler?: (selected: number) => void;
+    value: number;
     label: string;
 }
 
@@ -33,7 +34,7 @@ export const NumberOfWinnersSelector = (props: Props) => {
     return (
         <FormControl fullWidth>
             <InputLabel id="number-of-winners-select-label">{props.label}</InputLabel>
-            <Select labelId="number-of-winners-select-label" id="number-of-winners-select" value={'6'} label={props.label} onChange={handleChange}>
+            <Select labelId="number-of-winners-select-label" id="number-of-winners-select" value={props.value.toString()} label={props.label} onChange={handleChange}>
                 {getListOfWinners()}
             </Select>
         </FormControl>

@@ -38,9 +38,9 @@
             }
         },
         "dialogs": {
-            "a_new_winner": {
-                "title": "A new winner",
-                "text": "The participant who won today is <b>%PLACEHOLDER%</b>! Congratulation!",
+            "new_winners": {
+                "title": "New winner",
+                "text": "The following participants won on the selected day. Congratulations!",
                 "accept_button": "Okay"
             },
             "no_participants_left": {

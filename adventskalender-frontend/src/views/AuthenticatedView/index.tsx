@@ -27,6 +27,7 @@ export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState<boolean>(false);
     const [winnersOnSelectedDay, setWinnersOnSelectedDay] = useState<number>(0);
+    const [numberOfWinners, setNumberOfWinners] = useState<number>(6);
     const [selectedDay, setSelectedDay] = useState<number>(() => {
         const today = new Date().getUTCDate();
         if (today < 1 || today > 24) {
@@ -34,7 +35,7 @@ export const AuthenticatedView = () => {
         }
         return today;
     });
-    const [lastWinner, setLastWinner] = useState<WinnerInformation>({ firstName: '', lastName: '' });
+    const [lastWinners, setLastWinners] = useState<WinnerInformation[]>([]);
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
     const [isLastWinnerDialogOpen, setIsLastWinnerDialogOpen] = useState(false);
     const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
@@ -50,8 +51,8 @@ export const AuthenticatedView = () => {
         setSelectedDay(newDay);
     };
 
-    const handleNumberOfWinnersSelectionChange = (numberOfWinners: number) => {
-        // TODO this
+    const handleNumberOfWinnersSelectionChange = (newNumberOfWinners: number) => {
+        setNumberOfWinners(newNumberOfWinners);
     };
 
     const handleUnknownErrorDialogClose = () => {
@@ -158,6 +159,68 @@ export const AuthenticatedView = () => {
 
     const getSelectedDateAsString = () => `${new Date().getFullYear()}-12-${selectedDay}`;
 
+    const pickMultipleNewWinner = () => {
+        // first we have to set the button into a loading state, so the user cannot fetch another winner until we are
+        // done processing the first request
+        setLoadingNewWinner(true);
+
+        // try to pick a new winner from the backend
+        fetch(`${API_BACKEND_URL}/participants/pick/${numberOfWinners}/for/${getSelectedDateAsString()}`, {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${auth.token.accessToken}`,
+                'Content-type': 'application/json; charset=UTF-8',
+            },
+        })
+            .then((res) => {
+                // if the call was successful, we expect to have received a valid JSON object. Convert it to an object
+                // and return it for further processing
+                if (res.status === 200) {
+                    return res.json();
+                }
+
+                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                // the user should automatically be redirected to the login page
+                if (res.status === 401 || res.status === 403) {
+                    logoutUser();
+                    return Promise.reject();
+                }
+
+                // if the status was 404, we do not have any participants left in the raffle which can be picked. Show
+                // a dialog to the user which indicates that
+                if (res.status === 404) {
+                    setIsNoParticipantsErrorDialogOpen(true);
+                    setLoadingNewWinner(false);
+                    return Promise.reject();
+                }
+
+                // in all other cases, we expect that there was an unknown error. We indicate that to the user by showing
+                // a proper error dialog
+                setIsUnknownErrorDialogOpen(true);
+                setLoadingNewWinner(false);
+                return Promise.reject();
+            })
+            .then((parsedJson: Participant[]) => {
+                // setup the dialog for the picked winners and return ensure the dialog is shown to the user, ...
+                const mappedWinners = parsedJson.map((element) => {
+                    return { firstName: element.first_name, lastName: element.last_name };
+                });
+                setLastWinners(mappedWinners);
+                setIsLastWinnerDialogOpen(true);
+
+                // ... re-enable the button, so the user can select another winner
+                setLoadingNewWinner(false);
+
+                // the last step is to ensure the counters will get updated
+                updateParticipantCounters();
+                updateWinnerCounter();
+            })
+            .catch(() => {
+                /* we do not have to anything here */
+            });
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const pickNewWinner = () => {
         // first we have to set the button into a loading state, so the user cannot fetch another winner until we are
         // done processing the first request
@@ -221,7 +284,7 @@ export const AuthenticatedView = () => {
                         // to ...
                         if (res.status === 204) {
                             // show the name to the user and...
-                            setLastWinner({ firstName: parsedJson.first_name, lastName: parsedJson.last_name });
+                            setLastWinners([{ firstName: parsedJson.first_name, lastName: parsedJson.last_name }]);
                             setIsLastWinnerDialogOpen(true);
 
                             // ... re-enable the button, so the user can select another winner
@@ -264,20 +327,33 @@ export const AuthenticatedView = () => {
             });
     };
 
+    const getTextForWinnersDialog = () => {
+        const elementsToReturn = [];
+        for (const currentUser in lastWinners) {
+            elementsToReturn.push(
+                <li>
+                    {lastWinners[currentUser].firstName} {lastWinners[currentUser].lastName}
+                </li>
+            );
+        }
+        return elementsToReturn;
+    };
+
     return (
         <>
             <Dialog open={isLastWinnerDialogOpen} onClose={handleLastWinnerDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    <Localized translationKey={'dashboard.dialogs.a_new_winner.title'} />
+                    <Localized translationKey={'dashboard.dialogs.new_winners.title'} />
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        <Localized translationKey={'dashboard.dialogs.a_new_winner.text'} placeholder={`${lastWinner.firstName} ${lastWinner.lastName}`} />
+                        <Localized translationKey={'dashboard.dialogs.new_winners.text'} />
+                        <ul>{getTextForWinnersDialog()}</ul>
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleLastWinnerDialogClose} autoFocus>
-                        <Localized translationKey={'dashboard.dialogs.a_new_winner.accept_button'} />
+                        <Localized translationKey={'dashboard.dialogs.new_winners.accept_button'} />
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -349,9 +425,13 @@ export const AuthenticatedView = () => {
                         value={
                             <Stack spacing={2}>
                                 <br />
-                                <NumberOfWinnersSelector label={localizationContext.translate('dashboard.number_of_winners')} changeHandler={handleNumberOfWinnersSelectionChange} />
+                                <NumberOfWinnersSelector
+                                    label={localizationContext.translate('dashboard.number_of_winners')}
+                                    value={numberOfWinners}
+                                    changeHandler={handleNumberOfWinnersSelectionChange}
+                                />
                                 <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
-                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} label={localizationContext.translate('dashboard.pick_winner_button')} />
+                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickMultipleNewWinner} label={localizationContext.translate('dashboard.pick_winner_button')} />
                                 <br />
                             </Stack>
                         }
