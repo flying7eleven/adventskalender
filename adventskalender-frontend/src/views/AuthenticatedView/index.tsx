@@ -17,6 +17,7 @@ import { PickNewWinner } from '../../components/PickNewWinner';
 import { WinningDaySelector } from '../../components/WinningDaySelector';
 import { Stack } from '@mui/material';
 import { NumberOfWinnersSelector } from '../../components/NumberOfWinnersSelector';
+import { SideDrawer } from '../../components/SideDrawer';
 
 interface WinnerInformation {
     firstName: string;
@@ -26,6 +27,7 @@ interface WinnerInformation {
 export const AuthenticatedView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState<boolean>(false);
+    const [navigationDrawerOpen, setNavigationDrawerOpen] = useState<boolean>(false);
     const [winnersOnSelectedDay, setWinnersOnSelectedDay] = useState<number>(0);
     const [numberOfWinners, setNumberOfWinners] = useState<number>(6);
     const [selectedDay, setSelectedDay] = useState<number>(() => {
@@ -42,6 +44,14 @@ export const AuthenticatedView = () => {
     const auth = useAuthentication();
     const navigate = useNavigate();
     const localizationContext = useContext(LocalizationContext);
+
+    const toggleDrawerEventClickHandler = (shouldBeOpen: boolean) => () => {
+        setNavigationDrawerOpen(shouldBeOpen);
+    };
+
+    const toggleDrawer = () => {
+        setNavigationDrawerOpen(!navigationDrawerOpen);
+    };
 
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
@@ -280,12 +290,14 @@ export const AuthenticatedView = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+            <SideDrawer open={navigationDrawerOpen} toggleDrawerOpen={toggleDrawerEventClickHandler} />
             <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
                 <Grid item xs={12}>
                     <TopControlBar
                         title={localizationContext.translate('dashboard.navigation.app_title')}
                         actionTitle={localizationContext.translate('dashboard.navigation.logout_button')}
                         actionHandler={logoutUser}
+                        burgerHandle={toggleDrawer}
                     />
                 </Grid>
                 <Grid item xs={2}>

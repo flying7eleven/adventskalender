@@ -10,6 +10,7 @@ interface Props {
     title: string;
     actionTitle: string;
     actionHandler?: () => void;
+    burgerHandle?: () => void;
 }
 
 export const TopControlBar = (props: Props) => {
@@ -19,11 +20,17 @@ export const TopControlBar = (props: Props) => {
         }
     };
 
+    const handleBurgerButtonClick = () => {
+        if (props.burgerHandle) {
+            props.burgerHandle();
+        }
+    };
+
     return (
         <Box sx={{ flexGrow: 1 }}>
             <AppBar position="static">
                 <Toolbar>
-                    <IconButton size="large" edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }}>
+                    <IconButton size="large" edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }} onClick={handleBurgerButtonClick}>
                         <MenuIcon />
                     </IconButton>
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>

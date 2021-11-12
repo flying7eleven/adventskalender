@@ -1,4 +1,10 @@
 {
+    "global": {
+        "navigation": {
+            "dashboard": "Dashboard",
+            "calendar": "Calendar"
+        }
+    },
     "login": {
         "headlines": {
             "signin": "Sign in"
