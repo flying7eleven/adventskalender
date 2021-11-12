@@ -203,40 +203,59 @@ pub struct PickingInformation {
     picked_for_date: NaiveDate,
 }
 
-#[post("/participants/won", data = "<picking_information>")]
 pub async fn mark_participant_as_won(
     db_connection: AdventskalenderDatabaseConnection,
-    picking_information: Json<PickingInformation>,
-    authenticated_user: AuthenticatedUser,
-) -> Status {
+    participant_id: i32,
+    picked_for_date: NaiveDate,
+    user_who_picked: String,
+) -> Result<(), ()> {
     use crate::models::ParticipantPicking;
     use crate::schema::participants::dsl::{id, participants};
     use chrono::Utc;
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
-    // try to update the requested participant and return if we succeeded or not
     return db_connection
         .run(move |connection| {
             // create the struct with the update information for the picked user
             let participant_info = ParticipantPicking {
-                won_on: Some(picking_information.picked_for_date),
+                won_on: Some(picked_for_date),
                 picking_time: Some(Utc::now().naive_utc()),
-                picked_by: Some(authenticated_user.username.clone())
+                picked_by: Some(user_who_picked.clone()),
             };
 
             // do the actual update of the database
-            if let Ok(_) = update(participants.filter(id.eq(picking_information.participant_id)))
+            if let Ok(_) = update(participants.filter(id.eq(participant_id)))
                 .set(&participant_info)
                 .execute(connection)
             {
-                debug!("The user {} marked the user with the id {} as 'won on {}'", authenticated_user.username, picking_information.participant_id, picking_information.picked_for_date);
-                return Status::NoContent;
+                debug!("The user {} marked the user with the id {} as 'won on {}'", user_who_picked, participant_id, picked_for_date);
+                return Ok(());
             }
-            error!("The user {} tried to mark the user with the id {} as 'won on {}' but we failed to do so", authenticated_user.username, picking_information.participant_id, picking_information.picked_for_date);
-            return Status::NotFound;
+            error!("The user {} tried to mark the user with the id {} as 'won on {}' but we failed to do so", user_who_picked, participant_id, picked_for_date);
+            return Err(());
         })
         .await;
+}
+
+#[post("/participants/won", data = "<picking_information>")]
+pub async fn mark_participant_as_won_route(
+    db_connection: AdventskalenderDatabaseConnection,
+    picking_information: Json<PickingInformation>,
+    authenticated_user: AuthenticatedUser,
+) -> Status {
+    if mark_participant_as_won(
+        db_connection,
+        picking_information.participant_id,
+        picking_information.picked_for_date,
+        authenticated_user.username,
+    )
+    .await
+    .is_ok()
+    {
+        return Status::NoContent;
+    }
+    Status::NotFound
 }
 
 #[derive(Serialize, Deserialize)]

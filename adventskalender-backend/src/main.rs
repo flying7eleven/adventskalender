@@ -58,7 +58,7 @@ async fn main() {
     };
     use adventskalender_backend::routes::{
         check_backend_health, count_won_participants_on_day, get_login_token,
-        get_number_of_participants_who_already_won, mark_participant_as_won,
+        get_number_of_participants_who_already_won, mark_participant_as_won_route,
         pick_a_random_participant_from_raffle_list,
         pick_multiple_random_participant_from_raffle_list,
     };
@@ -180,7 +180,7 @@ async fn main() {
                 pick_a_random_participant_from_raffle_list,
                 pick_multiple_random_participant_from_raffle_list,
                 count_won_participants_on_day,
-                mark_participant_as_won,
+                mark_participant_as_won_route,
                 check_backend_health,
             ],
         )
