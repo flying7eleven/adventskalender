@@ -33,8 +33,8 @@
                 "description": "people are still able to win"
             },
             "pick_new_winner": {
-                "title": "Pick a new winner",
-                "description": "There are %PLACEHOLDER% winner(s) on the selected day."
+                "title": "Pick new winners",
+                "description": "There are %PLACEHOLDER% winner(s) on the selected day already."
             }
         },
         "dialogs": {
@@ -54,8 +54,9 @@
                 "accept_button": "Okay"
             }
         },
-        "pick_winner_button": "Pick a new winner",
+        "pick_winner_button": "Pick new winners",
         "day_selection": "Day of the win",
+        "number_of_winners": "Number of winners",
         "weekdays": {
             "monday_short": "Mom",
             "tuesday_short": "Tue",

@@ -33,8 +33,8 @@
                 "description": "Personen können noch gewinnen"
             },
             "pick_new_winner": {
-                "title": "Eine:n neue:n Gewinner:in ziehen",
-                "description": "An diesem Tag gibt es %PLACEHOLDER% Gewinner:innen."
+                "title": "Neue:n Gewinner:innen ziehen",
+                "description": "An diesem Tag gibt es bereits %PLACEHOLDER% Gewinner:innen."
             }
         },
         "dialogs": {
@@ -54,8 +54,9 @@
                 "accept_button": "Okay"
             }
         },
-        "pick_winner_button": "Neue:n Gewinner:in ziehen",
+        "pick_winner_button": "Neue:n Gewinner:innen ziehen",
         "day_selection": "Tag des Gewinns",
+        "number_of_winners": "Anzahl der Gewinner:innen",
         "weekdays": {
             "monday_short": "Mo.",
             "tuesday_short": "Di.",

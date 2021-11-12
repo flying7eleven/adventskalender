@@ -16,6 +16,7 @@ import { Localized } from '../../components/Localized';
 import { PickNewWinner } from '../../components/PickNewWinner';
 import { WinningDaySelector } from '../../components/WinningDaySelector';
 import { Stack } from '@mui/material';
+import { NumberOfWinnersSelector } from '../../components/NumberOfWinnersSelector';
 
 interface WinnerInformation {
     firstName: string;
@@ -47,6 +48,10 @@ export const AuthenticatedView = () => {
 
     const handleDateSelectionChange = (newDay: number) => {
         setSelectedDay(newDay);
+    };
+
+    const handleNumberOfWinnersSelectionChange = (numberOfWinners: number) => {
+        // TODO this
     };
 
     const handleUnknownErrorDialogClose = () => {
@@ -344,6 +349,7 @@ export const AuthenticatedView = () => {
                         value={
                             <Stack spacing={2}>
                                 <br />
+                                <NumberOfWinnersSelector label={localizationContext.translate('dashboard.number_of_winners')} changeHandler={handleNumberOfWinnersSelectionChange} />
                                 <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
                                 <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickNewWinner} label={localizationContext.translate('dashboard.pick_winner_button')} />
                                 <br />
