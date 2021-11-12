@@ -192,7 +192,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
     authenticated_user: AuthenticatedUser,
     count: usize,
     date: &str,
-) -> Result<Json<Participant>, Status> {
+) -> Result<Json<Vec<Participant>>, Status> {
     use log::{debug, error};
     use std::str::FromStr;
 
@@ -217,10 +217,10 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
 
         // after we have all participants we wanted to select, we have to mark them as won before we can
         // return them
-        let won_participant_ids = result.iter().map(|p| p.id).collect();
+        let won_participant_ids: Vec<i32> = result.iter().map(|p| p.id).collect();
         if mark_participant_as_won(
             db_connection,
-            won_participant_ids,
+            won_participant_ids.clone(),
             maybe_date.unwrap(),
             authenticated_user.username.clone(),
         )
@@ -231,13 +231,12 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
             return Err(Status::InternalServerError);
         }
 
-        // log that we picked a winner and return it
-        let participant_who_won = result.get(0).unwrap();
+        // log the picked winners and return them
         debug!(
-            "The user {} picked the participant with the id {} as a new winner",
-            authenticated_user.username, participant_who_won.id
+            "The user {} picked the participants with the ids {:?} as new winners",
+            authenticated_user.username, won_participant_ids
         );
-        return Ok(Json(participant_who_won.clone()));
+        return Ok(Json(result.clone()));
     }
 
     // if we could not get a result, it seems that all participants where picked at some point. Return
