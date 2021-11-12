@@ -14,5 +14,8 @@ RUN npm run build
 # configure the acutal container for running the backend
 FROM nginx:latest
 
+# ensure we have a .well-kown directory for file mounting of security.txt and others
+RUN mkdir -p /usr/share/nginx/html/.well-known
+
 # copy the files for running the container
 COPY --from=build --chown=1001 /usr/src/app/build /usr/share/nginx/html
