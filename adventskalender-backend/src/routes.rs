@@ -205,7 +205,7 @@ pub struct PickingInformation {
 
 pub async fn mark_participant_as_won(
     db_connection: AdventskalenderDatabaseConnection,
-    participant_id: i32,
+    participant_ids: Vec<i32>,
     picked_for_date: NaiveDate,
     user_who_picked: String,
 ) -> Result<(), ()> {
@@ -225,14 +225,20 @@ pub async fn mark_participant_as_won(
             };
 
             // do the actual update of the database
-            if let Ok(_) = update(participants.filter(id.eq(participant_id)))
+            if let Ok(rows_updated) = update(participants.filter(id.eq_any(participant_ids.clone())))
                 .set(&participant_info)
                 .execute(connection)
             {
-                debug!("The user {} marked the user with the id {} as 'won on {}'", user_who_picked, participant_id, picked_for_date);
+                // ensure that all rows were successfully updated. If not, we have to assume an error and log it before exit here
+                if rows_updated != participant_ids.len() {
+                    error!("There should be {} row updates but {} rows were actually updated. The following IDs should not be marked as won: {:?}", participant_ids.len(), rows_updated, participant_ids);
+                    return Err(());
+                }
+
+                debug!("The user {} marked the users with the ids {:?} as 'won on {}'", user_who_picked, participant_ids, picked_for_date);
                 return Ok(());
             }
-            error!("The user {} tried to mark the user with the id {} as 'won on {}' but we failed to do so", user_who_picked, participant_id, picked_for_date);
+            error!("The user {} tried to mark the users with the ids {:?} as 'won on {}' but we failed to do so", user_who_picked, participant_ids, picked_for_date);
             return Err(());
         })
         .await;
@@ -246,7 +252,7 @@ pub async fn mark_participant_as_won_route(
 ) -> Status {
     if mark_participant_as_won(
         db_connection,
-        picking_information.participant_id,
+        vec![picking_information.participant_id],
         picking_information.picked_for_date,
         authenticated_user.username,
     )
