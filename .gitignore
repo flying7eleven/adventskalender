@@ -6,3 +6,5 @@ target/
 *.tmp
 *.log
 real_data.sql
+security.txt
+public_key.gpg
