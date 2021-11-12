@@ -64,7 +64,7 @@ pub async fn get_number_of_participants_who_already_won(
     Err(Status::InternalServerError)
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct Participant {
     /// The internally used id for the participant.
     pub id: i32,
@@ -116,46 +116,65 @@ pub async fn count_won_participants_on_day(
     Err(Status::InternalServerError)
 }
 
+pub async fn pick_random_participants_from_database(
+    db_connection: AdventskalenderDatabaseConnection,
+    count: usize,
+) -> Option<Vec<Participant>> {
+    use crate::models::Participant as DatabaseParticipant;
+    use crate::schema::participants::dsl::{participants, won_on};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use rand::seq::SliceRandom;
+
+    return db_connection
+        .run(move |connection| {
+            if let Ok(participants_in_raffle) = participants
+                .filter(won_on.is_null())
+                .load::<DatabaseParticipant>(connection)
+            {
+                let mut participants_vec = vec![];
+                for current_participant in
+                    participants_in_raffle.choose_multiple(&mut rand::thread_rng(), count)
+                {
+                    participants_vec.push(Participant {
+                        id: current_participant.id,
+                        first_name: current_participant.first_name.clone(),
+                        last_name: current_participant.last_name.clone(),
+                    });
+                }
+                return Some(participants_vec);
+            }
+            return None;
+        })
+        .await;
+}
+
 #[get("/participants/pick")]
 pub async fn pick_a_random_participant_from_raffle_list(
     db_connection: AdventskalenderDatabaseConnection,
     authenticated_user: AuthenticatedUser,
 ) -> Result<Json<Participant>, Status> {
-    use crate::models::Participant as DatabaseParticipant;
-    use crate::schema::participants::dsl::{participants, won_on};
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
-    use rand::seq::SliceRandom;
 
     // try to fetch the information and construct the corresponding data structure we want to return
-    let maybe_result = db_connection
-        .run(|connection| {
-            if let Ok(participants_in_raffle) = participants
-                .filter(won_on.is_null())
-                .load::<DatabaseParticipant>(connection)
-            {
-                if let Some(chosen_participant) =
-                    participants_in_raffle.choose(&mut rand::thread_rng())
-                {
-                    return Some(Json(Participant {
-                        id: chosen_participant.id,
-                        first_name: chosen_participant.first_name.clone(),
-                        last_name: chosen_participant.last_name.clone(),
-                    }));
-                }
-            }
-            return None;
-        })
-        .await;
+    let maybe_result = pick_random_participants_from_database(db_connection, 1).await;
 
     // if we could fetch a result from the database, return the requested information
     if maybe_result.is_some() {
         let result = maybe_result.unwrap();
+
+        // ensure that we got exactly one result for this call. Otherwise something went wrong
+        if result.len() != 1 {
+            error!("Got {} participants who won from the database but we expected to receive exactly 1", result.len());
+            return Err(Status::InternalServerError);
+        }
+
+        // log that we picked a winner and return it
+        let participant_who_won = result.get(0).unwrap();
         debug!(
             "The user {} picked the participant with the id {} as a new winner",
-            authenticated_user.username, result.id
+            authenticated_user.username, participant_who_won.id
         );
-        return Ok(result);
+        return Ok(Json(participant_who_won.clone()));
     }
 
     // if we could not get a result, it seems that all participants where picked at some point. Return
@@ -165,6 +184,15 @@ pub async fn pick_a_random_participant_from_raffle_list(
         authenticated_user.username
     );
     Err(Status::NotFound)
+}
+
+#[get("/participants/pick/<count>")]
+pub async fn pick_multiple_random_participant_from_raffle_list(
+    db_connection: AdventskalenderDatabaseConnection,
+    authenticated_user: AuthenticatedUser,
+    count: i32,
+) -> Result<Json<Participant>, Status> {
+    Err(Status::InternalServerError)
 }
 
 #[derive(Serialize, Deserialize)]
