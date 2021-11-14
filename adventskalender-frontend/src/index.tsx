@@ -12,6 +12,7 @@ import { AuthenticatedView } from './views/AuthenticatedView';
 import { LocalizationProvider } from './components/LocalizationProvider';
 import English from './languages/en.json';
 import German from './languages/de.json';
+import { Dashboard } from './components/Dashboard';
 
 const App = () => {
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -37,7 +38,7 @@ const App = () => {
                                     path="/"
                                     element={
                                         <RequireAuthentication>
-                                            <AuthenticatedView />
+                                            <AuthenticatedView content={<Dashboard />} />
                                         </RequireAuthentication>
                                     }
                                 />
