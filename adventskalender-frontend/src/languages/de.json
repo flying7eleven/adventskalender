@@ -20,6 +20,15 @@
             }
         }
     },
+    "calendar": {
+        "cards": {
+            "winners": {
+                "headline": "Gewinner:innen für den",
+                "description": "hat gewonnen",
+                "button_remove": "Gewinner:in entfernen"
+            }
+        }
+    },
     "dashboard": {
         "navigation": {
             "app_title": "Adventskalender",

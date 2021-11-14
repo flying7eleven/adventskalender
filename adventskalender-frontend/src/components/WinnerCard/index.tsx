@@ -3,11 +3,11 @@ import NoSsr from '@material-ui/core/NoSsr';
 import Avatar from '@material-ui/core/Avatar';
 import Button from '@material-ui/core/Button';
 import Divider from '@material-ui/core/Divider';
-import Link from '@material-ui/core/Link';
 import { makeStyles } from '@material-ui/core/styles';
 import { Column, Row, Item } from '@mui-treasury/components/flex';
 import { useDynamicAvatarStyles } from '@mui-treasury/styles/avatar/dynamic';
 import { GoogleFontLoader } from '../GoogleFontLoader';
+import { Localized } from '../Localized';
 
 interface Props {
     winningDate: string;
@@ -39,7 +39,7 @@ const usePersonStyles = makeStyles(() => ({
     },
 }));
 
-const PersonItem = ({ src, name, friendCount }: { src: string; name: string; friendCount: number }) => {
+const PersonItem = ({ src, name }: { src: string; name: string }) => {
     const avatarStyles = useDynamicAvatarStyles({ size: 56 });
     const styles = usePersonStyles();
     return (
@@ -49,12 +49,15 @@ const PersonItem = ({ src, name, friendCount }: { src: string; name: string; fri
             </Item>
             <Row wrap grow gap={0.5} minWidth={0}>
                 <Item grow minWidth={0}>
-                    <div className={cx(styles.name, styles.text)}>{name}</div>
-                    <div className={cx(styles.caption, styles.text)}>{friendCount} mutual friends</div>
+                    <div className={cx(styles.name, styles.text)}>{name}...</div>
+                    <div className={cx(styles.caption, styles.text)}>
+                        ...
+                        <Localized translationKey={'calendar.cards.winners.description'} />
+                    </div>
                 </Item>
                 <Item position={'middle'}>
-                    <Button className={styles.btn} variant={'outlined'}>
-                        Follow
+                    <Button className={styles.btn} variant={'outlined'} disabled>
+                        <Localized translationKey={'calendar.cards.winners.button_remove'} />
                     </Button>
                 </Item>
             </Row>
@@ -94,6 +97,18 @@ const useStyles = makeStyles(() => ({
 
 export const WinnerCard = (props: Props) => {
     const styles = useStyles();
+
+    const getWinningEntries = () => {
+        const elements = [];
+        for (let i = 0; i < props.listOfWinner.length; i++) {
+            elements.push(<PersonItem name={`${props.listOfWinner[i].first_name} ${props.listOfWinner[i].last_name}`} src={'images/christmasTree.jpg'} />);
+            if (i !== props.listOfWinner.length - 1) {
+                elements.push(<Divider variant={'middle'} className={styles.divider} />);
+            }
+        }
+        return elements;
+    };
+
     return (
         <>
             <NoSsr>
@@ -102,17 +117,11 @@ export const WinnerCard = (props: Props) => {
             <Column p={0} gap={0} className={styles.card}>
                 <Row wrap p={2} alignItems={'baseline'} className={styles.header}>
                     <Item stretched className={styles.headline}>
-                        Who to follow
+                        <Localized translationKey={'calendar.cards.winners.headline'} />
                     </Item>
-                    <Item className={styles.actions}>
-                        <Link className={styles.link}>Refresh</Link> • <Link className={styles.link}>See all</Link>
-                    </Item>
+                    <Item className={styles.actions}>{props.winningDate}</Item>
                 </Row>
-                <PersonItem name={'Amber Matthews'} friendCount={6} src={'https://i.pravatar.cc/300?img=10'} />
-                <Divider variant={'middle'} className={styles.divider} />
-                <PersonItem name={'Russel Robertson'} friendCount={2} src={'https://i.pravatar.cc/300?img=20'} />
-                <Divider variant={'middle'} className={styles.divider} />
-                <PersonItem name={'Kathleen Ellis'} friendCount={2} src={'https://i.pravatar.cc/300?img=30'} />
+                {getWinningEntries()}
             </Column>
         </>
     );
