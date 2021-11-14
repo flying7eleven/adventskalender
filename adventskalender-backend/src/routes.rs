@@ -5,6 +5,7 @@ use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{get, post, State};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize)]
 pub struct ParticipantCount {
@@ -74,6 +75,39 @@ pub struct Participant {
     pub last_name: String,
 }
 
+pub async fn get_all_winners(
+    db_connection: AdventskalenderDatabaseConnection,
+) -> Result<HashMap<String, Vec<Participant>>, ()> {
+    use crate::models::Participant as DatabaseParticipant;
+    use crate::schema::participants::dsl::{participants, won_on};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+
+    // try to get all days on which at least one person won
+    return db_connection
+        .run(|connection| {
+            let mut result_map = HashMap::new();
+            if let Ok(participants_won_dates) = participants
+                .filter(won_on.is_not_null())
+                .order_by(won_on.asc())
+                .load::<DatabaseParticipant>(connection)
+            {
+                for current in participants_won_dates.iter() {
+                    result_map
+                        .entry(current.won_on.unwrap().to_string())
+                        .or_insert(vec![])
+                        .push(Participant {
+                            id: current.id,
+                            first_name: current.first_name.clone(),
+                            last_name: current.last_name.clone(),
+                        });
+                }
+                return Ok(result_map);
+            }
+            return Err(());
+        })
+        .await;
+}
+
 pub async fn get_won_participants_on_day(
     db_connection: AdventskalenderDatabaseConnection,
     date: NaiveDate,
@@ -136,6 +170,18 @@ pub async fn get_won_participants_on_day_route(
         date_as_str
     );
     Ok(Json(won_participants))
+}
+
+#[get("/participants/won")]
+pub async fn get_all_won_participants(
+    db_connection: AdventskalenderDatabaseConnection,
+    _authenticated_user: AuthenticatedUser,
+) -> Result<Json<HashMap<String, Vec<Participant>>>, Status> {
+    let maybe_all_winners = get_all_winners(db_connection).await;
+    if maybe_all_winners.is_ok() {
+        return Ok(Json(maybe_all_winners.unwrap()));
+    }
+    Err(Status::NotFound)
 }
 
 #[get("/participants/won/<date_as_str>/count")]
