@@ -3,13 +3,7 @@ import { useEffect, useState } from 'react';
 import { API_BACKEND_URL } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
-import { Typography } from '@mui/material';
-
-interface SingleWinnerInformation {
-    first_name: string;
-    last_name: string;
-}
-type Foo = { [key: string]: SingleWinnerInformation[] };
+import { WinnerCard } from '../WinnerCard';
 
 export const Calendar = () => {
     const [allWinners, setAllWinners] = useState<Foo | null>(null);
@@ -77,23 +71,7 @@ export const Calendar = () => {
         // to be rendered for the user
         const elements = [];
         for (const dateString in allWinners) {
-            const currentWinningDay = allWinners[dateString];
-            const winnersForTheDay = [];
-            for (const currentWinnerIdx in currentWinningDay) {
-                winnersForTheDay.push(
-                    <li>
-                        <Typography variant={'body1'} component={'div'}>
-                            {currentWinningDay[currentWinnerIdx].first_name} {currentWinningDay[currentWinnerIdx].last_name}
-                        </Typography>
-                    </li>
-                );
-            }
-            elements.push(
-                <ul>
-                    <li>{dateString}</li>
-                    {winnersForTheDay}
-                </ul>
-            );
+            elements.push(<WinnerCard winningDate={dateString} listOfWinner={allWinners[dateString]} />);
         }
         return elements;
     };
