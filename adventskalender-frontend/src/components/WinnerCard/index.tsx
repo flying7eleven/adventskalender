@@ -1,12 +1,10 @@
 import cx from 'clsx';
-import NoSsr from '@material-ui/core/NoSsr';
 import Avatar from '@material-ui/core/Avatar';
 import Button from '@material-ui/core/Button';
 import Divider from '@material-ui/core/Divider';
 import { makeStyles } from '@material-ui/core/styles';
 import { Column, Row, Item } from '@mui-treasury/components/flex';
 import { useDynamicAvatarStyles } from '@mui-treasury/styles/avatar/dynamic';
-import { GoogleFontLoader } from '../GoogleFontLoader';
 import { Localized } from '../Localized';
 
 interface Props {
@@ -111,9 +109,6 @@ export const WinnerCard = (props: Props) => {
 
     return (
         <>
-            <NoSsr>
-                <GoogleFontLoader fonts={[{ font: 'Barlow', weights: [400, 600] }]} />
-            </NoSsr>
             <Column p={0} gap={0} className={styles.card}>
                 <Row wrap p={2} alignItems={'baseline'} className={styles.header}>
                     <Item stretched className={styles.headline}>
