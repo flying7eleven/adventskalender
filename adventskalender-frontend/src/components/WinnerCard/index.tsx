@@ -1,11 +1,9 @@
 import cx from 'clsx';
-import Avatar from '@material-ui/core/Avatar';
-import Button from '@material-ui/core/Button';
-import Divider from '@material-ui/core/Divider';
-import { makeStyles } from '@material-ui/core/styles';
 import { Column, Row, Item } from '@mui-treasury/components/flex';
 import { useDynamicAvatarStyles } from '@mui-treasury/styles/avatar/dynamic';
 import { Localized } from '../Localized';
+import { Avatar, Button, Divider } from '@mui/material';
+import { makeStyles } from '@mui/styles';
 
 interface Props {
     winningDate: string;

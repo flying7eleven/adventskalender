@@ -9,6 +9,7 @@
     "@mui/lab": "^5.0.0-alpha.54",
     "@mui/material": "^5.0.6",
     "@mui/core": "^5.0.0-alpha.54",
+    "@mui/styles": "^5.1.0",
     "@mui-treasury/styles": "^1.13.1",
     "@mui-treasury/components": "^1.10.1",
     "jsonwebtoken": "^8.5.1",
