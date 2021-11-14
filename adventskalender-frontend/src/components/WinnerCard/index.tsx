@@ -99,9 +99,17 @@ export const WinnerCard = (props: Props) => {
     const getWinningEntries = () => {
         const elements = [];
         for (let i = 0; i < props.listOfWinner.length; i++) {
-            elements.push(<PersonItem name={`${props.listOfWinner[i].first_name} ${props.listOfWinner[i].last_name}`} src={'images/christmasTree.jpg'} />);
+            elements.push(
+                <PersonItem
+                    key={`person-item-${props.listOfWinner[i].first_name.toLowerCase()}-${props.listOfWinner[i].last_name.toLocaleLowerCase()}`}
+                    name={`${props.listOfWinner[i].first_name} ${props.listOfWinner[i].last_name}`}
+                    src={'images/christmasTree.jpg'}
+                />
+            );
             if (i !== props.listOfWinner.length - 1) {
-                elements.push(<Divider variant={'middle'} className={styles.divider} />);
+                elements.push(
+                    <Divider key={`divider-${props.listOfWinner[i].first_name.toLowerCase()}-${props.listOfWinner[i].last_name.toLocaleLowerCase()}`} variant={'middle'} className={styles.divider} />
+                );
             }
         }
         return elements;

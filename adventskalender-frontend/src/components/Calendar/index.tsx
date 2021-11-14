@@ -63,7 +63,7 @@ export const Calendar = () => {
         // if there are not winners in our array, return an element which indicates that there are no
         // winners so far
         if (!allWinners) {
-            // TODO: check the sice also
+            // TODO: check the size as well and not only if it is an object or undefined
             return <div>No Winners!</div>;
         }
 
@@ -71,16 +71,14 @@ export const Calendar = () => {
         // to be rendered for the user
         const elements = [];
         for (const dateString in allWinners) {
-            elements.push(<WinnerCard winningDate={dateString} listOfWinner={allWinners[dateString]} />);
+            elements.push(
+                <Grid item xs={2} key={`winner-card-grid-item-${dateString}`}>
+                    <WinnerCard key={`winner-card-${dateString}`} winningDate={dateString} listOfWinner={allWinners[dateString]} />
+                </Grid>
+            );
         }
         return elements;
     };
 
-    return (
-        <>
-            <Grid item xs={2}>
-                {getWinnerCardsForAllDays()}
-            </Grid>
-        </>
-    );
+    return <>{getWinnerCardsForAllDays()}</>;
 };
