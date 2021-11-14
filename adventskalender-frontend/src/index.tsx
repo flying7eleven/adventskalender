@@ -13,6 +13,7 @@ import { LocalizationProvider } from './components/LocalizationProvider';
 import English from './languages/en.json';
 import German from './languages/de.json';
 import { Dashboard } from './components/Dashboard';
+import { Calendar } from './components/Calendar';
 
 const App = () => {
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -39,6 +40,14 @@ const App = () => {
                                     element={
                                         <RequireAuthentication>
                                             <AuthenticatedView content={<Dashboard />} />
+                                        </RequireAuthentication>
+                                    }
+                                />
+                                <Route
+                                    path="/calendar"
+                                    element={
+                                        <RequireAuthentication>
+                                            <AuthenticatedView content={<Calendar />} />
                                         </RequireAuthentication>
                                     }
                                 />
