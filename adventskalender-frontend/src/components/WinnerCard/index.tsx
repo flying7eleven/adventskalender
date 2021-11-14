@@ -39,7 +39,7 @@ const usePersonStyles = makeStyles(() => ({
     },
 }));
 
-const PersonItem = ({ src, name, friendCount } : {src: string, name: string, friendCount: number}) => {
+const PersonItem = ({ src, name, friendCount }: { src: string; name: string; friendCount: number }) => {
     const avatarStyles = useDynamicAvatarStyles({ size: 56 });
     const styles = usePersonStyles();
     return (

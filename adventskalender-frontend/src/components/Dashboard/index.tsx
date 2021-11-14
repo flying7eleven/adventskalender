@@ -17,11 +17,6 @@ import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { LocalizationContext } from '../LocalizationProvider';
 
-interface WinnerInformation {
-    firstName: string;
-    lastName: string;
-}
-
 export const Dashboard = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState<boolean>(false);
