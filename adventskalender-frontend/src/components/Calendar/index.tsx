@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { WinnerCard } from '../WinnerCard';
 
 export const Calendar = () => {
-    const [allWinners, setAllWinners] = useState<Foo | null>(null);
+    const [allWinners, setAllWinners] = useState<WinnersOnDateMap | null>(null);
     const auth = useAuthentication();
     const navigate = useNavigate();
 
@@ -46,7 +46,7 @@ export const Calendar = () => {
                 // them here too
                 // TODO: this
             })
-            .then((parsedJson: Foo) => {
+            .then((parsedJson: WinnersOnDateMap) => {
                 setAllWinners(parsedJson);
             })
             .catch(() => {

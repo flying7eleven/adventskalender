@@ -24,7 +24,6 @@
         "cards": {
             "winners": {
                 "headline": "Winners for",
-                "description": "did win",
                 "button_remove": "Remove winner"
             }
         }

@@ -1,99 +1,52 @@
-import cx from 'clsx';
-import { Column, Row, Item } from '@mui-treasury/components/flex';
-import { useDynamicAvatarStyles } from '@mui-treasury/styles/avatar/dynamic';
 import { Localized } from '../Localized';
-import { Avatar, Button, Divider } from '@mui/material';
-import { makeStyles } from '@mui/styles';
+import { Avatar, Button, Card, CardContent, Divider, Paper, Stack, Typography } from '@mui/material';
+import { styled } from '@mui/styles';
 
 interface Props {
     winningDate: string;
     listOfWinner: SingleWinnerInformation[];
 }
 
-const usePersonStyles = makeStyles(() => ({
-    text: {
-        fontFamily: 'Barlow, san-serif',
-        whiteSpace: 'nowrap',
-        textOverflow: 'ellipsis',
-        overflow: 'hidden',
-    },
-    name: {
-        fontWeight: 600,
-        fontSize: '1rem',
-        color: '#122740',
-    },
-    caption: {
-        fontSize: '0.875rem',
-        color: '#758392',
-        marginTop: -4,
-    },
-    btn: {
-        borderRadius: 20,
-        padding: '0.125rem 0.75rem',
-        borderColor: '#becddc',
-        fontSize: '0.75rem',
-    },
+const Item = styled(Paper)(({ theme }) => ({
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    ...theme.typography.body2,
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    padding: theme.spacing(1),
+    textAlign: 'center',
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    color: theme.palette.text.secondary,
 }));
 
 const PersonItem = ({ src, name }: { src: string; name: string }) => {
-    const avatarStyles = useDynamicAvatarStyles({ size: 56 });
-    const styles = usePersonStyles();
     return (
-        <Row gap={2} p={2.5}>
+        <Stack direction={'column'}>
             <Item>
-                <Avatar classes={avatarStyles} src={src} />
+                <Stack direction={'row'}>
+                    <Item>
+                        <Avatar src={src} />
+                    </Item>
+                    <Item>
+                        <Stack direction={'column'}>
+                            <Item>
+                                <Typography>{name}</Typography>
+                            </Item>
+                            <Item>
+                                <Button variant={'outlined'} disabled>
+                                    <Localized translationKey={'calendar.cards.winners.button_remove'} />
+                                </Button>
+                            </Item>
+                        </Stack>
+                    </Item>
+                </Stack>
             </Item>
-            <Row wrap grow gap={0.5} minWidth={0}>
-                <Item grow minWidth={0}>
-                    <div className={cx(styles.name, styles.text)}>{name}...</div>
-                    <div className={cx(styles.caption, styles.text)}>
-                        ...
-                        <Localized translationKey={'calendar.cards.winners.description'} />
-                    </div>
-                </Item>
-                <Item position={'middle'}>
-                    <Button className={styles.btn} variant={'outlined'} disabled>
-                        <Localized translationKey={'calendar.cards.winners.button_remove'} />
-                    </Button>
-                </Item>
-            </Row>
-        </Row>
+        </Stack>
     );
 };
 
-const useStyles = makeStyles(() => ({
-    card: {
-        width: '100%',
-        borderRadius: 16,
-        boxShadow: '0 8px 16px 0 #BDC9D7',
-        overflow: 'hidden',
-    },
-    header: {
-        fontFamily: 'Barlow, san-serif',
-        backgroundColor: '#fff',
-    },
-    headline: {
-        color: '#122740',
-        fontSize: '1.25rem',
-        fontWeight: 600,
-    },
-    link: {
-        color: '#2281bb',
-        padding: '0 0.25rem',
-        fontSize: '0.875rem',
-    },
-    actions: {
-        color: '#BDC9D7',
-    },
-    divider: {
-        backgroundColor: '#d9e2ee',
-        margin: '0 20px',
-    },
-}));
-
 export const WinnerCard = (props: Props) => {
-    const styles = useStyles();
-
     const getWinningEntries = () => {
         const elements = [];
         for (let i = 0; i < props.listOfWinner.length; i++) {
@@ -105,9 +58,7 @@ export const WinnerCard = (props: Props) => {
                 />
             );
             if (i !== props.listOfWinner.length - 1) {
-                elements.push(
-                    <Divider key={`divider-${props.listOfWinner[i].first_name.toLowerCase()}-${props.listOfWinner[i].last_name.toLocaleLowerCase()}`} variant={'middle'} className={styles.divider} />
-                );
+                elements.push(<Divider key={`divider-${props.listOfWinner[i].first_name.toLowerCase()}-${props.listOfWinner[i].last_name.toLocaleLowerCase()}`} variant={'middle'} />);
             }
         }
         return elements;
@@ -115,15 +66,25 @@ export const WinnerCard = (props: Props) => {
 
     return (
         <>
-            <Column p={0} gap={0} className={styles.card}>
-                <Row wrap p={2} alignItems={'baseline'} className={styles.header}>
-                    <Item stretched className={styles.headline}>
-                        <Localized translationKey={'calendar.cards.winners.headline'} />
-                    </Item>
-                    <Item className={styles.actions}>{props.winningDate}</Item>
-                </Row>
-                {getWinningEntries()}
-            </Column>
+            <Card variant="outlined">
+                <CardContent>
+                    <Stack direction={'column'}>
+                        <Item>
+                            <Stack direction={'row'}>
+                                <Item>
+                                    <Typography>
+                                        <Localized translationKey={'calendar.cards.winners.headline'} />
+                                    </Typography>
+                                </Item>
+                                <Item>
+                                    <Typography>{props.winningDate}</Typography>
+                                </Item>
+                            </Stack>
+                        </Item>
+                        <Item>{getWinningEntries()}</Item>
+                    </Stack>
+                </CardContent>
+            </Card>
         </>
     );
 };

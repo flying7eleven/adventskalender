@@ -10,4 +10,4 @@ interface SingleWinnerInformation {
     last_name: string;
 }
 
-type Foo = { [key: string]: SingleWinnerInformation[] };
+type WinnersOnDateMap = { [key: string]: SingleWinnerInformation[] };
