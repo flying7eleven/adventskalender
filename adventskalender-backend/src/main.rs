@@ -16,6 +16,14 @@ pub fn run_migrations(connection: &PgConnection) {
     }
 }
 
+fn unset_environment_variable(name: &str) {
+    use log::warn;
+    warn!(
+        "Unsetting the environment variable {} is currently not supported",
+        name
+    );
+}
+
 fn setup_logging(logging_level: LevelFilter) {
     use chrono::Utc;
 
@@ -166,6 +174,12 @@ async fn main() {
     }
     .to_cors()
     .unwrap();
+
+    // after everything is set up, we should unset ann environment variables to prevent leaking
+    // sensitive information
+    unset_environment_variable("ADVENTSKALENDER_LOGGING_LEVEL");
+    unset_environment_variable("ADVENTSKALENDER_DB_CONNECTION");
+    unset_environment_variable("ADVENTSKALENDER_TOKEN_SIGNATURE_PSK");
 
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");
