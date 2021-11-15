@@ -70,10 +70,12 @@ export const Calendar = () => {
         // since it seems that we have already winners, create corresponding UI elements and return them
         // to be rendered for the user
         const elements = [];
-        for (const dateString in allWinners) {
+        const sortedKeys = Object.keys(allWinners).sort();
+        for (const i in sortedKeys) {
+            const winnersForDay = allWinners[sortedKeys[i]];
             elements.push(
-                <Grid item xs={2} key={`winner-card-grid-item-${dateString}`}>
-                    <WinnerCard key={`winner-card-${dateString}`} winningDate={dateString} listOfWinner={allWinners[dateString]} />
+                <Grid item xs={2} key={`winner-card-grid-item-${sortedKeys[i]}`}>
+                    <WinnerCard key={`winner-card-${sortedKeys[i]}`} winningDate={sortedKeys[i]} listOfWinner={winnersForDay} />
                 </Grid>
             );
         }
