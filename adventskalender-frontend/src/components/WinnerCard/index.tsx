@@ -1,47 +1,23 @@
 import { Localized } from '../Localized';
-import { Avatar, Button, Card, CardContent, Divider, Paper, Stack, Typography } from '@mui/material';
-import { styled } from '@mui/styles';
+import { Avatar, Button, Card, CardContent, Divider, Stack, Typography } from '@mui/material';
 
 interface Props {
     winningDate: string;
     listOfWinner: SingleWinnerInformation[];
 }
 
-const Item = styled(Paper)(({ theme }) => ({
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    ...theme.typography.body2,
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    padding: theme.spacing(1),
-    textAlign: 'center',
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    color: theme.palette.text.secondary,
-}));
-
 const PersonItem = ({ src, name }: { src: string; name: string }) => {
     return (
         <Stack direction={'column'}>
-            <Item>
-                <Stack direction={'row'}>
-                    <Item>
-                        <Avatar src={src} />
-                    </Item>
-                    <Item>
-                        <Stack direction={'column'}>
-                            <Item>
-                                <Typography>{name}</Typography>
-                            </Item>
-                            <Item>
-                                <Button variant={'outlined'} disabled>
-                                    <Localized translationKey={'calendar.cards.winners.button_remove'} />
-                                </Button>
-                            </Item>
-                        </Stack>
-                    </Item>
+            <Stack direction={'row'} spacing={1}>
+                <Avatar src={src} />
+                <Stack direction={'column'} spacing={1}>
+                    <Typography>{name}</Typography>
+                    <Button variant={'outlined'} disabled>
+                        <Localized translationKey={'calendar.cards.winners.button_remove'} />
+                    </Button>
                 </Stack>
-            </Item>
+            </Stack>
         </Stack>
     );
 };
@@ -68,20 +44,11 @@ export const WinnerCard = (props: Props) => {
         <>
             <Card variant="outlined">
                 <CardContent>
-                    <Stack direction={'column'}>
-                        <Item>
-                            <Stack direction={'row'}>
-                                <Item>
-                                    <Typography>
-                                        <Localized translationKey={'calendar.cards.winners.headline'} />
-                                    </Typography>
-                                </Item>
-                                <Item>
-                                    <Typography>{props.winningDate}</Typography>
-                                </Item>
-                            </Stack>
-                        </Item>
-                        <Item>{getWinningEntries()}</Item>
+                    <Stack direction={'column'} spacing={1}>
+                        <Typography component={'h1'}>
+                            <Localized translationKey={'calendar.cards.winners.headline'} placeholder={props.winningDate} />
+                        </Typography>
+                        {getWinningEntries()}
                     </Stack>
                 </CardContent>
             </Card>
