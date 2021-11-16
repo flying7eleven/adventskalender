@@ -1,9 +1,6 @@
 const determineApiUrl = () => {
     if (window.location && process.env.NODE_ENV === 'production') {
-        const locationValue = `${window.location}`;
-        if (locationValue.slice(-1) === '/') {
-            return `${locationValue}api`;
-        }
+        const locationValue = `${window.location.protocol}//${window.location.host}`;
         return `${locationValue}/api`;
     }
     return 'http://localhost:5479';
