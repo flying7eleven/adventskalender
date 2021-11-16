@@ -36,7 +36,7 @@ services:
     ports:
       - "5479:5479" # just needs to be exported for debugging purposes
     healthcheck:
-      test: [ "CMD-SHELL", "curl --fail http://127.0.0.1:5479/health" ]
+      test: [ "CMD-SHELL", "curl --user-agent docker-health-check/1.0 --fail http://127.0.0.1:5479/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,7 +51,7 @@ services:
     ports:
       - "5615:80"
     healthcheck:
-      test: [ "CMD-SHELL", "curl --fail http://127.0.0.1" ]
+      test: [ "CMD-SHELL", "curl --user-agent docker-health-check/1.0 --fail http://127.0.0.1" ]
       interval: 10s
       timeout: 5s
       retries: 5
