@@ -10,7 +10,7 @@ const PersonItem = ({ name }: { name: string }) => {
     const getShortenedName = (inputName: string) => {
         const splittedName = inputName.split(' ');
         if (splittedName.length > 2) {
-            return `${splittedName[0]} ${splittedName[splittedName.length - 1]}`;
+            return `${splittedName[0]} ${splittedName[1][0]}. ${splittedName[splittedName.length - 1]}`;
         }
         return inputName;
     };
