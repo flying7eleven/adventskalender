@@ -7,10 +7,18 @@ interface Props {
 }
 
 const PersonItem = ({ name }: { name: string }) => {
+    const getShortenedName = (inputName: string) => {
+        const splittedName = inputName.split(' ');
+        if (splittedName.length > 2) {
+            return `${splittedName[0]} ${splittedName[splittedName.length - 1]}`;
+        }
+        return inputName;
+    };
+
     return (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
             <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                {name}
+                {getShortenedName(name)}
             </Typography>
             <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} disabled>
                 <Localized translationKey={'calendar.cards.winners.button_remove'} />
