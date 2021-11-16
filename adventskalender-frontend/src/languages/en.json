@@ -23,7 +23,7 @@
     "calendar": {
         "cards": {
             "winners": {
-                "headline": "Winners for %PLACEHOLDER%",
+                "headline": "Winners for",
                 "button_remove": "Remove winner"
             }
         }
