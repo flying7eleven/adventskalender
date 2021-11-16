@@ -14,9 +14,6 @@ RUN npm run build
 # configure the acutal container for running the backend
 FROM nginx:latest
 
-# ensure we have a .well-kown directory for file mounting of security.txt and others
-RUN mkdir -p /usr/share/nginx/html/.well-known
-
 # modify the configuration for the server to be able to be used with React and React Router DOM
 COPY docker/default.conf /etc/nginx/conf.d/default.conf
 
