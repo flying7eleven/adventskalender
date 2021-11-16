@@ -82,5 +82,9 @@ export const Calendar = () => {
         return elements;
     };
 
-    return <>{getWinnerCardsForAllDays()}</>;
+    return (
+        <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
+            {getWinnerCardsForAllDays()}
+        </Grid>
+    );
 };

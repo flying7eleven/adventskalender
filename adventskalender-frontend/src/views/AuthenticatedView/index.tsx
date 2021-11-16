@@ -1,10 +1,10 @@
 import { useState, useContext, ReactElement } from 'react';
 import { TopControlBar } from '../../components/TopControlBar';
-import Grid from '@mui/material/Grid';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { LocalizationContext } from '../../components/LocalizationProvider';
 import { SideDrawer } from '../../components/SideDrawer';
+import { Stack } from '@mui/material';
 
 interface Props {
     content: ReactElement;
@@ -29,19 +29,15 @@ export const AuthenticatedView = (props: Props) => {
     };
 
     return (
-        <>
+        <Stack spacing={2}>
             <SideDrawer open={navigationDrawerOpen} toggleDrawerOpen={toggleDrawerEventClickHandler} />
-            <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
-                <Grid item xs={12}>
-                    <TopControlBar
-                        title={localizationContext.translate('dashboard.navigation.app_title')}
-                        actionTitle={localizationContext.translate('dashboard.navigation.logout_button')}
-                        actionHandler={logoutUser}
-                        burgerHandle={toggleDrawer}
-                    />
-                </Grid>
-                {props.content}
-            </Grid>
-        </>
+            <TopControlBar
+                title={localizationContext.translate('dashboard.navigation.app_title')}
+                actionTitle={localizationContext.translate('dashboard.navigation.logout_button')}
+                actionHandler={logoutUser}
+                burgerHandle={toggleDrawer}
+            />
+            {props.content}
+        </Stack>
     );
 };
