@@ -1,5 +1,6 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
 use crate::guards::AuthenticatedUser;
+use crate::models::User;
 use chrono::NaiveDate;
 use rocket::http::Status;
 use rocket::serde::json::Json;
@@ -353,6 +354,33 @@ pub struct PickingInformation {
     picked_for_date: NaiveDate,
 }
 
+async fn lookup_user_by_name(
+    db_connection: &AdventskalenderDatabaseConnection,
+    supplied_username: String,
+) -> Result<User, ()> {
+    use crate::schema::users::dsl::{username, users};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::error;
+
+    return db_connection
+        .run(move |connection| {
+            if let Ok(found_user) = users
+                .filter(username.eq(supplied_username.clone()))
+                .first::<User>(connection)
+            {
+                return Ok(found_user);
+            }
+
+            // it seems that the user could not be looked up
+            error!(
+                "Could not look up the user object for the user '{}'",
+                supplied_username
+            );
+            return Err(());
+        })
+        .await;
+}
+
 pub async fn mark_participant_as_won(
     db_connection: AdventskalenderDatabaseConnection,
     participant_ids: Vec<i32>,
@@ -365,33 +393,39 @@ pub async fn mark_participant_as_won(
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
-    return db_connection
-        .run(move |connection| {
-            // create the struct with the update information for the picked user
-            let participant_info = ParticipantPicking {
-                won_on: Some(picked_for_date),
-                picking_time: Some(Utc::now().naive_utc()),
-                picked_by: Some(user_who_picked.clone()),
-            };
+    // look up the user object who initiated the call
+    if let Ok(user_obj) = lookup_user_by_name(&db_connection, user_who_picked.clone()).await {
+        return db_connection
+            .run(move |connection| {
+                // create the struct with the update information for the picked user
+                let participant_info = ParticipantPicking {
+                    won_on: Some(picked_for_date),
+                    picking_time: Some(Utc::now().naive_utc()),
+                    picked_by: Some(user_obj.id),
+                };
 
-            // do the actual update of the database
-            if let Ok(rows_updated) = update(participants.filter(id.eq_any(participant_ids.clone())))
-                .set(&participant_info)
-                .execute(connection)
-            {
-                // ensure that all rows were successfully updated. If not, we have to assume an error and log it before exit here
-                if rows_updated != participant_ids.len() {
-                    error!("There should be {} row updates but {} rows were actually updated. The following IDs should not be marked as won: {:?}", participant_ids.len(), rows_updated, participant_ids);
-                    return Err(());
+                // do the actual update of the database
+                if let Ok(rows_updated) = update(participants.filter(id.eq_any(participant_ids.clone())))
+                    .set(&participant_info)
+                    .execute(connection)
+                {
+                    // ensure that all rows were successfully updated. If not, we have to assume an error and log it before exit here
+                    if rows_updated != participant_ids.len() {
+                        error!("There should be {} row updates but {} rows were actually updated. The following IDs should not be marked as won: {:?}", participant_ids.len(), rows_updated, participant_ids);
+                        return Err(());
+                    }
+
+                    debug!("The user {} marked the users with the ids {:?} as 'won on {}'", user_who_picked, participant_ids, picked_for_date);
+                    return Ok(());
                 }
+                error!("The user {} tried to mark the users with the ids {:?} as 'won on {}' but we failed to do so", user_who_picked, participant_ids, picked_for_date);
+                return Err(());
+            })
+            .await;
+    }
 
-                debug!("The user {} marked the users with the ids {:?} as 'won on {}'", user_who_picked, participant_ids, picked_for_date);
-                return Ok(());
-            }
-            error!("The user {} tried to mark the users with the ids {:?} as 'won on {}' but we failed to do so", user_who_picked, participant_ids, picked_for_date);
-            return Err(());
-        })
-        .await;
+    // it seems that we could not look up the user who initiated the call
+    Err(())
 }
 
 #[post("/participants/won", data = "<picking_information>")]
@@ -436,7 +470,6 @@ pub async fn get_login_token(
     config: &State<BackendConfiguration>,
 ) -> Result<Json<TokenResponse>, Status> {
     use crate::get_token_for_user;
-    use crate::models::User;
     use crate::schema::users::dsl::{username, users};
     use bcrypt::verify;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};

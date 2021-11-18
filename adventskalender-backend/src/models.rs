@@ -7,7 +7,7 @@ pub struct Participant {
     pub first_name: String,
     pub last_name: String,
     pub won_on: Option<NaiveDate>,
-    pub picked_by: Option<String>,
+    pub picked_by: Option<i32>,
     pub picking_time: Option<NaiveDateTime>,
 }
 
@@ -15,7 +15,7 @@ pub struct Participant {
 #[table_name = "participants"]
 pub struct ParticipantPicking {
     pub won_on: Option<NaiveDate>,
-    pub picked_by: Option<String>,
+    pub picked_by: Option<i32>,
     pub picking_time: Option<NaiveDateTime>,
 }
 
