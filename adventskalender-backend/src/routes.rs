@@ -317,7 +317,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         // return them
         let won_participant_ids: Vec<i32> = result.iter().map(|p| p.id).collect();
         if mark_participant_as_won(
-            db_connection,
+            &db_connection,
             won_participant_ids.clone(),
             maybe_date.unwrap(),
             authenticated_user.username.clone(),
@@ -330,6 +330,18 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         }
 
         // log the picked winners and return them
+        for current_participant_id in won_participant_ids.clone() {
+            log_action(
+                &db_connection,
+                authenticated_user.username.clone(),
+                Action::PickedWinner,
+                Some(format!(
+                    "The participant with the id {} was marked as won",
+                    current_participant_id
+                )),
+            )
+            .await;
+        }
         debug!(
             "The user {} picked the participants with the ids {:?} as new winners",
             authenticated_user.username, won_participant_ids
@@ -352,6 +364,73 @@ pub struct PickingInformation {
     participant_id: i32,
     /// The date for which the winner was picked
     picked_for_date: NaiveDate,
+}
+
+enum Action {
+    /// A successful login request was performed
+    SuccessfulLogin,
+    /// A failed login request was performed
+    FailedLogin,
+    /// The user selected a new winner
+    PickedWinner,
+}
+
+impl ToString for Action {
+    fn to_string(&self) -> String {
+        match *self {
+            Action::SuccessfulLogin => "successful_login".to_string(),
+            Action::FailedLogin => "failed_login".to_string(),
+            Action::PickedWinner => "picked_winner".to_string(),
+        }
+    }
+}
+
+async fn log_action(
+    db_connection: &AdventskalenderDatabaseConnection,
+    username_performing_action: String,
+    executed_action: Action,
+    possible_description: Option<String>,
+) {
+    use crate::models::NewPerformedAction;
+    use crate::schema::performed_actions::dsl::performed_actions;
+    use diesel::insert_into;
+    use diesel::RunQueryDsl;
+
+    use chrono::Utc;
+    use log::error;
+
+    //
+    let maybe_user =
+        lookup_user_by_name(db_connection, username_performing_action.to_string()).await;
+
+    //
+    db_connection
+        .run(move |connection| {
+            // ensure we have an user id wrapped in an option (a failed login request may not have a valid user name)
+            let user_id = if maybe_user.is_err() {
+                None
+            } else {
+                Some(maybe_user.unwrap().id)
+            };
+
+            // create the object we want to store in the database
+            let new_logging_entry = NewPerformedAction {
+                action: executed_action.to_string(),
+                time_of_action: Utc::now().naive_utc(),
+                description: possible_description,
+                user_id,
+            };
+
+            // now we can actually insert the item
+            if insert_into(performed_actions)
+                .values(&new_logging_entry)
+                .execute(connection)
+                .is_err()
+            {
+                error!("Failed to store a new action history log entry due to a database error")
+            };
+        })
+        .await;
 }
 
 async fn lookup_user_by_name(
@@ -382,7 +461,7 @@ async fn lookup_user_by_name(
 }
 
 pub async fn mark_participant_as_won(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection: &AdventskalenderDatabaseConnection,
     participant_ids: Vec<i32>,
     picked_for_date: NaiveDate,
     user_who_picked: String,
@@ -435,14 +514,24 @@ pub async fn mark_participant_as_won_route(
     authenticated_user: AuthenticatedUser,
 ) -> Status {
     if mark_participant_as_won(
-        db_connection,
+        &db_connection,
         vec![picking_information.participant_id],
         picking_information.picked_for_date,
-        authenticated_user.username,
+        authenticated_user.username.clone(),
     )
     .await
     .is_ok()
     {
+        log_action(
+            &db_connection,
+            authenticated_user.username,
+            Action::PickedWinner,
+            Some(format!(
+                "The participant with the id {} was marked as won",
+                picking_information.participant_id
+            )),
+        )
+        .await;
         return Status::NoContent;
     }
     Status::NotFound
@@ -511,6 +600,18 @@ pub async fn get_login_token(
                 "$2y$12$7xMzqvnHyizkumZYpIRXheGMAqDKVo8HKtpmQSn51JUfY0N2VN4ua",
             );
 
+            // log the failed attempt
+            log_action(
+                &db_connection,
+                login_information.username.clone(),
+                Action::FailedLogin,
+                Some(format!(
+                    "Failed login attempt for user name '{}'",
+                    login_information.username.clone()
+                )),
+            )
+            .await;
+
             // finally we can tell teh user that he/she is not authorized
             return Err(Status::Unauthorized);
         }
@@ -521,6 +622,16 @@ pub async fn get_login_token(
     match verify(&login_information.password, user.password_hash.as_str()) {
         Ok(is_password_correct) => {
             if !is_password_correct {
+                log_action(
+                    &db_connection,
+                    login_information.username.clone(),
+                    Action::FailedLogin,
+                    Some(format!(
+                        "Failed login attempt for user name '{}'",
+                        login_information.username.clone()
+                    )),
+                )
+                .await;
                 return Err(Status::Unauthorized);
             }
         }
@@ -535,6 +646,13 @@ pub async fn get_login_token(
     if let Some(token) =
         get_token_for_user(&login_information.username, &config.token_signature_psk)
     {
+        log_action(
+            &db_connection,
+            login_information.username.clone(),
+            Action::SuccessfulLogin,
+            None,
+        )
+        .await;
         return Ok(Json(TokenResponse {
             access_token: token,
         }));

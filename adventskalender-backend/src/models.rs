@@ -26,11 +26,11 @@ pub struct User {
     pub password_hash: String,
 }
 
-#[derive(AsChangeset)]
+#[derive(Insertable)]
 #[table_name = "performed_actions"]
 pub struct NewPerformedAction {
     pub time_of_action: NaiveDateTime,
-    pub user_id: i32,
+    pub user_id: Option<i32>,
     pub action: String,
     pub description: Option<String>,
 }

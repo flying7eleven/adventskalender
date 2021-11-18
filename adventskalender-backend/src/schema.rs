@@ -13,7 +13,7 @@ table! {
     performed_actions (id) {
         id -> Int4,
         time_of_action -> Timestamp,
-        user_id -> Int4,
+        user_id -> Nullable<Int4>,
         action -> Varchar,
         description -> Nullable<Text>,
     }
