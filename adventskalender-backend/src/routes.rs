@@ -539,10 +539,7 @@ pub async fn get_login_token(
                     &db_connection,
                     login_information.username.clone(),
                     Action::FailedLogin,
-                    Some(format!(
-                        "Failed login attempt for user name '{}'",
-                        login_information.username.clone()
-                    )),
+                    None,
                 )
                 .await;
                 return Err(Status::Unauthorized);
