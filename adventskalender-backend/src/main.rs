@@ -1,3 +1,4 @@
+use adventskalender_backend::{log_action, Action};
 use diesel::PgConnection;
 use log::LevelFilter;
 
@@ -183,6 +184,18 @@ async fn main() {
     unset_environment_variable("ADVENTSKALENDER_LOGGING_LEVEL");
     unset_environment_variable("ADVENTSKALENDER_DB_CONNECTION");
     unset_environment_variable("ADVENTSKALENDER_TOKEN_SIGNATURE_PSK");
+
+    // log the startup of the backend service
+    log_action(
+        &database_connection,
+        None,
+        Action::ServerStartup,
+        Some(format!(
+            "Service with the version {} (build with rustc {}) started",
+            env!("VERGEN_GIT_SEMVER"),
+            env!("VERGEN_RUSTC_SEMVER")
+        )),
+    );
 
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");
