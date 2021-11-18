@@ -80,7 +80,7 @@ pub async fn log_action_rocket(
         .run(move |connection| {
             log_action(
                 &connection,
-                username_performing_action,
+                Some(username_performing_action),
                 executed_action,
                 possible_description,
             );
@@ -90,7 +90,7 @@ pub async fn log_action_rocket(
 
 pub fn log_action(
     db_connection: &PgConnection,
-    username_performing_action: String,
+    username_performing_action: Option<String>,
     executed_action: Action,
     possible_description: Option<String>,
 ) {
@@ -101,8 +101,12 @@ pub fn log_action(
     use diesel::RunQueryDsl;
     use log::error;
 
-    //
-    let maybe_user = lookup_user_by_name(&db_connection, username_performing_action.to_string());
+    // if no username was supplied, we do not have to handle any user name lookup
+    let maybe_user = if username_performing_action.is_some() {
+        lookup_user_by_name(&db_connection, username_performing_action.unwrap())
+    } else {
+        Err(())
+    };
 
     // ensure we have an user id wrapped in an option (a failed login request may not have a valid user name)
     let user_id = if maybe_user.is_err() {
