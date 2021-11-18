@@ -127,8 +127,11 @@ async fn main() {
 
     // just wait for 10 seconds until we continue. This is just an ugly fix that we have to wait until the database server
     // has spun up
-    info!("Waiting for 10 seconds to ensure that the database had enough time to spin up...");
-    std::thread::sleep(std::time::Duration::from_secs(10));
+    #[cfg(not(debug_assertions))]
+    {
+        info!("Waiting for 10 seconds to ensure that the database had enough time to spin up...");
+        std::thread::sleep(std::time::Duration::from_secs(10));
+    }
 
     // try to get a connection to the database server
     let maybe_database_connection = PgConnection::establish(&database_connection_url);
