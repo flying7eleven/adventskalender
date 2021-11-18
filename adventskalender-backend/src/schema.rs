@@ -10,6 +10,16 @@ table! {
 }
 
 table! {
+    performed_actions (id) {
+        id -> Int4,
+        time_of_action -> Timestamp,
+        user_id -> Int4,
+        action -> Varchar,
+        description -> Nullable<Text>,
+    }
+}
+
+table! {
     users (id) {
         id -> Int4,
         username -> Varchar,
@@ -17,4 +27,6 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(participants, users,);
+joinable!(performed_actions -> users (user_id));
+
+allow_tables_to_appear_in_same_query!(participants, performed_actions, users,);
