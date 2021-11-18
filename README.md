@@ -15,3 +15,8 @@ number of people are randomly selected for a day as winners.
 
 ## Get an access token for the backend
 Just use `curl --verbose --header "Content-Type: application/json" --request POST --data '{"username":"demouser","password":"demopassword"}'  http://localhost:5479/auth/token` for getting a corresponding token
+
+## Thinks still to do
+- [ ] _Backend_: Ensure that there can not be two parallel requests for picking winners (we have to use mutexes here)
+- [ ] _Backend_: Use the new string formatting literals as soon as rust 1.58 is stable (should be mid-January 2022)
+- [ ] _Frontend_: Have a better looking overview for the calendar view
