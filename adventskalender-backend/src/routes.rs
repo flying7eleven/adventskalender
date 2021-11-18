@@ -1,6 +1,7 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
 use crate::guards::AuthenticatedUser;
 use crate::models::User;
+use crate::Action;
 use chrono::NaiveDate;
 use rocket::http::Status;
 use rocket::serde::json::Json;
@@ -364,25 +365,6 @@ pub struct PickingInformation {
     participant_id: i32,
     /// The date for which the winner was picked
     picked_for_date: NaiveDate,
-}
-
-enum Action {
-    /// A successful login request was performed
-    SuccessfulLogin,
-    /// A failed login request was performed
-    FailedLogin,
-    /// The user selected a new winner
-    PickedWinner,
-}
-
-impl ToString for Action {
-    fn to_string(&self) -> String {
-        match *self {
-            Action::SuccessfulLogin => "successful_login".to_string(),
-            Action::FailedLogin => "failed_login".to_string(),
-            Action::PickedWinner => "picked_winner".to_string(),
-        }
-    }
 }
 
 async fn log_action(

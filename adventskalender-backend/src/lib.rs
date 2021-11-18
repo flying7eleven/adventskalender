@@ -25,6 +25,25 @@ struct Claims {
     sub: String,
 }
 
+pub enum Action {
+    /// A successful login request was performed
+    SuccessfulLogin,
+    /// A failed login request was performed
+    FailedLogin,
+    /// The user selected a new winner
+    PickedWinner,
+}
+
+impl ToString for Action {
+    fn to_string(&self) -> String {
+        match *self {
+            Action::SuccessfulLogin => "successful_login".to_string(),
+            Action::FailedLogin => "failed_login".to_string(),
+            Action::PickedWinner => "picked_winner".to_string(),
+        }
+    }
+}
+
 pub fn get_token_for_user(subject: &String, signature_psk: &String) -> Option<String> {
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
     use log::error;
