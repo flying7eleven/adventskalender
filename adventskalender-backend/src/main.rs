@@ -1,6 +1,7 @@
 use adventskalender_backend::{log_action, Action};
 use diesel::PgConnection;
 use log::LevelFilter;
+use rocket::config::{Shutdown, Sig};
 
 #[macro_use]
 extern crate diesel_migrations;
@@ -156,13 +157,28 @@ async fn main() {
     };
 
     // rocket configuration figment
-    let database_figment = RocketConfig::figment()
+    let rocket_configuration_figment = RocketConfig::figment()
         .merge((
             "databases",
             map!["adventskalender" => adventskalender_database_config],
         ))
         .merge(("port", 5479))
-        .merge(("address", std::net::Ipv4Addr::new(0, 0, 0, 0)));
+        .merge(("address", std::net::Ipv4Addr::new(0, 0, 0, 0)))
+        .merge((
+            "shutdown",
+            Shutdown {
+                ctrlc: true,
+                signals: {
+                    let mut set = std::collections::HashSet::new();
+                    set.insert(Sig::Term);
+                    set
+                },
+                grace: 2,
+                mercy: 3,
+                force: true,
+                __non_exhaustive: (),
+            },
+        ));
 
     // prepare the fairing for the CORS headers
     let allowed_origins = AllowedOrigins::All;
@@ -199,7 +215,7 @@ async fn main() {
 
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");
-    let _ = rocket::custom(database_figment)
+    let _ = rocket::custom(rocket_configuration_figment)
         .attach(AdventskalenderDatabaseConnection::fairing())
         .attach(cors_header)
         .manage(backend_config)
@@ -219,4 +235,7 @@ async fn main() {
         )
         .launch()
         .await;
+
+    // log the shutdown of the backend service
+    log_action(&database_connection, None, Action::ServerShutdown, None);
 }
