@@ -292,6 +292,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
     count: usize,
     date: &str,
 ) -> Result<Json<Vec<Participant>>, Status> {
+    use crate::log_action_rocket;
     use log::{debug, error};
     use std::str::FromStr;
 
@@ -332,7 +333,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
 
         // log the picked winners and return them
         for current_participant_id in won_participant_ids.clone() {
-            log_action(
+            log_action_rocket(
                 &db_connection,
                 authenticated_user.username.clone(),
                 Action::PickedWinner,
@@ -367,126 +368,53 @@ pub struct PickingInformation {
     picked_for_date: NaiveDate,
 }
 
-async fn log_action(
-    db_connection: &AdventskalenderDatabaseConnection,
-    username_performing_action: String,
-    executed_action: Action,
-    possible_description: Option<String>,
-) {
-    use crate::models::NewPerformedAction;
-    use crate::schema::performed_actions::dsl::performed_actions;
-    use diesel::insert_into;
-    use diesel::RunQueryDsl;
-
-    use chrono::Utc;
-    use log::error;
-
-    //
-    let maybe_user =
-        lookup_user_by_name(db_connection, username_performing_action.to_string()).await;
-
-    //
-    db_connection
-        .run(move |connection| {
-            // ensure we have an user id wrapped in an option (a failed login request may not have a valid user name)
-            let user_id = if maybe_user.is_err() {
-                None
-            } else {
-                Some(maybe_user.unwrap().id)
-            };
-
-            // create the object we want to store in the database
-            let new_logging_entry = NewPerformedAction {
-                action: executed_action.to_string(),
-                time_of_action: Utc::now().naive_utc(),
-                description: possible_description,
-                user_id,
-            };
-
-            // now we can actually insert the item
-            if insert_into(performed_actions)
-                .values(&new_logging_entry)
-                .execute(connection)
-                .is_err()
-            {
-                error!("Failed to store a new action history log entry due to a database error")
-            };
-        })
-        .await;
-}
-
-async fn lookup_user_by_name(
-    db_connection: &AdventskalenderDatabaseConnection,
-    supplied_username: String,
-) -> Result<User, ()> {
-    use crate::schema::users::dsl::{username, users};
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-    use log::error;
-
-    return db_connection
-        .run(move |connection| {
-            if let Ok(found_user) = users
-                .filter(username.eq(supplied_username.clone()))
-                .first::<User>(connection)
-            {
-                return Ok(found_user);
-            }
-
-            // it seems that the user could not be looked up
-            error!(
-                "Could not look up the user object for the user '{}'",
-                supplied_username
-            );
-            return Err(());
-        })
-        .await;
-}
-
 pub async fn mark_participant_as_won(
     db_connection: &AdventskalenderDatabaseConnection,
     participant_ids: Vec<i32>,
     picked_for_date: NaiveDate,
     user_who_picked: String,
 ) -> Result<(), ()> {
+    use crate::lookup_user_by_name;
     use crate::models::ParticipantPicking;
     use crate::schema::participants::dsl::{id, participants};
     use chrono::Utc;
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
-    // look up the user object who initiated the call
-    if let Ok(user_obj) = lookup_user_by_name(&db_connection, user_who_picked.clone()).await {
-        return db_connection
+    return db_connection
             .run(move |connection| {
-                // create the struct with the update information for the picked user
-                let participant_info = ParticipantPicking {
-                    won_on: Some(picked_for_date),
-                    picking_time: Some(Utc::now().naive_utc()),
-                    picked_by: Some(user_obj.id),
-                };
+                // look up the user object who initiated the call
+                if let Ok(user_obj) = lookup_user_by_name(&connection, user_who_picked.clone()) {
 
-                // do the actual update of the database
-                if let Ok(rows_updated) = update(participants.filter(id.eq_any(participant_ids.clone())))
-                    .set(&participant_info)
-                    .execute(connection)
-                {
-                    // ensure that all rows were successfully updated. If not, we have to assume an error and log it before exit here
-                    if rows_updated != participant_ids.len() {
-                        error!("There should be {} row updates but {} rows were actually updated. The following IDs should not be marked as won: {:?}", participant_ids.len(), rows_updated, participant_ids);
-                        return Err(());
+                    // create the struct with the update information for the picked user
+                    let participant_info = ParticipantPicking {
+                        won_on: Some(picked_for_date),
+                        picking_time: Some(Utc::now().naive_utc()),
+                        picked_by: Some(user_obj.id),
+                    };
+
+                    // do the actual update of the database
+                    if let Ok(rows_updated) = update(participants.filter(id.eq_any(participant_ids.clone())))
+                        .set(&participant_info)
+                        .execute(connection)
+                    {
+                        // ensure that all rows were successfully updated. If not, we have to assume an error and log it before exit here
+                        if rows_updated != participant_ids.len() {
+                            error!("There should be {} row updates but {} rows were actually updated. The following IDs should not be marked as won: {:?}", participant_ids.len(), rows_updated, participant_ids);
+                            return Err(());
+                        }
+
+                        debug!("The user {} marked the users with the ids {:?} as 'won on {}'", user_who_picked, participant_ids, picked_for_date);
+                        return Ok(());
                     }
-
-                    debug!("The user {} marked the users with the ids {:?} as 'won on {}'", user_who_picked, participant_ids, picked_for_date);
-                    return Ok(());
+                    error!("The user {} tried to mark the users with the ids {:?} as 'won on {}' but we failed to do so", user_who_picked, participant_ids, picked_for_date);
+                    return Err(());
                 }
-                error!("The user {} tried to mark the users with the ids {:?} as 'won on {}' but we failed to do so", user_who_picked, participant_ids, picked_for_date);
-                return Err(());
+
+                // it seems that we could not look up the user who initiated the call
+                Err(())
             })
             .await;
-    }
-
-    // it seems that we could not look up the user who initiated the call
-    Err(())
 }
 
 #[post("/participants/won", data = "<picking_information>")]
@@ -495,6 +423,8 @@ pub async fn mark_participant_as_won_route(
     picking_information: Json<PickingInformation>,
     authenticated_user: AuthenticatedUser,
 ) -> Status {
+    use crate::log_action_rocket;
+
     if mark_participant_as_won(
         &db_connection,
         vec![picking_information.participant_id],
@@ -504,7 +434,7 @@ pub async fn mark_participant_as_won_route(
     .await
     .is_ok()
     {
-        log_action(
+        log_action_rocket(
             &db_connection,
             authenticated_user.username,
             Action::PickedWinner,
@@ -541,6 +471,7 @@ pub async fn get_login_token(
     config: &State<BackendConfiguration>,
 ) -> Result<Json<TokenResponse>, Status> {
     use crate::get_token_for_user;
+    use crate::log_action_rocket;
     use crate::schema::users::dsl::{username, users};
     use bcrypt::verify;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
@@ -583,7 +514,7 @@ pub async fn get_login_token(
             );
 
             // log the failed attempt
-            log_action(
+            log_action_rocket(
                 &db_connection,
                 login_information.username.clone(),
                 Action::FailedLogin,
@@ -604,7 +535,7 @@ pub async fn get_login_token(
     match verify(&login_information.password, user.password_hash.as_str()) {
         Ok(is_password_correct) => {
             if !is_password_correct {
-                log_action(
+                log_action_rocket(
                     &db_connection,
                     login_information.username.clone(),
                     Action::FailedLogin,
@@ -628,7 +559,7 @@ pub async fn get_login_token(
     if let Some(token) =
         get_token_for_user(&login_information.username, &config.token_signature_psk)
     {
-        log_action(
+        log_action_rocket(
             &db_connection,
             login_information.username.clone(),
             Action::SuccessfulLogin,

@@ -3,6 +3,9 @@ extern crate diesel;
 #[macro_use]
 extern crate diesel_migrations;
 
+use crate::fairings::AdventskalenderDatabaseConnection;
+use crate::models::User;
+use diesel::PgConnection;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +45,88 @@ impl ToString for Action {
             Action::PickedWinner => "picked_winner".to_string(),
         }
     }
+}
+
+pub fn lookup_user_by_name(
+    db_connection: &PgConnection,
+    supplied_username: String,
+) -> Result<User, ()> {
+    use crate::schema::users::dsl::{username, users};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::error;
+
+    if let Ok(found_user) = users
+        .filter(username.eq(supplied_username.clone()))
+        .first::<User>(db_connection)
+    {
+        return Ok(found_user);
+    }
+
+    // it seems that the user could not be looked up
+    error!(
+        "Could not look up the user object for the user '{}'",
+        supplied_username
+    );
+    return Err(());
+}
+
+pub async fn log_action_rocket(
+    db_connection: &AdventskalenderDatabaseConnection,
+    username_performing_action: String,
+    executed_action: Action,
+    possible_description: Option<String>,
+) {
+    return db_connection
+        .run(move |connection| {
+            log_action(
+                &connection,
+                username_performing_action,
+                executed_action,
+                possible_description,
+            );
+        })
+        .await;
+}
+
+pub fn log_action(
+    db_connection: &PgConnection,
+    username_performing_action: String,
+    executed_action: Action,
+    possible_description: Option<String>,
+) {
+    use crate::models::NewPerformedAction;
+    use crate::schema::performed_actions::dsl::performed_actions;
+    use chrono::Utc;
+    use diesel::insert_into;
+    use diesel::RunQueryDsl;
+    use log::error;
+
+    //
+    let maybe_user = lookup_user_by_name(&db_connection, username_performing_action.to_string());
+
+    // ensure we have an user id wrapped in an option (a failed login request may not have a valid user name)
+    let user_id = if maybe_user.is_err() {
+        None
+    } else {
+        Some(maybe_user.unwrap().id)
+    };
+
+    // create the object we want to store in the database
+    let new_logging_entry = NewPerformedAction {
+        action: executed_action.to_string(),
+        time_of_action: Utc::now().naive_utc(),
+        description: possible_description,
+        user_id,
+    };
+
+    // now we can actually insert the item
+    if insert_into(performed_actions)
+        .values(&new_logging_entry)
+        .execute(db_connection)
+        .is_err()
+    {
+        error!("Failed to store a new action history log entry due to a database error")
+    };
 }
 
 pub fn get_token_for_user(subject: &String, signature_psk: &String) -> Option<String> {
