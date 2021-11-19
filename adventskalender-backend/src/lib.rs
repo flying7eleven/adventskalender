@@ -38,9 +38,9 @@ pub enum Action {
     /// The user removed a new winner
     RemovedWinner,
     /// The server indicated that the server started
-    ServerStartup,
+    ServerStarted,
     /// The server indicated that it shuts down
-    ServerShutdown,
+    ServerTerminated,
 }
 
 impl ToString for Action {
@@ -50,8 +50,8 @@ impl ToString for Action {
             Action::FailedLogin => "failed_login".to_string(),
             Action::PickedWinner => "picked_winner".to_string(),
             Action::RemovedWinner => "removed_winner".to_string(),
-            Action::ServerStartup => "server_startup".to_string(),
-            Action::ServerShutdown => "server_shutdown".to_string(),
+            Action::ServerStarted => "server_started".to_string(),
+            Action::ServerTerminated => "server_terminated".to_string(),
         }
     }
 }

@@ -203,7 +203,7 @@ async fn main() {
     log_action(
         &database_connection,
         None,
-        Action::ServerStartup,
+        Action::ServerStarted,
         Some(format!(
             "Service with the version {} (build with rustc {}) started",
             env!("VERGEN_GIT_SEMVER"),
@@ -233,5 +233,5 @@ async fn main() {
         .await;
 
     // log the shutdown of the backend service
-    log_action(&database_connection, None, Action::ServerShutdown, None);
+    log_action(&database_connection, None, Action::ServerTerminated, None);
 }
