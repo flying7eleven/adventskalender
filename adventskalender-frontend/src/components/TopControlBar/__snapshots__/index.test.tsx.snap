@@ -2,7 +2,7 @@
 
 exports[`TopControlBar component Matches the snapshot 1`] = `
 <div
-  className="MuiBox-root css-i9gxme"
+  className="MuiBox-root css-md7kxh"
 >
   <header
     className="MuiPaper-root MuiPaper-elevation MuiPaper-elevation4 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionStatic css-hip9hq-MuiPaper-root-MuiAppBar-root"
