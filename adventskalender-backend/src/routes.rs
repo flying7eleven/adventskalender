@@ -139,41 +139,6 @@ pub async fn get_won_participants_on_day(
         .await;
 }
 
-#[get("/participants/won/<date_as_str>")]
-pub async fn get_won_participants_on_day_route(
-    db_connection: AdventskalenderDatabaseConnection,
-    _authenticated_user: AuthenticatedUser,
-    date_as_str: &str,
-) -> Result<Json<Vec<Participant>>, Status> {
-    use log::{debug, error};
-    use std::str::FromStr;
-
-    // if we cannot parse the input date, we received a bad parameter and we have to react to it
-    let maybe_date = NaiveDate::from_str(date_as_str);
-    if maybe_date.is_err() {
-        return Err(Status::BadRequest);
-    }
-
-    // try to fetch the information, if this fails, return an error
-    let maybe_result = get_won_participants_on_day(db_connection, maybe_date.unwrap()).await;
-    if maybe_result.is_err() {
-        error!(
-            "Could not query the won participants for the {}",
-            date_as_str
-        );
-        return Err(Status::InternalServerError);
-    }
-
-    // if we reach this step, we can return the participants who won
-    let won_participants = maybe_result.unwrap();
-    debug!(
-        "Returning {} participants who won on {}",
-        won_participants.len(),
-        date_as_str
-    );
-    Ok(Json(won_participants))
-}
-
 #[get("/participants/won")]
 pub async fn get_all_won_participants(
     db_connection: AdventskalenderDatabaseConnection,
@@ -245,44 +210,6 @@ pub async fn pick_random_participants_from_database(
             return None;
         })
         .await;
-}
-
-#[get("/participants/pick")]
-pub async fn pick_a_random_participant_from_raffle_list(
-    db_connection: AdventskalenderDatabaseConnection,
-    authenticated_user: AuthenticatedUser,
-) -> Result<Json<Participant>, Status> {
-    use log::{debug, error};
-
-    // try to get one random pick from the database (it is not marked as won after this call)
-    let maybe_result = pick_random_participants_from_database(&db_connection, 1).await;
-
-    // if we could fetch a result from the database, return the requested information
-    if maybe_result.is_some() {
-        let result = maybe_result.unwrap();
-
-        // ensure that we got exactly one result for this call. Otherwise something went wrong
-        if result.len() != 1 {
-            error!("Got {} participants who won from the database but we expected to receive exactly 1", result.len());
-            return Err(Status::InternalServerError);
-        }
-
-        // log that we picked a winner and return it
-        let participant_who_won = result.get(0).unwrap();
-        debug!(
-            "The user {} picked the participant with the id {} as a new winner",
-            authenticated_user.username, participant_who_won.id
-        );
-        return Ok(Json(participant_who_won.clone()));
-    }
-
-    // if we could not get a result, it seems that all participants where picked at some point. Return
-    // NOT FOUND to indicate that
-    error!(
-        "The user {} tried to pick a new winner but we could not find one",
-        authenticated_user.username
-    );
-    Err(Status::NotFound)
 }
 
 #[get("/participants/pick/<count>/for/<date>")]
@@ -415,38 +342,6 @@ pub async fn mark_participant_as_won(
                 Err(())
             })
             .await;
-}
-
-#[post("/participants/won", data = "<picking_information>")]
-pub async fn mark_participant_as_won_route(
-    db_connection: AdventskalenderDatabaseConnection,
-    picking_information: Json<PickingInformation>,
-    authenticated_user: AuthenticatedUser,
-) -> Status {
-    use crate::log_action_rocket;
-
-    if mark_participant_as_won(
-        &db_connection,
-        vec![picking_information.participant_id],
-        picking_information.picked_for_date,
-        authenticated_user.username.clone(),
-    )
-    .await
-    .is_ok()
-    {
-        log_action_rocket(
-            &db_connection,
-            authenticated_user.username,
-            Action::PickedWinner,
-            Some(format!(
-                "The participant with the id {} was marked as won",
-                picking_information.participant_id
-            )),
-        )
-        .await;
-        return Status::NoContent;
-    }
-    Status::NotFound
 }
 
 #[derive(Serialize, Deserialize)]
