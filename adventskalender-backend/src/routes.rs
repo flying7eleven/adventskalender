@@ -5,7 +5,7 @@ use crate::Action;
 use chrono::NaiveDate;
 use rocket::http::Status;
 use rocket::serde::json::Json;
-use rocket::{get, post, State};
+use rocket::{delete, get, post, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -137,6 +137,37 @@ pub async fn get_won_participants_on_day(
             return Err(());
         })
         .await;
+}
+
+#[delete("/participants/won/<participant_id>")]
+pub async fn remove_participant_from_winner_list(
+    db_connection: AdventskalenderDatabaseConnection,
+    participant_id: i32,
+    authenticated_user: AuthenticatedUser,
+) -> Status {
+    use crate::log_action_rocket;
+
+    if mark_participant_as_not_won(
+        &db_connection,
+        participant_id,
+        authenticated_user.username.clone(),
+    )
+    .await
+    .is_ok()
+    {
+        log_action_rocket(
+            &db_connection,
+            authenticated_user.username,
+            Action::RemovedWinner,
+            Some(format!(
+                "The participant with the id {} was marked removed from the list of winners",
+                participant_id
+            )),
+        )
+        .await;
+        return Status::NoContent;
+    }
+    Status::NotFound
 }
 
 #[get("/participants/won")]
@@ -342,6 +373,45 @@ pub async fn mark_participant_as_won(
                 Err(())
             })
             .await;
+}
+
+pub async fn mark_participant_as_not_won(
+    db_connection: &AdventskalenderDatabaseConnection,
+    participant_id: i32,
+    user_who_unpicked: String,
+) -> Result<(), ()> {
+    use crate::models::ParticipantPicking;
+    use crate::schema::participants::dsl::{id, participants};
+    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::{debug, error};
+
+    return db_connection
+        .run(move |connection| {
+            // set all fields to none
+            let participant_info = ParticipantPicking {
+                won_on: None,
+                picking_time: None,
+                picked_by: None,
+            };
+
+            // do the actual update of the database
+            if let Ok(rows_updated) = update(participants.filter(id.eq(participant_id)))
+                .set(&participant_info)
+                .execute(connection)
+            {
+                // ensure that the expected row was updated, if we did not exactly update one row, something went wrong
+                if rows_updated != 1 {
+                    error!("There should be 1 row updates but {} rows were actually updated. The following ID should not be marked as NOT won: {:?}", rows_updated, participant_id);
+                    return Err(());
+                }
+
+                debug!("The user {} marked the user with the id {} as NOT won", user_who_unpicked, participant_id);
+                return Ok(());
+            }
+            error!("The user {} tried to mark the user with the id {} as NOT won but we failed to do so", user_who_unpicked, participant_id);
+            return Err(());
+        })
+        .await;
 }
 
 #[derive(Serialize, Deserialize)]
