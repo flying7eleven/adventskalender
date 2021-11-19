@@ -29,7 +29,7 @@ export const AuthenticatedView = (props: Props) => {
     };
 
     return (
-        <Stack spacing={2}>
+        <Stack>
             <SideDrawer open={navigationDrawerOpen} toggleDrawerOpen={toggleDrawerEventClickHandler} />
             <TopControlBar
                 title={localizationContext.translate('dashboard.navigation.app_title')}

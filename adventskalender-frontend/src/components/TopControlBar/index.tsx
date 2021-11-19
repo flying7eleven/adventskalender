@@ -27,7 +27,7 @@ export const TopControlBar = (props: Props) => {
     };
 
     return (
-        <Box sx={{ flexGrow: 1 }}>
+        <Box sx={{ flexGrow: 1, paddingBottom: '32px' }}>
             <AppBar position="static">
                 <Toolbar>
                     <IconButton size="large" edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }} onClick={handleBurgerButtonClick}>
