@@ -13,6 +13,7 @@ pub struct Participant {
 
 #[derive(AsChangeset)]
 #[table_name = "participants"]
+#[changeset_options(treat_none_as_null = "true")]
 pub struct ParticipantPicking {
     pub won_on: Option<NaiveDate>,
     pub picked_by: Option<i32>,
