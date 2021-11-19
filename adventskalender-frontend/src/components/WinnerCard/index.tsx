@@ -1,12 +1,26 @@
 import { Localized } from '../Localized';
-import { Box, Button, Card, CardContent, Divider, Stack, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Stack, Typography } from '@mui/material';
+import { API_BACKEND_URL } from '../../api';
+import { useAuthentication } from '../../hooks/useAuthentication';
+import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 interface Props {
     winningDate: string;
     listOfWinner: SingleWinnerInformation[];
+    updateWinnerList?: () => void;
 }
 
-const PersonItem = ({ name }: { name: string }) => {
+const PersonItem = ({ winner, updateWinnerList }: { winner: SingleWinnerInformation; updateWinnerList?: () => void }) => {
+    const auth = useAuthentication();
+    const navigate = useNavigate();
+    const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+    const [userToDelete, setUserToDelete] = useState<SingleWinnerInformation | undefined>(undefined);
+
+    const logoutUser = () => {
+        auth.signout(() => navigate('/'));
+    };
+
     const getShortenedName = (inputName: string) => {
         const splittedName = inputName.split(' ');
         if (splittedName.length > 2) {
@@ -15,15 +29,94 @@ const PersonItem = ({ name }: { name: string }) => {
         return inputName;
     };
 
+    const handleRemoveParticipant = () => {
+        // if we do not have a access token, skip fetching the infos
+        if (auth.token.accessToken.length === 0) {
+            return;
+        }
+
+        // since we have a token, we can query the backend for the winner count for the selected day
+        fetch(`${API_BACKEND_URL}/participants/won/${userToDelete?.id}`, {
+            method: 'DELETE',
+            headers: {
+                Authorization: `Bearer ${auth.token.accessToken}`,
+                'Content-type': 'application/json; charset=UTF-8',
+            },
+        })
+            .then((res) => {
+                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
+                // object and proceed processing it
+                if (res.status === 204) {
+                    return;
+                }
+
+                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                // the user should automatically be redirected to the login page
+                if (res.status === 401 || res.status === 403) {
+                    logoutUser();
+                    return Promise.reject();
+                }
+
+                // there should never be other status codes which have to be handled, but just in case, we'll handle
+                // them here too
+                // TODO: this
+            })
+            .then(() => {
+                if (updateWinnerList) {
+                    updateWinnerList();
+                }
+                setDialogOpen(false);
+            })
+            .catch(() => {
+                // TODO: handle errors
+            });
+    };
+
+    const handleDeleteClick = (user: SingleWinnerInformation) => {
+        return () => {
+            setUserToDelete(user);
+            setDialogOpen(true);
+        };
+    };
+
+    const handleCloseDialog = () => {
+        setDialogOpen(false);
+    };
+
     return (
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-            <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                {getShortenedName(name)}
-            </Typography>
-            <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} disabled>
-                <Localized translationKey={'calendar.cards.winners.button_remove'} />
-            </Button>
-        </Box>
+        <>
+            <Dialog open={dialogOpen} onClose={handleCloseDialog} aria-labelledby="alert-dialog-remove-participant-title" aria-describedby="alert-dialog-remove-participant-description">
+                <DialogTitle id="alert-dialog-remove-participant-title">
+                    <Localized translationKey={'calendar.dialogs.remove_participant.title'} />
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="alert-dialog-remove-participant-description">
+                        <Stack>
+                            <Localized translationKey={'calendar.dialogs.remove_participant.text'} />
+                            <ul>
+                                <li>{`${userToDelete?.first_name} ${userToDelete?.last_name}`}</li>
+                            </ul>
+                        </Stack>
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleRemoveParticipant}>
+                        <Localized translationKey={'calendar.dialogs.remove_participant.accept_button'} />
+                    </Button>
+                    <Button onClick={handleCloseDialog} autoFocus>
+                        <Localized translationKey={'calendar.dialogs.remove_participant.cancel_button'} />
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
+                    {getShortenedName(`${winner.first_name} ${winner.last_name}`)}
+                </Typography>
+                <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} onClick={handleDeleteClick(winner)}>
+                    <Localized translationKey={'calendar.cards.winners.button_remove'} />
+                </Button>
+            </Box>
+        </>
     );
 };
 
@@ -34,7 +127,8 @@ export const WinnerCard = (props: Props) => {
             elements.push(
                 <PersonItem
                     key={`person-item-${props.listOfWinner[i].first_name.toLowerCase()}-${props.listOfWinner[i].last_name.toLocaleLowerCase()}`}
-                    name={`${props.listOfWinner[i].first_name} ${props.listOfWinner[i].last_name}`}
+                    winner={props.listOfWinner[i]}
+                    updateWinnerList={props.updateWinnerList}
                 />
             );
             if (i !== props.listOfWinner.length - 1) {

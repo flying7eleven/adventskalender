@@ -75,7 +75,7 @@ export const Calendar = () => {
             const winnersForDay = allWinners[sortedKeys[i]];
             elements.push(
                 <Grid item xs={2} key={`winner-card-grid-item-${sortedKeys[i]}`}>
-                    <WinnerCard key={`winner-card-${sortedKeys[i]}`} winningDate={sortedKeys[i]} listOfWinner={winnersForDay} />
+                    <WinnerCard key={`winner-card-${sortedKeys[i]}`} winningDate={sortedKeys[i]} listOfWinner={winnersForDay} updateWinnerList={getWinnersForAllDays} />
                 </Grid>
             );
         }
