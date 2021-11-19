@@ -182,7 +182,7 @@ async fn main() {
     let allowed_origins = AllowedOrigins::All;
     let cors_header = rocket_cors::CorsOptions {
         allowed_origins,
-        allowed_methods: vec![Method::Get, Method::Post]
+        allowed_methods: vec![Method::Get, Method::Post, Method::Delete]
             .into_iter()
             .map(From::from)
             .collect(),
