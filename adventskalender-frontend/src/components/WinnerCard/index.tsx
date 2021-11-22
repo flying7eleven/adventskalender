@@ -123,16 +123,19 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: SingleWinnerInformat
 export const WinnerCard = (props: Props) => {
     const getWinningEntries = () => {
         const elements = [];
-        for (let i = 0; i < props.listOfWinner.length; i++) {
+        const sortedWinnes = props.listOfWinner.sort((winnerA, winnerB) => {
+            return winnerA.last_name.localeCompare(winnerB.last_name);
+        });
+        for (let i = 0; i < sortedWinnes.length; i++) {
             elements.push(
                 <PersonItem
-                    key={`person-item-${props.listOfWinner[i].first_name.toLowerCase()}-${props.listOfWinner[i].last_name.toLocaleLowerCase()}`}
-                    winner={props.listOfWinner[i]}
+                    key={`person-item-${sortedWinnes[i].first_name.toLowerCase()}-${sortedWinnes[i].last_name.toLocaleLowerCase()}`}
+                    winner={sortedWinnes[i]}
                     updateWinnerList={props.updateWinnerList}
                 />
             );
-            if (i !== props.listOfWinner.length - 1) {
-                elements.push(<Divider key={`divider-${props.listOfWinner[i].first_name.toLowerCase()}-${props.listOfWinner[i].last_name.toLocaleLowerCase()}`} variant={'middle'} />);
+            if (i !== sortedWinnes.length - 1) {
+                elements.push(<Divider key={`divider-${sortedWinnes[i].first_name.toLowerCase()}-${sortedWinnes[i].last_name.toLocaleLowerCase()}`} variant={'middle'} />);
             }
         }
         return elements;
