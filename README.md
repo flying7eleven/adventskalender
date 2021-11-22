@@ -21,5 +21,5 @@ Just use `curl --verbose --header "Content-Type: application/json" --request POS
 - [ ] _Backend_: Use the new string formatting literals as soon as rust 1.58 is stable (should be mid-January 2022)
 - [ ] _Frontend_: Have a better looking overview for the calendar view
 - [ ] _Frontend_: Removing a winner re-sorts the remaining winners in the cards. Always order them alphabetically to prevent this
-- [ ] _Frontend_: A warning if the user tries to pick winners for a day where winners were already picked
+- [x] _Frontend_: A warning if the user tries to pick winners for a day, where winners were already picked
 - [ ] _Front- and Backend_: Use the correct semantics for the REST routes

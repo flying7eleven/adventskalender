@@ -36,6 +36,7 @@ export const Dashboard = () => {
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
     const [isLastWinnerDialogOpen, setIsLastWinnerDialogOpen] = useState(false);
     const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
+    const [isMoreWinnersDialogOpen, setIsMoreWinnersDialogOpen] = useState(false);
 
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
@@ -158,6 +159,10 @@ export const Dashboard = () => {
         // done processing the first request
         setLoadingNewWinner(true);
 
+        // it might happen that a warning dialog was opened before this method was called. ensure that the dialog
+        // is closed
+        setIsMoreWinnersDialogOpen(false);
+
         // try to pick a new winner from the backend
         fetch(`${API_BACKEND_URL}/participants/pick/${numberOfWinners}/for/${getSelectedDateAsString()}`, {
             method: 'GET',
@@ -226,8 +231,43 @@ export const Dashboard = () => {
         return elementsToReturn;
     };
 
+    const checkPicking = () => {
+        if (winnersOnSelectedDay > 0) {
+            setIsMoreWinnersDialogOpen(true);
+            return;
+        }
+        pickMultipleNewWinner();
+    };
+
+    const handleMoreWinnersDialogClose = () => {
+        setIsMoreWinnersDialogOpen(false);
+    };
+
     return (
         <>
+            <Dialog
+                open={isMoreWinnersDialogOpen}
+                onClose={handleMoreWinnersDialogClose}
+                aria-labelledby="more-winners-question-dialog-title"
+                aria-describedby="more-winners-question-dialog-description"
+            >
+                <DialogTitle id="more-winners-question-dialog-title">
+                    <Localized translationKey={'dashboard.dialogs.already_picked.title'} />
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="more-winners-question-dialog-description">
+                        <Localized translationKey={'dashboard.dialogs.already_picked.text'} placeholder={winnersOnSelectedDay.toString()} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={pickMultipleNewWinner}>
+                        <Localized translationKey={'dashboard.dialogs.already_picked.accept_button'} />
+                    </Button>
+                    <Button onClick={handleMoreWinnersDialogClose} autoFocus>
+                        <Localized translationKey={'dashboard.dialogs.already_picked.cancel_button'} />
+                    </Button>
+                </DialogActions>
+            </Dialog>
             <Dialog open={isLastWinnerDialogOpen} onClose={handleLastWinnerDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
                     <Localized translationKey={'dashboard.dialogs.new_winners.title'} />
@@ -310,7 +350,7 @@ export const Dashboard = () => {
                                     changeHandler={handleNumberOfWinnersSelectionChange}
                                 />
                                 <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
-                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={pickMultipleNewWinner} label={localizationContext.translate('dashboard.pick_winner_button')} />
+                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={checkPicking} label={localizationContext.translate('dashboard.pick_winner_button')} />
                                 <br />
                             </Stack>
                         }

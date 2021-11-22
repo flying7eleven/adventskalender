@@ -65,6 +65,12 @@
                 "text": "Die folgenden Personen haben an dem ausgewählten Datum gewonnen:",
                 "accept_button": "Okay"
             },
+            "already_picked": {
+                "title": "Gewinner:innen schon gezogen",
+                "text": "Es gibt bereits <b>%PLACEHOLDER%</b> Gewinner:innen für den ausgewählten Tag. Sollen wirklich weitere Gewinner:innen für den Tag genzogen werden?",
+                "accept_button": "Ja, Gewinner:innen ziehen",
+                "cancel_button": "Nein, ziehen abbrechen"
+            },
             "no_participants_left": {
                 "title": "Fehler beim ziehen einer neuen Person",
                 "text": "Es scheint das es keine Teilnehmer:innen mehr gibt, welche noch nicht gewonnen haben. Scheinbar sind wir durch :)",

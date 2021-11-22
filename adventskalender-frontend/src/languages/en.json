@@ -65,6 +65,12 @@
                 "text": "The following participants won on the selected day. Congratulations!",
                 "accept_button": "Okay"
             },
+            "already_picked": {
+                "title": "Already picked winners",
+                "text": "There are already <b>%PLACEHOLDER%</b> winners selected for the selected day. Are you sure that you want to pick more winners for this day?",
+                "accept_button": "Yes, pick winners",
+                "cancel_button": "No, cancel picking"
+            },
             "no_participants_left": {
                 "title": "Error on picking a new winner",
                 "text": "It seems that there are no participants left who did not win so far. I guess the raffle is over now :).",
