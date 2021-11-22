@@ -337,13 +337,12 @@ export const Dashboard = () => {
                     />
                 </Grid>
             </Grid>
-            <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
+            <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'} sx={{ marginTop: '16px', marginBottom: '16px' }}>
                 <Grid item>
                     <OutlinedCard
                         headline={localizationContext.translate('dashboard.cards.pick_new_winner.title')}
                         value={
-                            <Stack spacing={2}>
-                                <br />
+                            <Stack spacing={2} sx={{ marginTop: '16px', marginBottom: '16px' }}>
                                 <NumberOfWinnersSelector
                                     label={localizationContext.translate('dashboard.number_of_winners')}
                                     value={numberOfWinners}
@@ -351,7 +350,6 @@ export const Dashboard = () => {
                                 />
                                 <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
                                 <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={checkPicking} label={localizationContext.translate('dashboard.pick_winner_button')} />
-                                <br />
                             </Stack>
                         }
                         description={localizationContext.translateWithPlaceholder('dashboard.cards.pick_new_winner.description', winnersOnSelectedDay.toString())}
