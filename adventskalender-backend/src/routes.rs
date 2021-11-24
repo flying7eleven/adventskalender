@@ -544,6 +544,10 @@ pub struct VersionInformation {
     pub backend_version: &'static str,
     /// The version of the rustc compiler used to compile the backend.
     pub rustc_version: &'static str,
+    /// The date on which the backend was build.
+    pub build_date: &'static str,
+    /// The time on which the backend was build.
+    pub build_time: &'static str,
 }
 
 #[get("/version")]
@@ -551,6 +555,8 @@ pub async fn get_backend_version() -> Json<VersionInformation> {
     Json(VersionInformation {
         backend_version: env!("VERGEN_GIT_SEMVER"),
         rustc_version: env!("VERGEN_RUSTC_SEMVER"),
+        build_date: env!("VERGEN_BUILD_DATE"),
+        build_time: env!("VERGEN_BUILD_TIME"),
     })
 }
 
