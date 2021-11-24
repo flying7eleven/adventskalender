@@ -2,7 +2,8 @@
     "global": {
         "navigation": {
             "dashboard": "Pick new winners",
-            "calendar": "List of past winners"
+            "calendar": "List of past winners",
+            "version": "Version information"
         }
     },
     "login": {
@@ -17,6 +18,16 @@
         "alerts": {
             "failed_login": {
                 "message": "Failed to authenticate with the given credentials. Are you sure they are correct?"
+            }
+        }
+    },
+    "version": {
+        "card": {
+            "headline": "Version information",
+            "categories": {
+                "frontend_version": "Frontend",
+                "backend_version": "Backend (API)",
+                "backend_rustc_version": "Backend (used rustc version)"
             }
         }
     },

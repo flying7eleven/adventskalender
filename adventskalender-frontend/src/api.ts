@@ -23,3 +23,8 @@ export interface Participant {
 export interface AccessToken {
     accessToken: string;
 }
+
+export interface VersionInformation {
+    backend_version: string;
+    rustc_version: string;
+}

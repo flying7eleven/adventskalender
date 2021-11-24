@@ -16,6 +16,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import MenuIcon from '@mui/icons-material/Menu';
 import Button from '@mui/material/Button';
 import { Localized } from '../../components/Localized';
+import InfoIcon from '@mui/icons-material/Info';
 
 interface Props {
     content: ReactElement;
@@ -102,6 +103,10 @@ export const AuthenticatedView = (props: Props) => {
         navigate('/calendar');
     };
 
+    const onClickVersion = () => {
+        navigate('/version');
+    };
+
     const isSelected = (url: string) => {
         return location.pathname === url;
     };
@@ -148,6 +153,13 @@ export const AuthenticatedView = (props: Props) => {
                             <CalendarTodayIcon />
                         </ListItemIcon>
                         <ListItemText primary={localizationContext.translate('global.navigation.calendar')} />
+                    </ListItem>
+                    <Divider />
+                    <ListItem button key={'Version'} onClick={onClickVersion} selected={isSelected('/version')}>
+                        <ListItemIcon>
+                            <InfoIcon />
+                        </ListItemIcon>
+                        <ListItemText primary={localizationContext.translate('global.navigation.version')} />
                     </ListItem>
                 </List>
             </Drawer>
