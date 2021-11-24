@@ -1,8 +1,8 @@
 {
     "global": {
         "navigation": {
-            "dashboard": "Dashboard",
-            "calendar": "Calendar"
+            "dashboard": "Pick new winners",
+            "calendar": "List of past winners"
         }
     },
     "login": {

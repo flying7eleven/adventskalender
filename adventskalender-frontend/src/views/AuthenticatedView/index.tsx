@@ -21,7 +21,7 @@ interface Props {
     content: ReactElement;
 }
 
-const drawerWidth = 240;
+const drawerWidth = 300;
 
 const openedMixin = (theme: Theme): CSSObject => ({
     width: drawerWidth,
