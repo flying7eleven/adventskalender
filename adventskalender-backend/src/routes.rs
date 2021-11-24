@@ -539,16 +539,27 @@ pub async fn get_login_token(
 }
 
 #[derive(Serialize)]
+pub struct VersionInformation {
+    /// The version of the backend which is currently running.
+    pub backend_version: &'static str,
+    /// The version of the rustc compiler used to compile the backend.
+    pub rustc_version: &'static str,
+}
+
+#[get("/version")]
+pub async fn get_backend_version() -> Json<VersionInformation> {
+    Json(VersionInformation {
+        backend_version: env!("VERGEN_GIT_SEMVER"),
+        rustc_version: env!("VERGEN_RUSTC_SEMVER"),
+    })
+}
+
+#[derive(Serialize)]
 pub struct HealthCheck {
     /// A flag which indicates if the database is healthy or not.
     pub database_healthy: bool,
     /// A flag which indicates if the backend itself is healthy or not.
     pub backend_healthy: bool,
-}
-
-#[get("/version")]
-pub async fn get_backend_version() -> Json<&'static str> {
-    Json(env!("VERGEN_GIT_SEMVER"))
 }
 
 #[get("/health")]
