@@ -83,7 +83,7 @@ export const Calendar = () => {
     };
 
     return (
-        <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'} sx={{ paddingLeft: '32px', paddingRight: '64px' }}>
+        <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'} sx={{ paddingLeft: '64px', paddingRight: '32px' }}>
             {getWinnerCardsForAllDays()}
         </Grid>
     );
