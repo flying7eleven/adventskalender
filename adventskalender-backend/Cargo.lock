@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "adventskalender-backend"
-version = "2021.11.22"
+version = "2021.11.24"
 dependencies = [
  "bcrypt",
  "chrono",
