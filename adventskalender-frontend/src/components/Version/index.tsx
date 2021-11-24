@@ -4,9 +4,24 @@ import { API_BACKEND_URL, VersionInformation } from '../../api';
 import packageJson from '../../../package.json';
 import { Box, Card, CardContent, Divider, Link, Stack, Typography } from '@mui/material';
 import { Localized } from '../Localized';
+import preval from 'preval.macro';
+import { unix } from 'moment';
+
+const buildTimestamp = preval`module.exports = new Date().getTime();`;
 
 export const Version = () => {
-    const [backendVersionInformation, setBackendVersionInformation] = useState<VersionInformation>({ backend_version: 'unknown', rustc_version: 'unknown' });
+    const [backendVersionInformation, setBackendVersionInformation] = useState<VersionInformation>({
+        backend_version: 'unknown',
+        rustc_version: 'unknown',
+        build_date: 'unknown',
+        build_time: 'unknown',
+    });
+
+    const getFrontendBuildDateTimeString = () => {
+        return unix(buildTimestamp / 1000)
+            .utc()
+            .format('YYYY-MM-DD HH:mm:ss');
+    };
 
     useEffect(() => {
         // get the version information from the backend
@@ -67,6 +82,24 @@ export const Version = () => {
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {backendVersionInformation.rustc_version}
+                                    </Typography>
+                                </Box>
+                                <Divider />
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
+                                        <Localized translationKey={'version.card.categories.frontend_build_date_time'} />
+                                    </Typography>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
+                                        {`${getFrontendBuildDateTimeString()}`}
+                                    </Typography>
+                                </Box>
+                                <Divider />
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
+                                        <Localized translationKey={'version.card.categories.backend_build_date_time'} />
+                                    </Typography>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
+                                        {`${backendVersionInformation.build_date} ${backendVersionInformation.build_time}`}
                                     </Typography>
                                 </Box>
                             </Stack>

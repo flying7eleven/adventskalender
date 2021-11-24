@@ -27,7 +27,9 @@
             "categories": {
                 "frontend_version": "Frontend",
                 "backend_version": "Backend (API)",
-                "backend_rustc_version": "Backend (used rustc version)"
+                "backend_rustc_version": "Backend (used rustc version)",
+                "frontend_build_date_time": "Build date & time (frontend)",
+                "backend_build_date_time": "Build date & time (backend)"
             }
         }
     },
