@@ -68,7 +68,7 @@ async fn main() {
     };
     use adventskalender_backend::routes::{
         check_backend_health, count_won_participants_on_day, get_all_won_participants,
-        get_login_token, get_number_of_participants_who_already_won,
+        get_backend_version, get_login_token, get_number_of_participants_who_already_won,
         pick_multiple_random_participant_from_raffle_list, remove_participant_from_winner_list,
     };
     use diesel::Connection;
@@ -227,6 +227,7 @@ async fn main() {
                 count_won_participants_on_day,
                 remove_participant_from_winner_list,
                 check_backend_health,
+                get_backend_version,
             ],
         )
         .launch()

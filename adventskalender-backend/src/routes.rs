@@ -546,6 +546,11 @@ pub struct HealthCheck {
     pub backend_healthy: bool,
 }
 
+#[get("/version")]
+pub async fn get_backend_version() -> Json<&'static str> {
+    Json(env!("VERGEN_GIT_SEMVER"))
+}
+
 #[get("/health")]
 pub async fn check_backend_health(
     db_connection: AdventskalenderDatabaseConnection,
