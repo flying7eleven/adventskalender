@@ -45,6 +45,18 @@
                     "change": "Passwort ändern"
                 }
             }
+        },
+        "dialogs": {
+            "password_change_successful": {
+                "title": "Passwort geändert",
+                "text": "Das Passwort wurde erfolgreich geändert.",
+                "accept_button": "Ok"
+            },
+            "password_change_failed": {
+                "title": "Änderung fehlgeschlagen",
+                "text": "Das Passwort konnte nicht geändert werden. Sind beide eingegebenen Passwörter korrekt und gleich?",
+                "accept_button": "Ok"
+            }
         }
     },
     "calendar": {

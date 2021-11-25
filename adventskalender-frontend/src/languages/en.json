@@ -45,6 +45,18 @@
                     "change": "Change password"
                 }
             }
+        },
+        "dialogs": {
+            "password_change_successful": {
+                "title": "Password changed",
+                "text": "Your password was successfully changed.",
+                "accept_button": "Ok"
+            },
+            "password_change_failed": {
+                "title": "Password change failed",
+                "text": "Failed to change your password. Are you sure that your password was correct and typed in twice?",
+                "accept_button": "Ok"
+            }
         }
     },
     "calendar": {
