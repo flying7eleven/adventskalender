@@ -23,3 +23,4 @@ Just use `curl --verbose --header "Content-Type: application/json" --request POS
 - [x] _Frontend_: Removing a winner re-sorts the remaining winners in the cards. Always order them alphabetically to prevent this
 - [x] _Frontend_: A warning if the user tries to pick winners for a day, where winners were already picked
 - [ ] _Front- and Backend_: Use the correct semantics for the REST routes
+- [ ] _Front- and Backend_: Be able to change the own password on a settings page
