@@ -27,8 +27,10 @@ export const Dashboard = () => {
     const [numberOfWinners, setNumberOfWinners] = useState<number>(6);
     const [selectedDay, setSelectedDay] = useState<number>(() => {
         const today = new Date().getUTCDate();
-        if (today < 1 || today > 24) {
+        if (today < 1) {
             return 1;
+        } else if (today > 24) {
+            return 24;
         }
         return today;
     });
