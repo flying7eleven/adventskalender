@@ -15,6 +15,7 @@ import German from './languages/de.json';
 import { Dashboard } from './components/Dashboard';
 import { Calendar } from './components/Calendar';
 import { Version } from './components/Version';
+import { Settings } from './components/Settings';
 
 const App = () => {
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -57,6 +58,14 @@ const App = () => {
                                     element={
                                         <RequireAuthentication>
                                             <AuthenticatedView content={<Version />} />
+                                        </RequireAuthentication>
+                                    }
+                                />
+                                <Route
+                                    path="/settings"
+                                    element={
+                                        <RequireAuthentication>
+                                            <AuthenticatedView content={<Settings />} />
                                         </RequireAuthentication>
                                     }
                                 />

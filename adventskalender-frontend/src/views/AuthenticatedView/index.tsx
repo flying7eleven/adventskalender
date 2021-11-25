@@ -17,6 +17,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import Button from '@mui/material/Button';
 import { Localized } from '../../components/Localized';
 import InfoIcon from '@mui/icons-material/Info';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 interface Props {
     content: ReactElement;
@@ -107,6 +108,10 @@ export const AuthenticatedView = (props: Props) => {
         navigate('/version');
     };
 
+    const onClickSettings = () => {
+        navigate('/settings');
+    };
+
     const isSelected = (url: string) => {
         return location.pathname === url;
     };
@@ -155,6 +160,12 @@ export const AuthenticatedView = (props: Props) => {
                         <ListItemText primary={localizationContext.translate('global.navigation.calendar')} />
                     </ListItem>
                     <Divider />
+                    <ListItem button key={'Settings'} onClick={onClickSettings} selected={isSelected('/settings')}>
+                        <ListItemIcon>
+                            <SettingsIcon />
+                        </ListItemIcon>
+                        <ListItemText primary={localizationContext.translate('global.navigation.settings')} />
+                    </ListItem>
                     <ListItem button key={'Version'} onClick={onClickVersion} selected={isSelected('/version')}>
                         <ListItemIcon>
                             <InfoIcon />
