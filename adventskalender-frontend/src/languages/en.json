@@ -33,6 +33,20 @@
             }
         }
     },
+    "settings": {
+        "cards": {
+            "password": {
+                "headline": "Change password",
+                "labels": {
+                    "password_first": "New password",
+                    "password_repeated": "Repeat password"
+                },
+                "buttons": {
+                    "change": "Change password"
+                }
+            }
+        }
+    },
     "calendar": {
         "cards": {
             "winners": {
