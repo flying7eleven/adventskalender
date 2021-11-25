@@ -196,7 +196,54 @@ pub async fn update_user_password(
     authenticated_user: AuthenticatedUser,
     new_password: Json<NewPassword>,
 ) -> Status {
-    Status::InternalServerError
+    use crate::schema::users::dsl::{password_hash, username, users};
+    use bcrypt::hash;
+    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::{debug, error};
+
+    // check if the passwords are the same. If not, return an corresonding error
+    if new_password.first_time.ne(&new_password.second_time) {
+        return Status::BadRequest;
+    }
+
+    // create a hashed version of the password which we then can store in the database. if we fail, we
+    // return an error
+    let maybe_hashed_password = hash(&new_password.first_time, 10);
+    if maybe_hashed_password.is_err() {
+        error!(
+            "Could not generate an hash of a supplied password. The error was: {}",
+            maybe_hashed_password.unwrap_err()
+        );
+        return Status::InternalServerError;
+    }
+    let hashed_password = maybe_hashed_password.unwrap();
+
+    // update the corresponding row in the database
+    if let Err(error) = db_connection
+        .run(move |connection| {
+            if let Ok(rows_updated) = update(users.filter(username.eq(authenticated_user.username.clone())))
+                .set(password_hash.eq(hashed_password))
+                .execute(connection)
+            {
+                if rows_updated != 1 {
+                    return Err("Expected to update exactly one row but none or more than one row were updated. This should never happen!");
+                }
+                return Ok(());
+            }
+            return Err("Failed to update the corresponding entry");
+        })
+    .await
+    {
+        error!(
+            "Could not update the password in the database. The error was: {}",
+            error
+        );
+        return Status::InternalServerError;
+    }
+
+    // if we get here, the password was successfully updated
+    debug!("Password was successfully updated",);
+    Status::NoContent
 }
 
 #[get("/participants/won/<date_as_str>/count")]
