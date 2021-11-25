@@ -5,7 +5,7 @@ use crate::Action;
 use chrono::NaiveDate;
 use rocket::http::Status;
 use rocket::serde::json::Json;
-use rocket::{delete, get, post, State};
+use rocket::{delete, get, post, put, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -180,6 +180,23 @@ pub async fn get_all_won_participants(
         return Ok(Json(maybe_all_winners.unwrap()));
     }
     Err(Status::NotFound)
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NewPassword {
+    /// The new password the user wants to set.
+    first_time: String,
+    /// The repeated password from the user (check if it is the equal to `first_time`).
+    second_time: String,
+}
+
+#[put("/auth/password", data = "<new_password>")]
+pub async fn update_user_password(
+    db_connection: AdventskalenderDatabaseConnection,
+    authenticated_user: AuthenticatedUser,
+    new_password: Json<NewPassword>,
+) -> Status {
+    Status::InternalServerError
 }
 
 #[get("/participants/won/<date_as_str>/count")]

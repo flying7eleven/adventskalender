@@ -70,6 +70,7 @@ async fn main() {
         check_backend_health, count_won_participants_on_day, get_all_won_participants,
         get_backend_version, get_login_token, get_number_of_participants_who_already_won,
         pick_multiple_random_participant_from_raffle_list, remove_participant_from_winner_list,
+        update_user_password,
     };
     use diesel::Connection;
     use log::{debug, error, info};
@@ -228,6 +229,7 @@ async fn main() {
                 remove_participant_from_winner_list,
                 check_backend_health,
                 get_backend_version,
+                update_user_password,
             ],
         )
         .launch()
