@@ -35,6 +35,8 @@ pub enum Action {
     PickedWinner,
     /// The user removed a new winner
     RemovedWinner,
+    /// The user changed their own password.
+    PasswordChanged,
     /// The server indicated that the server started
     ServerStarted,
     /// The server indicated that it shuts down
@@ -48,6 +50,7 @@ impl ToString for Action {
             Action::FailedLogin => "failed_login".to_string(),
             Action::PickedWinner => "picked_winner".to_string(),
             Action::RemovedWinner => "removed_winner".to_string(),
+            Action::PasswordChanged => "password_changed".to_string(),
             Action::ServerStarted => "server_started".to_string(),
             Action::ServerTerminated => "server_terminated".to_string(),
         }

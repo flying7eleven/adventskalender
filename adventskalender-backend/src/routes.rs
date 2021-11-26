@@ -196,6 +196,7 @@ pub async fn update_user_password(
     authenticated_user: AuthenticatedUser,
     new_password: Json<NewPassword>,
 ) -> Status {
+    use crate::log_action_rocket;
     use crate::schema::users::dsl::{password_hash, username, users};
     use bcrypt::hash;
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
@@ -217,6 +218,7 @@ pub async fn update_user_password(
         return Status::InternalServerError;
     }
     let hashed_password = maybe_hashed_password.unwrap();
+    let current_user = authenticated_user.username.clone();
 
     // update the corresponding row in the database
     if let Err(error) = db_connection
@@ -240,6 +242,9 @@ pub async fn update_user_password(
         );
         return Status::InternalServerError;
     }
+
+    // log that the user changed the own password
+    log_action_rocket(&db_connection, current_user, Action::PasswordChanged, None).await;
 
     // if we get here, the password was successfully updated
     debug!("Password was successfully updated",);
