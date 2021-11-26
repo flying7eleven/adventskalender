@@ -12,6 +12,7 @@ const buildTimestamp = preval`module.exports = new Date().getTime();`;
 export const Version = () => {
     const [backendVersionInformation, setBackendVersionInformation] = useState<VersionInformation>({
         backend_version: 'unknown',
+        backend_arch: 'unknown',
         rustc_version: 'unknown',
         build_date: 'unknown',
         build_time: 'unknown',
@@ -73,6 +74,15 @@ export const Version = () => {
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {backendVersionInformation.backend_version}
+                                    </Typography>
+                                </Box>
+                                <Divider />
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
+                                        <Localized translationKey={'version.card.categories.backend_arch'} />
+                                    </Typography>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
+                                        {backendVersionInformation.backend_arch}
                                     </Typography>
                                 </Box>
                                 <Divider />

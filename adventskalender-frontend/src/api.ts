@@ -26,6 +26,7 @@ export interface AccessToken {
 
 export interface VersionInformation {
     backend_version: string;
+    backend_arch: string;
     rustc_version: string;
     build_date: string;
     build_time: string;
