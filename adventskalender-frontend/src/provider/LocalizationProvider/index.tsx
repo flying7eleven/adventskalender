@@ -8,7 +8,7 @@ interface ResourceDefinitions {
 }
 
 interface Props {
-    children: ReactNode[];
+    children: ReactNode | ReactNode[];
     resources: ResourceDefinitions;
 }
 

@@ -1,0 +1,13 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`LocalizedText component Matches the snapshot if known translation key and language is supplied 1`] = `
+<div>
+  Some translated Text
+</div>
+`;
+
+exports[`LocalizedText component Matches the snapshot if unknown translation key and valid language is supplied 1`] = `
+<div>
+  nonexisting.key
+</div>
+`;
