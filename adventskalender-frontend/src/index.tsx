@@ -5,17 +5,17 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthenticationProvider } from './components/AuthenticationProvider';
+import { AuthenticationProvider } from './provider/AuthenticationProvider';
 import { LoginView } from './views/LoginView';
 import { RequireAuthentication } from './components/RequireAuthentication';
 import { AuthenticatedView } from './views/AuthenticatedView';
-import { LocalizationProvider } from './components/LocalizationProvider';
+import { LocalizationProvider } from './provider/LocalizationProvider';
 import English from './languages/en.json';
 import German from './languages/de.json';
-import { Dashboard } from './components/Dashboard';
-import { Calendar } from './components/Calendar';
-import { Version } from './components/Version';
-import { Settings } from './components/Settings';
+import { DashboardView } from './views/DashboardView';
+import { CalendarView } from './views/CalendarView';
+import { VersionView } from './views/VersionView';
+import { SettingsView } from './views/SettingsView';
 
 const App = () => {
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -41,7 +41,7 @@ const App = () => {
                                     path="/"
                                     element={
                                         <RequireAuthentication>
-                                            <AuthenticatedView content={<Dashboard />} />
+                                            <AuthenticatedView content={<DashboardView />} />
                                         </RequireAuthentication>
                                     }
                                 />
@@ -49,7 +49,7 @@ const App = () => {
                                     path="/calendar"
                                     element={
                                         <RequireAuthentication>
-                                            <AuthenticatedView content={<Calendar />} />
+                                            <AuthenticatedView content={<CalendarView />} />
                                         </RequireAuthentication>
                                     }
                                 />
@@ -57,7 +57,7 @@ const App = () => {
                                     path="/version"
                                     element={
                                         <RequireAuthentication>
-                                            <AuthenticatedView content={<Version />} />
+                                            <AuthenticatedView content={<VersionView />} />
                                         </RequireAuthentication>
                                     }
                                 />
@@ -65,7 +65,7 @@ const App = () => {
                                     path="/settings"
                                     element={
                                         <RequireAuthentication>
-                                            <AuthenticatedView content={<Settings />} />
+                                            <AuthenticatedView content={<SettingsView />} />
                                         </RequireAuthentication>
                                     }
                                 />

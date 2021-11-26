@@ -1,4 +1,4 @@
-import { Localized } from '../Localized';
+import { LocalizedText } from '../LocalizedText';
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Stack, Typography } from '@mui/material';
 import { API_BACKEND_URL } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
@@ -87,12 +87,12 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: SingleWinnerInformat
         <>
             <Dialog open={dialogOpen} onClose={handleCloseDialog} aria-labelledby="alert-dialog-remove-participant-title" aria-describedby="alert-dialog-remove-participant-description">
                 <DialogTitle id="alert-dialog-remove-participant-title">
-                    <Localized translationKey={'calendar.dialogs.remove_participant.title'} />
+                    <LocalizedText translationKey={'calendar.dialogs.remove_participant.title'} />
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-remove-participant-description">
                         <Stack>
-                            <Localized translationKey={'calendar.dialogs.remove_participant.text'} />
+                            <LocalizedText translationKey={'calendar.dialogs.remove_participant.text'} />
                             <ul>
                                 <li>{`${userToDelete?.first_name} ${userToDelete?.last_name}`}</li>
                             </ul>
@@ -101,10 +101,10 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: SingleWinnerInformat
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleRemoveParticipant}>
-                        <Localized translationKey={'calendar.dialogs.remove_participant.accept_button'} />
+                        <LocalizedText translationKey={'calendar.dialogs.remove_participant.accept_button'} />
                     </Button>
                     <Button onClick={handleCloseDialog} autoFocus>
-                        <Localized translationKey={'calendar.dialogs.remove_participant.cancel_button'} />
+                        <LocalizedText translationKey={'calendar.dialogs.remove_participant.cancel_button'} />
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -113,7 +113,7 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: SingleWinnerInformat
                     {getShortenedName(`${winner.first_name} ${winner.last_name}`)}
                 </Typography>
                 <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} onClick={handleDeleteClick(winner)}>
-                    <Localized translationKey={'calendar.cards.winners.button_remove'} />
+                    <LocalizedText translationKey={'calendar.cards.winners.button_remove'} />
                 </Button>
             </Box>
         </>
@@ -157,7 +157,7 @@ export const WinnerCard = (props: Props) => {
                     <Stack direction={'column'} spacing={1}>
                         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                             <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
-                                <Localized translationKey={'calendar.cards.winners.headline'} />
+                                <LocalizedText translationKey={'calendar.cards.winners.headline'} />
                             </Typography>
                             <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'right' }}>
                                 {getFormattedDate(props.winningDate)}

@@ -3,7 +3,7 @@ import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import { ReactNode, useContext } from 'react';
-import { LocalizationContext } from '../LocalizationProvider';
+import { LocalizationContext } from '../../provider/LocalizationProvider';
 
 interface Props {
     changeHandler?: (selected: number) => void;

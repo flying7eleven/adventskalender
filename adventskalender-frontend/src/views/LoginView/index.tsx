@@ -10,7 +10,7 @@ import Typography from '@mui/material/Typography';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { Alert, Snackbar } from '@mui/material';
-import { Localized } from '../../components/Localized';
+import { LocalizedText } from '../../components/LocalizedText';
 
 interface Props {
     isDark: boolean;
@@ -68,7 +68,7 @@ export const LoginView = (props: Props) => {
         <>
             <Snackbar open={isSnackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
                 <Alert onClose={handleSnackbarClose} severity="error" sx={{ width: '100%' }}>
-                    <Localized translationKey={'login.alerts.failed_login.message'} />
+                    <LocalizedText translationKey={'login.alerts.failed_login.message'} />
                 </Alert>
             </Snackbar>
             <Grid container component="main" sx={{ height: '100vh' }}>
@@ -99,7 +99,7 @@ export const LoginView = (props: Props) => {
                             <LockOutlinedIcon />
                         </Avatar>
                         <Typography component="h1" variant="h5">
-                            <Localized translationKey={'login.headlines.signin'} />
+                            <LocalizedText translationKey={'login.headlines.signin'} />
                         </Typography>
                         <Box component="form" noValidate onSubmit={requestAuthorizationToken} sx={{ mt: 1 }}>
                             <TextField
@@ -107,7 +107,7 @@ export const LoginView = (props: Props) => {
                                 required
                                 fullWidth
                                 id="username"
-                                label={<Localized translationKey={'login.form.username_field_label'} />}
+                                label={<LocalizedText translationKey={'login.form.username_field_label'} />}
                                 name="username"
                                 autoComplete="username"
                                 autoFocus
@@ -118,14 +118,14 @@ export const LoginView = (props: Props) => {
                                 required
                                 fullWidth
                                 name="password"
-                                label={<Localized translationKey={'login.form.password_field_label'} />}
+                                label={<LocalizedText translationKey={'login.form.password_field_label'} />}
                                 type="password"
                                 id="password"
                                 autoComplete="current-password"
                                 inputRef={passwordField}
                             />
                             <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>
-                                {<Localized translationKey={'login.form.sign_in_button'} />}
+                                {<LocalizedText translationKey={'login.form.sign_in_button'} />}
                             </Button>
                         </Box>
                     </Box>

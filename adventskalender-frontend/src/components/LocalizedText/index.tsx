@@ -1,4 +1,4 @@
-import { LocalizationContext } from '../LocalizationProvider';
+import { LocalizationContext } from '../../provider/LocalizationProvider';
 import { useContext } from 'react';
 
 interface Props {
@@ -6,7 +6,7 @@ interface Props {
     placeholder?: string;
 }
 
-export const Localized = (props: Props) => {
+export const LocalizedText = (props: Props) => {
     const localizationContext = useContext(LocalizationContext);
     if (props.placeholder) {
         return <span dangerouslySetInnerHTML={{ __html: localizationContext.translateWithPlaceholder(props.translationKey, props.placeholder) }} />;

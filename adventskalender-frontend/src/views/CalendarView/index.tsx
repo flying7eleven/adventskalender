@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { API_BACKEND_URL } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
-import { WinnerCard } from '../WinnerCard';
+import { WinnerCard } from '../../components/WinnerCard';
 
-export const Calendar = () => {
+export const CalendarView = () => {
     const [allWinners, setAllWinners] = useState<WinnersOnDateMap | null>(null);
     const auth = useAuthentication();
     const navigate = useNavigate();

@@ -1,7 +1,7 @@
 import { useState, useContext, ReactElement } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LocalizationContext } from '../../components/LocalizationProvider';
+import { LocalizationContext } from '../../provider/LocalizationProvider';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { Box, Divider, IconButton, Stack, Toolbar, Typography } from '@mui/material';
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
@@ -15,7 +15,7 @@ import ListItemText from '@mui/material/ListItemText';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import MenuIcon from '@mui/icons-material/Menu';
 import Button from '@mui/material/Button';
-import { Localized } from '../../components/Localized';
+import { LocalizedText } from '../../components/LocalizedText';
 import InfoIcon from '@mui/icons-material/Info';
 import SettingsIcon from '@mui/icons-material/Settings';
 
@@ -132,10 +132,10 @@ export const AuthenticatedView = (props: Props) => {
                         <MenuIcon />
                     </IconButton>
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                        <Localized translationKey={'dashboard.navigation.app_title'} />
+                        <LocalizedText translationKey={'dashboard.navigation.app_title'} />
                     </Typography>
                     <Button color="inherit" onClick={logoutUser}>
-                        <Localized translationKey={'dashboard.navigation.logout_button'} />
+                        <LocalizedText translationKey={'dashboard.navigation.logout_button'} />
                     </Button>
                 </Toolbar>
             </AppBar>

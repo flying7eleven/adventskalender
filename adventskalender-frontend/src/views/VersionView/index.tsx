@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react';
 import { API_BACKEND_URL, VersionInformation } from '../../api';
 import packageJson from '../../../package.json';
 import { Box, Card, CardContent, Divider, Link, Stack, Typography } from '@mui/material';
-import { Localized } from '../Localized';
+import { LocalizedText } from '../../components/LocalizedText';
 import preval from 'preval.macro';
 import { unix } from 'moment';
 
 const buildTimestamp = preval`module.exports = new Date().getTime();`;
 
-export const Version = () => {
+export const VersionView = () => {
     const [backendVersionInformation, setBackendVersionInformation] = useState<VersionInformation>({
         backend_version: 'unknown',
         backend_arch: 'unknown',
@@ -56,12 +56,12 @@ export const Version = () => {
                             <Stack direction={'column'} spacing={1}>
                                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
-                                        <Localized translationKey={'version.card.headline'} />
+                                        <LocalizedText translationKey={'version.card.headline'} />
                                     </Typography>
                                 </Box>
                                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <Localized translationKey={'version.card.categories.frontend_version'} />
+                                        <LocalizedText translationKey={'version.card.categories.frontend_version'} />
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {packageJson.version}
@@ -70,7 +70,7 @@ export const Version = () => {
                                 <Divider />
                                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <Localized translationKey={'version.card.categories.backend_version'} />
+                                        <LocalizedText translationKey={'version.card.categories.backend_version'} />
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {backendVersionInformation.backend_version}
@@ -79,7 +79,7 @@ export const Version = () => {
                                 <Divider />
                                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <Localized translationKey={'version.card.categories.backend_arch'} />
+                                        <LocalizedText translationKey={'version.card.categories.backend_arch'} />
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {backendVersionInformation.backend_arch}
@@ -88,7 +88,7 @@ export const Version = () => {
                                 <Divider />
                                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <Localized translationKey={'version.card.categories.backend_rustc_version'} />
+                                        <LocalizedText translationKey={'version.card.categories.backend_rustc_version'} />
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {backendVersionInformation.rustc_version}
@@ -97,7 +97,7 @@ export const Version = () => {
                                 <Divider />
                                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <Localized translationKey={'version.card.categories.frontend_build_date_time'} />
+                                        <LocalizedText translationKey={'version.card.categories.frontend_build_date_time'} />
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {`${getFrontendBuildDateTimeString()}`}
@@ -106,7 +106,7 @@ export const Version = () => {
                                 <Divider />
                                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <Localized translationKey={'version.card.categories.backend_build_date_time'} />
+                                        <LocalizedText translationKey={'version.card.categories.backend_build_date_time'} />
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {`${backendVersionInformation.build_date} ${backendVersionInformation.build_time}`}

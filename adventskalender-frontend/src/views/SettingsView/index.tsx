@@ -1,8 +1,8 @@
 import { Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Localized } from '../Localized';
+import { LocalizedText } from '../../components/LocalizedText';
 import { ChangeEvent, useContext, useState } from 'react';
-import { LocalizationContext } from '../LocalizationProvider';
+import { LocalizationContext } from '../../provider/LocalizationProvider';
 import { API_BACKEND_URL } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import Dialog from '@mui/material/Dialog';
@@ -11,7 +11,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 
-export const Settings = () => {
+export const SettingsView = () => {
     const localizationContext = useContext(LocalizationContext);
     const auth = useAuthentication();
     const [firstPassword, setFirstPassword] = useState<string>('');
@@ -71,16 +71,16 @@ export const Settings = () => {
         <>
             <Dialog open={isPasswordChangedDialogOpen} onClose={handlePasswordChangeDialogClose} aria-labelledby="alert-dialog-title-successful" aria-describedby="alert-dialog-description-successful">
                 <DialogTitle id="alert-dialog-title-successful">
-                    <Localized translationKey={'settings.dialogs.password_change_successful.title'} />
+                    <LocalizedText translationKey={'settings.dialogs.password_change_successful.title'} />
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description-successful">
-                        <Localized translationKey={'settings.dialogs.password_change_successful.text'} />
+                        <LocalizedText translationKey={'settings.dialogs.password_change_successful.text'} />
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handlePasswordChangeDialogClose} autoFocus>
-                        <Localized translationKey={'settings.dialogs.password_change_successful.accept_button'} />
+                        <LocalizedText translationKey={'settings.dialogs.password_change_successful.accept_button'} />
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -91,16 +91,16 @@ export const Settings = () => {
                 aria-describedby="alert-dialog-description-failed"
             >
                 <DialogTitle id="alert-dialog-title-failed">
-                    <Localized translationKey={'settings.dialogs.password_change_failed.title'} />
+                    <LocalizedText translationKey={'settings.dialogs.password_change_failed.title'} />
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description-failed">
-                        <Localized translationKey={'settings.dialogs.password_change_failed.text'} />
+                        <LocalizedText translationKey={'settings.dialogs.password_change_failed.text'} />
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handlePasswordChangeFailedDialogClose} autoFocus>
-                        <Localized translationKey={'settings.dialogs.password_change_failed.accept_button'} />
+                        <LocalizedText translationKey={'settings.dialogs.password_change_failed.accept_button'} />
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -110,7 +110,7 @@ export const Settings = () => {
                         <CardContent>
                             <Stack direction={'column'} spacing={2}>
                                 <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
-                                    <Localized translationKey={'settings.cards.password.headline'} />
+                                    <LocalizedText translationKey={'settings.cards.password.headline'} />
                                 </Typography>
                                 <TextField
                                     id={'first-password-input'}
@@ -129,7 +129,7 @@ export const Settings = () => {
                                     onChange={handleChangeOfSecondPassword}
                                 />
                                 <Button variant="contained" disableElevation onClick={changePassword}>
-                                    <Localized translationKey={'settings.cards.password.buttons.change'} />
+                                    <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
                                 </Button>
                             </Stack>
                         </CardContent>
