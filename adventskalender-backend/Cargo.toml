@@ -76,4 +76,4 @@ default-features = false
 [build-dependencies.vergen]
 version = "5.1.17"
 default-features = false
-features = ["git", "rustc", "build"]
+features = ["git", "rustc", "build", "cargo"]
