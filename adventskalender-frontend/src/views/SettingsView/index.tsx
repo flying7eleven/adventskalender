@@ -18,17 +18,32 @@ export const SettingsView = () => {
     const [secondPassword, setSecondPassword] = useState<string>('');
     const [isPasswordChangedDialogOpen, setIsPasswordChangedDialogOpen] = useState<boolean>(false);
     const [isPasswordChangeFailedDialogOpen, setIsPasswordChangeFailedDialogOpen] = useState<boolean>(false);
+    const [isPasswordNotEqualFirst, setIsPasswordNotEqualFirst] = useState<boolean>(false);
+    const [isPasswordNotEqualSecond, setIsPasswordNotEqualSecond] = useState<boolean>(false);
 
     const handleChangeOfFirstPassword = (event: ChangeEvent<HTMLInputElement>) => {
         setFirstPassword(event.target.value);
+        if (event.target.value.length < 8) {
+            setIsPasswordNotEqualFirst(true);
+        } else {
+            setIsPasswordNotEqualFirst(false);
+        }
     };
 
     const handleChangeOfSecondPassword = (event: ChangeEvent<HTMLInputElement>) => {
         setSecondPassword(event.target.value);
+        if (event.target.value.length < 8 || firstPassword !== event.target.value) {
+            setIsPasswordNotEqualSecond(true);
+        } else {
+            setIsPasswordNotEqualSecond(false);
+        }
     };
 
     const changePassword = () => {
-        // TODO: are password fields filled with long enough password
+        // ensure the passwords are long enough and also exactly the same
+        if (firstPassword.length < 8 || firstPassword !== secondPassword) {
+            return;
+        }
 
         // combine the password information into a single struct
         const requestData = {
@@ -119,6 +134,7 @@ export const SettingsView = () => {
                                     autoComplete={'new-password'}
                                     variant={'outlined'}
                                     onChange={handleChangeOfFirstPassword}
+                                    error={isPasswordNotEqualFirst}
                                 />
                                 <TextField
                                     id={'first-password-input'}
@@ -127,6 +143,7 @@ export const SettingsView = () => {
                                     autoComplete={'new-password'}
                                     variant={'outlined'}
                                     onChange={handleChangeOfSecondPassword}
+                                    error={isPasswordNotEqualSecond}
                                 />
                                 <Button variant="contained" disableElevation onClick={changePassword}>
                                     <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
