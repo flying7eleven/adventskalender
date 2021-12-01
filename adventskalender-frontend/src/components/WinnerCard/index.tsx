@@ -155,7 +155,7 @@ export const WinnerCard = (props: Props) => {
             <Card variant="outlined">
                 <CardContent>
                     <Stack direction={'column'} spacing={1}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr' }}>
                             <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
                                 <LocalizedText translationKey={'calendar.cards.winners.headline'} />
                             </Typography>
