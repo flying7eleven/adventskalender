@@ -24,7 +24,7 @@ export const DashboardView = () => {
     const [winnersOnSelectedDay, setWinnersOnSelectedDay] = useState<number>(0);
     const auth = useAuthentication();
     const navigate = useNavigate();
-    const [numberOfWinners, setNumberOfWinners] = useState<number>(6);
+    const [numberOfWinners, setNumberOfWinners] = useState<number>(5);
     const [selectedDay, setSelectedDay] = useState<number>(() => {
         const today = new Date().getUTCDate();
         if (today < 1) {
