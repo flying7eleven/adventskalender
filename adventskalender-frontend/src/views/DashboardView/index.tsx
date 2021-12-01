@@ -317,21 +317,21 @@ export const DashboardView = () => {
                 </DialogActions>
             </Dialog>
             <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
-                <Grid item xs={2}>
+                <Grid item>
                     <OutlinedCard
                         headline={localizationContext.translate('dashboard.cards.total.title')}
                         value={`${participantCount.number_of_participants}`}
                         description={localizationContext.translate('dashboard.cards.total.description')}
                     />
                 </Grid>
-                <Grid item xs={2}>
+                <Grid item>
                     <OutlinedCard
                         headline={localizationContext.translate('dashboard.cards.won.title')}
                         value={`${participantCount.number_of_participants_won}`}
                         description={localizationContext.translate('dashboard.cards.won.description')}
                     />
                 </Grid>
-                <Grid item xs={2}>
+                <Grid item>
                     <OutlinedCard
                         headline={localizationContext.translate('dashboard.cards.eligible.title')}
                         value={`${participantCount.number_of_participants_still_in_raffle}`}
