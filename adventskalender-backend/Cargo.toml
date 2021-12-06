@@ -74,6 +74,6 @@ version = "8.0.0-beta.6"
 default-features = false
 
 [build-dependencies.vergen]
-version = "5.1.18"
+version = "5.2.0"
 default-features = false
 features = ["git", "rustc", "build", "cargo"]
