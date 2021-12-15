@@ -52,7 +52,7 @@ version = "0.8.4"
 default-features = false
 
 [dependencies.serde]
-version = "1.0.130"
+version = "1.0.131"
 default-features = false
 
 [dependencies.diesel]
@@ -74,6 +74,6 @@ version = "8.0.0-beta.6"
 default-features = false
 
 [build-dependencies.vergen]
-version = "5.2.0"
+version = "6.0.0"
 default-features = false
 features = ["git", "rustc", "build", "cargo"]
