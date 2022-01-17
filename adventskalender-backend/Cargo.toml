@@ -10,7 +10,7 @@ repository = "https://github.com/flying7eleven/adventskalender"
 exclude = [".github/", ".gitignore"]
 build = "build.rs"
 publish = false
-rust-version = "1.56"
+rust-version = "1.58"
 
 [badges]
 maintenance = { status = "actively-developed" }
