@@ -10,7 +10,7 @@ repository = "https://github.com/flying7eleven/adventskalender"
 exclude = [".github/", ".gitignore"]
 build = "build.rs"
 publish = false
-rust-version = "1.58"
+rust-version = "1.64"
 
 [badges]
 maintenance = { status = "actively-developed" }
@@ -20,7 +20,7 @@ version = "1.4.0"
 default-features = false
 
 [dependencies.rocket]
-version = "0.5.0-rc.1"
+version = "0.5.0-rc.2"
 default-features = false
 features = ["json"]
 
@@ -30,29 +30,29 @@ branch = "master"
 default-features = false
 
 [dependencies.rocket_sync_db_pools]
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 default-features = false
 features = ["diesel_postgres_pool"]
 
 [dependencies.chrono]
-version = "0.4.19"
+version = "0.4.22"
 default-features = false
 features = ["clock", "serde"]
 
 [dependencies.log]
-version = "0.4.14"
+version = "0.4.17"
 default-features = false
 
 [dependencies.fern]
-version = "0.6.0"
+version = "0.6.1"
 default-features = false
 
 [dependencies.rand]
-version = "0.8.4"
+version = "0.8.5"
 default-features = false
 
 [dependencies.serde]
-version = "1.0.133"
+version = "1.0.145"
 default-features = false
 
 [dependencies.diesel]
@@ -65,15 +65,15 @@ version = "1.4.0"
 default-features = false
 
 [dependencies.bcrypt]
-version = "0.10.1"
+version = "0.13.0"
 default-features = false
 features = ["std"]
 
 [dependencies.jsonwebtoken]
-version = "8.0.0-beta.7"
+version = "8.1.1"
 default-features = false
 
 [build-dependencies.vergen]
-version = "6.0.0"
+version = "7.4.2"
 default-features = false
 features = ["git", "rustc", "build", "cargo"]
