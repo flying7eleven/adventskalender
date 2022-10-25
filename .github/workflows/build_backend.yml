@@ -19,7 +19,7 @@ jobs:
         profile: minimal
         toolchain: stable
         components: rustfmt, clippy
-    - name: Build the backenbd
+    - name: Build the backend
       run: cargo build --verbose
       working-directory: adventskalender-backend
     - name: Check code style
