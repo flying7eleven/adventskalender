@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install the dependencies
-      run: npm ci
+      run: npm ci --legacy-peer-deps
       working-directory: adventskalender-frontend
     - name: Build the frontend
       run: npm run build
