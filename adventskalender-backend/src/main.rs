@@ -1,20 +1,31 @@
 use adventskalender_backend::{log_action, Action};
 use diesel::PgConnection;
+use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 use log::LevelFilter;
 use rocket::config::{Shutdown, Sig};
 
-#[macro_use]
-extern crate diesel_migrations;
-embed_migrations!("migrations/");
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
-pub fn run_migrations(connection: &PgConnection) {
-    use log::debug;
-    match embedded_migrations::run(connection) {
-        Ok(_) => debug!("Successfully ran the database migrations"),
-        Err(error) => panic!(
-            "Failed to run the database migrations. The error was: {}. Terminating...",
-            error
-        ),
+pub fn run_migrations(connection: &mut PgConnection) {
+    use diesel_migrations::MigrationHarness;
+    use log::{error, info};
+    match connection.run_pending_migrations(MIGRATIONS) {
+        Ok(ran_migrations) => {
+            if !ran_migrations.is_empty() {
+                info!(
+                    "Successfully ran {} database migrations",
+                    ran_migrations.len()
+                );
+            } else {
+                info!("No migrations had to be run since the database is up to date");
+            }
+        }
+        Err(error) => {
+            error!(
+                "Failed to run the database migrations. The error was: {}",
+                error
+            )
+        }
     }
 }
 
@@ -72,7 +83,6 @@ async fn main() {
         pick_multiple_random_participant_from_raffle_list, remove_participant_from_winner_list,
         update_user_password,
     };
-    use diesel::Connection;
     use log::{debug, error, info};
     use rocket::figment::{
         util::map,
@@ -134,20 +144,25 @@ async fn main() {
         std::thread::sleep(std::time::Duration::from_secs(10));
     }
 
-    // try to get a connection to the database server
-    let maybe_database_connection = PgConnection::establish(&database_connection_url);
-    if maybe_database_connection.is_err() {
-        error!(
-            "Could not connect to the database server with the supplied URL. The error was: {}",
-            maybe_database_connection.err().unwrap()
-        );
-        return;
-    }
-    let database_connection = maybe_database_connection.unwrap();
+    // create a db connection pool manager and the corresponding pool
+    let db_connection_pool_manager =
+        diesel::r2d2::ConnectionManager::new(database_connection_url.clone());
+    let db_connection_pool = r2d2::Pool::builder()
+        .max_size(15)
+        .build(db_connection_pool_manager)
+        .unwrap();
     debug!("Successfully connected to the database server");
 
     // ensure the database is setup correctly
-    run_migrations(&database_connection);
+    let mut db_connection = db_connection_pool.get().unwrap_or_else(|e| {
+        error!(
+            "Could not get a database connection from the connection pool. The error was: {}",
+            e
+        );
+        std::process::exit(-1);
+    });
+    run_migrations(&mut db_connection);
+    info!("Database preparations finished");
 
     // configure the database pool based on the supplied connection URL
     let adventskalender_database_config: Map<_, Value> = map! {
@@ -202,7 +217,7 @@ async fn main() {
 
     // log the startup of the backend service
     log_action(
-        &database_connection,
+        &mut db_connection,
         None,
         Action::ServerStarted,
         Some(format!(
@@ -215,9 +230,9 @@ async fn main() {
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");
     let _ = rocket::custom(rocket_configuration_figment)
-        .attach(AdventskalenderDatabaseConnection::fairing())
         .attach(cors_header)
         .manage(backend_config)
+        .manage(AdventskalenderDatabaseConnection::from(db_connection_pool))
         .mount(
             "/v1",
             routes![
@@ -236,5 +251,5 @@ async fn main() {
         .await;
 
     // log the shutdown of the backend service
-    log_action(&database_connection, None, Action::ServerTerminated, None);
+    log_action(&mut db_connection, None, Action::ServerTerminated, None);
 }

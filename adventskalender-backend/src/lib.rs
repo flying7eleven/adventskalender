@@ -5,6 +5,7 @@ use crate::fairings::AdventskalenderDatabaseConnection;
 use crate::models::User;
 use diesel::PgConnection;
 use lazy_static::lazy_static;
+use rocket::State;
 use serde::{Deserialize, Serialize};
 
 pub mod fairings;
@@ -58,7 +59,7 @@ impl ToString for Action {
 }
 
 pub fn lookup_user_by_name(
-    db_connection: &PgConnection,
+    db_connection: &mut PgConnection,
     supplied_username: String,
 ) -> Result<User, ()> {
     use crate::schema::users::dsl::{username, users};
@@ -81,25 +82,41 @@ pub fn lookup_user_by_name(
 }
 
 pub async fn log_action_rocket(
-    db_connection: &AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     username_performing_action: String,
     executed_action: Action,
     possible_description: Option<String>,
 ) {
-    return db_connection
-        .run(move |connection| {
+    use log::error;
+
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return;
+        }
+    };
+
+    let _ = db_connection
+        .build_transaction()
+        .read_write()
+        .run::<_, diesel::result::Error, _>(move |connection| {
             log_action(
-                &connection,
+                connection,
                 Some(username_performing_action),
                 executed_action,
                 possible_description,
             );
-        })
-        .await;
+            Ok(())
+        });
 }
 
 pub fn log_action(
-    db_connection: &PgConnection,
+    db_connection: &mut PgConnection,
     username_performing_action: Option<String>,
     executed_action: Action,
     possible_description: Option<String>,
@@ -113,7 +130,7 @@ pub fn log_action(
 
     // if no username was supplied, we do not have to handle any user name lookup
     let maybe_user = if username_performing_action.is_some() {
-        lookup_user_by_name(&db_connection, username_performing_action.unwrap())
+        lookup_user_by_name(db_connection, username_performing_action.unwrap())
     } else {
         Err(())
     };

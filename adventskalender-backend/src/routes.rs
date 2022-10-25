@@ -21,13 +21,13 @@ pub struct ParticipantCount {
 
 #[get("/participants/count")]
 pub async fn get_number_of_participants_who_already_won(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
 ) -> Result<Json<ParticipantCount>, Status> {
     use crate::schema::participants::dsl::{id, participants, won_on};
     use diesel::dsl::count;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-    use log::debug;
+    use log::{debug, error};
 
     // log that a user queried the statistics for the participants
     debug!(
@@ -35,31 +35,51 @@ pub async fn get_number_of_participants_who_already_won(
         authenticated_user.username
     );
 
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Err(Status::InternalServerError);
+        }
+    };
+
     // try to fetch the information and construct the corresponding data structure we want to return
     let maybe_result = db_connection
-        .run(|connection| {
-            if let Ok(all_participants) = participants.select(count(id)).first::<i64>(connection) {
-                if let Ok(participants_won) = participants
-                    .filter(won_on.is_not_null())
-                    .select(count(id))
-                    .first::<i64>(connection)
-                {
-                    return Some(Json(ParticipantCount {
-                        number_of_participants: all_participants as u16,
-                        number_of_participants_won: participants_won as u16,
-                        number_of_participants_still_in_raffle: (all_participants
-                            - participants_won)
-                            as u16,
-                    }));
+        .build_transaction()
+        .read_only()
+        .run::<ParticipantCount, diesel::result::Error, _>(|connection| {
+            match participants.select(count(id)).first::<i64>(connection) {
+                Ok(all_participants) => {
+                    match participants
+                        .filter(won_on.is_not_null())
+                        .select(count(id))
+                        .first::<i64>(connection)
+                    {
+                        Ok(participants_won) => {
+                            return Ok(ParticipantCount {
+                                number_of_participants: all_participants as u16,
+                                number_of_participants_won: participants_won as u16,
+                                number_of_participants_still_in_raffle: (all_participants
+                                    - participants_won)
+                                    as u16,
+                            });
+                        }
+                        Err(error) => return Err(error),
+                    }
+                }
+                Err(error) => {
+                    return Err(error);
                 }
             }
-            return None;
-        })
-        .await;
+        });
 
     // if we could fetch a result from the database, return the requested information
-    if maybe_result.is_some() {
-        return Ok(maybe_result.unwrap());
+    if maybe_result.is_ok() {
+        return Ok(Json::from(maybe_result.unwrap()));
     }
 
     // if we reach this step, we could not request the required information. Since we do not know what
@@ -78,77 +98,125 @@ pub struct Participant {
 }
 
 pub async fn get_all_winners(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
 ) -> Result<HashMap<String, Vec<Participant>>, ()> {
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::error;
+
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Err(());
+        }
+    };
 
     // try to get all days on which at least one person won
-    return db_connection
-        .run(|connection| {
+    let maybe_result = db_connection
+        .build_transaction()
+        .read_only()
+        .run::<_, diesel::result::Error, _>(|connection| {
             let mut result_map = HashMap::new();
-            if let Ok(participants_won_dates) = participants
+            match participants
                 .filter(won_on.is_not_null())
                 .order_by(won_on.asc())
                 .load::<DatabaseParticipant>(connection)
             {
-                for current in participants_won_dates.iter() {
-                    result_map
-                        .entry(current.won_on.unwrap().to_string())
-                        .or_insert(vec![])
-                        .push(Participant {
-                            id: current.id,
-                            first_name: current.first_name.clone(),
-                            last_name: current.last_name.clone(),
-                        });
+                Ok(participants_won_dates) => {
+                    for current in participants_won_dates.iter() {
+                        result_map
+                            .entry(current.won_on.unwrap().to_string())
+                            .or_insert(vec![])
+                            .push(Participant {
+                                id: current.id,
+                                first_name: current.first_name.clone(),
+                                last_name: current.last_name.clone(),
+                            });
+                    }
+                    return Ok(result_map);
                 }
-                return Ok(result_map);
+                Err(error) => {
+                    return Err(error);
+                }
             }
-            return Err(());
-        })
-        .await;
+        });
+
+    //
+    if maybe_result.is_ok() {
+        return Ok(maybe_result.unwrap());
+    }
+    return Err(());
 }
 
 pub async fn get_won_participants_on_day(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     date: NaiveDate,
 ) -> Result<Vec<Participant>, ()> {
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::error;
+
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Err(());
+        }
+    };
 
     // try to get all participants who won on a specific day from the database
-    return db_connection
-        .run(move |connection| {
-            if let Ok(participants_won_on_date) = participants
+    let maybe_result = db_connection
+        .build_transaction()
+        .read_only()
+        .run::<_, diesel::result::Error, _>(move |connection| {
+            match participants
                 .filter(won_on.eq(date))
                 .load::<DatabaseParticipant>(connection)
             {
-                return Ok(participants_won_on_date
-                    .iter()
-                    .map(|item| Participant {
-                        id: item.id,
-                        first_name: item.first_name.clone(),
-                        last_name: item.last_name.clone(),
-                    })
-                    .collect());
+                Ok(participants_won_on_date) => {
+                    return Ok(participants_won_on_date
+                        .iter()
+                        .map(|item| Participant {
+                            id: item.id,
+                            first_name: item.first_name.clone(),
+                            last_name: item.last_name.clone(),
+                        })
+                        .collect());
+                }
+                Err(error) => {
+                    return Err(error);
+                }
             }
-            return Err(());
-        })
-        .await;
+        });
+
+    //
+    if maybe_result.is_ok() {
+        return Ok(maybe_result.unwrap());
+    }
+    return Err(());
 }
 
 #[delete("/participants/won/<participant_id>")]
 pub async fn remove_participant_from_winner_list(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     participant_id: i32,
     authenticated_user: AuthenticatedUser,
 ) -> Status {
     use crate::log_action_rocket;
 
     if mark_participant_as_not_won(
-        &db_connection,
+        &db_connection_pool,
         participant_id,
         authenticated_user.username.clone(),
     )
@@ -156,7 +224,7 @@ pub async fn remove_participant_from_winner_list(
     .is_ok()
     {
         log_action_rocket(
-            &db_connection,
+            &db_connection_pool,
             authenticated_user.username,
             Action::RemovedWinner,
             Some(format!(
@@ -172,10 +240,10 @@ pub async fn remove_participant_from_winner_list(
 
 #[get("/participants/won")]
 pub async fn get_all_won_participants(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     _authenticated_user: AuthenticatedUser,
 ) -> Result<Json<HashMap<String, Vec<Participant>>>, Status> {
-    let maybe_all_winners = get_all_winners(db_connection).await;
+    let maybe_all_winners = get_all_winners(db_connection_pool).await;
     if maybe_all_winners.is_ok() {
         return Ok(Json(maybe_all_winners.unwrap()));
     }
@@ -192,7 +260,7 @@ pub struct NewPassword {
 
 #[put("/auth/password", data = "<new_password>")]
 pub async fn update_user_password(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
     new_password: Json<NewPassword>,
 ) -> Status {
@@ -220,21 +288,36 @@ pub async fn update_user_password(
     let hashed_password = maybe_hashed_password.unwrap();
     let current_user = authenticated_user.username.clone();
 
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Status::InternalServerError;
+        }
+    };
+
     // update the corresponding row in the database
     if let Err(error) = db_connection
-        .run(move |connection| {
+        .build_transaction()
+        .read_write()
+        .run::<_, diesel::result::Error, _>(move |connection| {
             if let Ok(rows_updated) = update(users.filter(username.eq(authenticated_user.username.clone())))
                 .set(password_hash.eq(hashed_password))
                 .execute(connection)
             {
                 if rows_updated != 1 {
-                    return Err("Expected to update exactly one row but none or more than one row were updated. This should never happen!");
+                    error!("Expected to update exactly one row but none or more than one row were updated. This should never happen!");
+                    return Err(diesel::result::Error::NotFound); // TODO: not the real error
                 }
                 return Ok(());
             }
-            return Err("Failed to update the corresponding entry");
+            error!("Failed to update the corresponding entry");
+            return Err(diesel::result::Error::NotFound); // TODO: not the real error
         })
-    .await
     {
         error!(
             "Could not update the password in the database. The error was: {}",
@@ -244,7 +327,13 @@ pub async fn update_user_password(
     }
 
     // log that the user changed the own password
-    log_action_rocket(&db_connection, current_user, Action::PasswordChanged, None).await;
+    log_action_rocket(
+        &db_connection_pool,
+        current_user,
+        Action::PasswordChanged,
+        None,
+    )
+    .await;
 
     // if we get here, the password was successfully updated
     debug!("Password was successfully updated",);
@@ -253,7 +342,7 @@ pub async fn update_user_password(
 
 #[get("/participants/won/<date_as_str>/count")]
 pub async fn count_won_participants_on_day(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
     date_as_str: &str,
 ) -> Result<Json<usize>, Status> {
@@ -267,7 +356,7 @@ pub async fn count_won_participants_on_day(
     }
 
     // try to fetch the information and construct the corresponding data structure we want to return
-    let maybe_result = get_won_participants_on_day(db_connection, maybe_date.unwrap()).await;
+    let maybe_result = get_won_participants_on_day(db_connection_pool, maybe_date.unwrap()).await;
 
     // if we got a result, count the participants and return the amount
     if maybe_result.is_ok() {
@@ -281,40 +370,65 @@ pub async fn count_won_participants_on_day(
 }
 
 pub async fn pick_random_participants_from_database(
-    db_connection: &AdventskalenderDatabaseConnection,
+    db_connection_pool: &AdventskalenderDatabaseConnection,
     count: usize,
 ) -> Option<Vec<Participant>> {
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::error;
     use rand::seq::SliceRandom;
 
-    return db_connection
-        .run(move |connection| {
-            if let Ok(participants_in_raffle) = participants
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return None;
+        }
+    };
+
+    //
+    let maybe_result = db_connection
+        .build_transaction()
+        .read_only()
+        .run::<_, diesel::result::Error, _>(move |connection| {
+            match participants
                 .filter(won_on.is_null())
                 .load::<DatabaseParticipant>(connection)
             {
-                let mut participants_vec = vec![];
-                for current_participant in
-                    participants_in_raffle.choose_multiple(&mut rand::thread_rng(), count)
-                {
-                    participants_vec.push(Participant {
-                        id: current_participant.id,
-                        first_name: current_participant.first_name.clone(),
-                        last_name: current_participant.last_name.clone(),
-                    });
+                Ok(participants_in_raffle) => {
+                    let mut participants_vec = vec![];
+                    for current_participant in
+                        participants_in_raffle.choose_multiple(&mut rand::thread_rng(), count)
+                    {
+                        participants_vec.push(Participant {
+                            id: current_participant.id,
+                            first_name: current_participant.first_name.clone(),
+                            last_name: current_participant.last_name.clone(),
+                        });
+                    }
+                    return Ok(participants_vec);
                 }
-                return Some(participants_vec);
+                Err(error) => {
+                    return Err(error);
+                }
             }
-            return None;
-        })
-        .await;
+        });
+
+    //
+    if maybe_result.is_ok() {
+        return Some(maybe_result.unwrap());
+    }
+    return None;
 }
 
 #[get("/participants/pick/<count>/for/<date>")]
 pub async fn pick_multiple_random_participant_from_raffle_list(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
     count: usize,
     date: &str,
@@ -330,7 +444,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
     }
 
     // try to get the number of random picks from the database (they are not marked as won after this call)
-    let maybe_result = pick_random_participants_from_database(&db_connection, count).await;
+    let maybe_result = pick_random_participants_from_database(&db_connection_pool, count).await;
 
     // if we could fetch a result from the database, return the requested information
     if maybe_result.is_some() {
@@ -346,7 +460,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         // return them
         let won_participant_ids: Vec<i32> = result.iter().map(|p| p.id).collect();
         if mark_participant_as_won(
-            &db_connection,
+            &db_connection_pool,
             won_participant_ids.clone(),
             maybe_date.unwrap(),
             authenticated_user.username.clone(),
@@ -361,7 +475,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         // log the picked winners and return them
         for current_participant_id in won_participant_ids.clone() {
             log_action_rocket(
-                &db_connection,
+                &db_connection_pool,
                 authenticated_user.username.clone(),
                 Action::PickedWinner,
                 Some(format!(
@@ -396,7 +510,7 @@ pub struct PickingInformation {
 }
 
 pub async fn mark_participant_as_won(
-    db_connection: &AdventskalenderDatabaseConnection,
+    db_connection_pool: &AdventskalenderDatabaseConnection,
     participant_ids: Vec<i32>,
     picked_for_date: NaiveDate,
     user_who_picked: String,
@@ -408,44 +522,67 @@ pub async fn mark_participant_as_won(
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
-    return db_connection
-            .run(move |connection| {
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Err(());
+        }
+    };
+
+    //
+    let maybe_result= db_connection
+        .build_transaction()
+        .read_write()
+            .run::<_, diesel::result::Error, _>(move |connection| {
                 // look up the user object who initiated the call
-                if let Ok(user_obj) = lookup_user_by_name(&connection, user_who_picked.clone()) {
-
-                    // create the struct with the update information for the picked user
-                    let participant_info = ParticipantPicking {
-                        won_on: Some(picked_for_date),
-                        picking_time: Some(Utc::now().naive_utc()),
-                        picked_by: Some(user_obj.id),
-                    };
-
-                    // do the actual update of the database
-                    if let Ok(rows_updated) = update(participants.filter(id.eq_any(participant_ids.clone())))
-                        .set(&participant_info)
-                        .execute(connection)
+                match lookup_user_by_name(connection, user_who_picked.clone()) {
+                Ok(user_obj) =>
                     {
-                        // ensure that all rows were successfully updated. If not, we have to assume an error and log it before exit here
-                        if rows_updated != participant_ids.len() {
-                            error!("There should be {} row updates but {} rows were actually updated. The following IDs should not be marked as won: {:?}", participant_ids.len(), rows_updated, participant_ids);
-                            return Err(());
+                        // create the struct with the update information for the picked user
+                        let participant_info = ParticipantPicking {
+                            won_on: Some(picked_for_date),
+                            picking_time: Some(Utc::now().naive_utc()),
+                            picked_by: Some(user_obj.id),
+                        };
+
+                        // do the actual update of the database
+                        if let Ok(rows_updated) = update(participants.filter(id.eq_any(participant_ids.clone())))
+                            .set(&participant_info)
+                            .execute(connection)
+                        {
+                            // ensure that all rows were successfully updated. If not, we have to assume an error and log it before exit here
+                            if rows_updated != participant_ids.len() {
+                                error!("There should be {} row updates but {} rows were actually updated. The following IDs should not be marked as won: {:?}", participant_ids.len(), rows_updated, participant_ids);
+                                return Err(diesel::result::Error::NotFound); // TODO: not the actual error
+                            }
+
+                            debug!("The user {} marked the users with the ids {:?} as 'won on {}'", user_who_picked, participant_ids, picked_for_date);
+                            return Ok(());
                         }
-
-                        debug!("The user {} marked the users with the ids {:?} as 'won on {}'", user_who_picked, participant_ids, picked_for_date);
-                        return Ok(());
+                        error!("The user {} tried to mark the users with the ids {:?} as 'won on {}' but we failed to do so", user_who_picked, participant_ids, picked_for_date);
+                        return Err(diesel::result::Error::NotFound); // TODO: not the actual error
+                    },
+                    Err(_) => {
+                        // it seems that we could not look up the user who initiated the call
+                        return Err(diesel::result::Error::NotFound); // TODO: not the actual error
                     }
-                    error!("The user {} tried to mark the users with the ids {:?} as 'won on {}' but we failed to do so", user_who_picked, participant_ids, picked_for_date);
-                    return Err(());
                 }
+            });
 
-                // it seems that we could not look up the user who initiated the call
-                Err(())
-            })
-            .await;
+    //
+    if maybe_result.is_err() {
+        return Err(());
+    }
+    return Ok(());
 }
 
 pub async fn mark_participant_as_not_won(
-    db_connection: &AdventskalenderDatabaseConnection,
+    db_connection_pool: &AdventskalenderDatabaseConnection,
     participant_id: i32,
     user_who_unpicked: String,
 ) -> Result<(), ()> {
@@ -454,8 +591,22 @@ pub async fn mark_participant_as_not_won(
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
-    return db_connection
-        .run(move |connection| {
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Err(());
+        }
+    };
+
+    let maybe_result = db_connection
+        .build_transaction()
+        .read_write()
+        .run::<_, diesel::result::Error, _>(move |connection| {
             // set all fields to none
             let participant_info = ParticipantPicking {
                 won_on: None,
@@ -464,23 +615,34 @@ pub async fn mark_participant_as_not_won(
             };
 
             // do the actual update of the database
-            if let Ok(rows_updated) = update(participants.filter(id.eq(participant_id)))
+            match update(participants.filter(id.eq(participant_id)))
                 .set(&participant_info)
                 .execute(connection)
             {
-                // ensure that the expected row was updated, if we did not exactly update one row, something went wrong
-                if rows_updated != 1 {
-                    error!("There should be 1 row updates but {} rows were actually updated. The following ID should not be marked as NOT won: {:?}", rows_updated, participant_id);
-                    return Err(());
-                }
+                Ok(rows_updated) =>
 
-                debug!("The user {} marked the user with the id {} as NOT won", user_who_unpicked, participant_id);
-                return Ok(());
+                    {
+                        // ensure that the expected row was updated, if we did not exactly update one row, something went wrong
+                        if rows_updated != 1 {
+                            error!("There should be 1 row updates but {} rows were actually updated. The following ID should not be marked as NOT won: {:?}", rows_updated, participant_id);
+                            return Err(diesel::result::Error::NotFound); // TODO: not really the correct error code
+                        }
+
+                        debug!("The user {} marked the user with the id {} as NOT won", user_who_unpicked, participant_id);
+                        return Ok(());
+                    }
+                Err(error) => {
+                    error!("The user {} tried to mark the user with the id {} as NOT won but we failed to do so", user_who_unpicked, participant_id);
+                    return Err(error);
+                }
             }
-            error!("The user {} tried to mark the user with the id {} as NOT won but we failed to do so", user_who_unpicked, participant_id);
-            return Err(());
-        })
-        .await;
+        });
+
+    //
+    if maybe_result.is_err() {
+        return Err(());
+    }
+    return Ok(());
 }
 
 #[derive(Serialize, Deserialize)]
@@ -500,7 +662,7 @@ pub struct TokenResponse {
 
 #[post("/auth/token", data = "<login_information>")]
 pub async fn get_login_token(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     login_information: Json<LoginInformation>,
     config: &State<BackendConfiguration>,
 ) -> Result<Json<TokenResponse>, Status> {
@@ -511,30 +673,45 @@ pub async fn get_login_token(
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Err(Status::InternalServerError);
+        }
+    };
+
     // try to get the user record for the supplied username
     let supplied_username = login_information.username.clone();
     let maybe_user_result = db_connection
-        .run(move |connection| {
+        .build_transaction()
+        .read_only()
+        .run::<_, diesel::result::Error, _>(move |connection| {
             if let Ok(found_users) = users
                 .filter(username.eq(supplied_username))
                 .load::<User>(connection)
             {
                 // if we did not get exactly one user, return an 'error'
                 if found_users.len() != 1 {
-                    return None;
+                    return Err(diesel::result::Error::NotFound);
                 }
 
                 // return the found user
-                return Some(found_users[0].clone());
+                return Ok(found_users[0].clone());
             }
-            return None;
-        })
-        .await;
+
+            //
+            return Err(diesel::result::Error::NotFound); // TODO: not the real error
+        });
 
     // try to get the actual user object or delay a bit and then return with the corresponding error
     let user = match maybe_user_result {
-        Some(user) => user,
-        None => {
+        Ok(user) => user,
+        Err(_) => {
             // ensure that we know what happened
             error!(
                 "Could not get the user record for '{}'",
@@ -549,7 +726,7 @@ pub async fn get_login_token(
 
             // log the failed attempt
             log_action_rocket(
-                &db_connection,
+                &db_connection_pool,
                 login_information.username.clone(),
                 Action::FailedLogin,
                 Some(format!(
@@ -570,7 +747,7 @@ pub async fn get_login_token(
         Ok(is_password_correct) => {
             if !is_password_correct {
                 log_action_rocket(
-                    &db_connection,
+                    &db_connection_pool,
                     login_information.username.clone(),
                     Action::FailedLogin,
                     None,
@@ -591,7 +768,7 @@ pub async fn get_login_token(
         get_token_for_user(&login_information.username, &config.token_signature_psk)
     {
         log_action_rocket(
-            &db_connection,
+            &db_connection_pool,
             login_information.username.clone(),
             Action::SuccessfulLogin,
             None,
@@ -642,29 +819,42 @@ pub struct HealthCheck {
 
 #[get("/health")]
 pub async fn check_backend_health(
-    db_connection: AdventskalenderDatabaseConnection,
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
 ) -> Result<Json<HealthCheck>, Status> {
     use crate::schema::participants::dsl::participants;
-    use diesel::expression::count::count_star;
+    use diesel::dsl::count_star;
     use diesel::{QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Err(Status::InternalServerError);
+        }
+    };
+
     // check if the connection to the database is working or not
     let database_is_healthy = db_connection
-        .run(|connection| {
+        .build_transaction()
+        .read_only()
+        .run::<_, diesel::result::Error, _>(|connection| {
             if let Err(error) = participants.select(count_star()).first::<i64>(connection) {
                 error!("The health check of the database connection failed with the following error: {}", error);
-                return false;
+                return Err(error);
             }
             debug!("Last health check was successful");
-            return true;
-        })
-        .await;
+            return Ok(());
+        });
 
     // if the database is healthy, we can return the status immediately
-    if database_is_healthy {
+    if database_is_healthy.is_ok() {
         return Ok(Json(HealthCheck {
-            database_healthy: database_is_healthy,
+            database_healthy: true,
             backend_healthy: true,
         }));
     }

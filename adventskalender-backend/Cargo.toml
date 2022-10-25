@@ -29,11 +29,6 @@ git = "https://github.com/lawliet89/rocket_cors.git"
 branch = "master"
 default-features = false
 
-[dependencies.rocket_sync_db_pools]
-version = "0.1.0-rc.2"
-default-features = false
-features = ["diesel_postgres_pool"]
-
 [dependencies.chrono]
 version = "0.4.22"
 default-features = false
@@ -56,12 +51,12 @@ version = "1.0.145"
 default-features = false
 
 [dependencies.diesel]
-version = "1.4.8"
+version = "2.0.0"
 default-features = false
-features = ["postgres", "chrono"]
+features = ["postgres", "r2d2", "chrono"]
 
 [dependencies.diesel_migrations]
-version = "1.4.0"
+version = "2.0.0"
 default-features = false
 
 [dependencies.bcrypt]
@@ -77,3 +72,7 @@ default-features = false
 version = "7.4.2"
 default-features = false
 features = ["git", "rustc", "build", "cargo"]
+
+[dependencies.r2d2]
+version = "0.8.10"
+default-features = false
