@@ -3,6 +3,7 @@
         "navigation": {
             "dashboard": "Pick new winners",
             "calendar": "List of past winners",
+            "settings": "Settings",
             "version": "Version information"
         }
     },
