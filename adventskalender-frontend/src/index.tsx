@@ -16,6 +16,7 @@ import { DashboardView } from './views/DashboardView';
 import { CalendarView } from './views/CalendarView';
 import { VersionView } from './views/VersionView';
 import { SettingsView } from './views/SettingsView';
+import { ParticipantView } from './views/ParticipantView';
 
 const App = () => {
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -50,6 +51,14 @@ const App = () => {
                                     element={
                                         <RequireAuthentication>
                                             <AuthenticatedView content={<CalendarView />} />
+                                        </RequireAuthentication>
+                                    }
+                                />
+                                <Route
+                                    path="/participants"
+                                    element={
+                                        <RequireAuthentication>
+                                            <AuthenticatedView content={<ParticipantView />} />
                                         </RequireAuthentication>
                                     }
                                 />

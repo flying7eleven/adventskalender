@@ -4,6 +4,7 @@
             "dashboard": "Pick new winners",
             "calendar": "List of past winners",
             "settings": "Settings",
+            "participants": "Participants",
             "version": "Version information"
         }
     },
