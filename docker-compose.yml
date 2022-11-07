@@ -2,15 +2,13 @@ version: "3"
 services:
   adventskalender_database:
     container_name: adventskalender_database
-    image: postgres:14
+    image: postgres:15
     volumes:
       - ./.volumes/postgres_data:/var/lib/postgresql/data:rw
     environment:
       - POSTGRES_USER=adventskalender
       - POSTGRES_PASSWORD=debugpassword
       - POSTGRES_DB=adventskalender
-      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
-      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     restart: "unless-stopped"
     networks:
       - adventskalender
