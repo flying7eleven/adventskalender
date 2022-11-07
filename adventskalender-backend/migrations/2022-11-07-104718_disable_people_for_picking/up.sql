@@ -1,0 +1,1 @@
+ALTER TABLE participants ADD COLUMN can_be_picked BOOLEAN NOT NULL DEFAULT TRUE;
