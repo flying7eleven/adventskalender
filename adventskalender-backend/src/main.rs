@@ -30,11 +30,8 @@ pub fn run_migrations(connection: &mut PgConnection) {
 }
 
 fn unset_environment_variable(name: &str) {
-    use log::warn;
-    warn!(
-        "Unsetting the environment variable {} is currently not supported",
-        name
-    );
+    use std::env::remove_var;
+    remove_var(name)
 }
 
 fn setup_logging(logging_level: LevelFilter) {
