@@ -78,7 +78,7 @@ async fn main() {
         check_backend_health, count_won_participants_on_day, get_all_won_participants,
         get_backend_version, get_login_token, get_number_of_participants_who_already_won,
         pick_multiple_random_participant_from_raffle_list, remove_participant_from_winner_list,
-        update_user_password,
+        update_user_password, get_list_of_pickable_participants, toggle_if_participant_is_pickable
     };
     use log::{debug, error, info};
     use rocket::figment::{
@@ -235,6 +235,8 @@ async fn main() {
             routes![
                 get_login_token,
                 get_number_of_participants_who_already_won,
+                get_list_of_pickable_participants,
+                toggle_if_participant_is_pickable,
                 pick_multiple_random_participant_from_raffle_list,
                 get_all_won_participants,
                 count_won_participants_on_day,
