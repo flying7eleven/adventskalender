@@ -1,6 +1,6 @@
 {
   "name": "adventskalender-frontend",
-  "version": "2021.12.15",
+  "version": "2022.11.14",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.10.4",
