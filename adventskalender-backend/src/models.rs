@@ -9,7 +9,6 @@ pub struct Participant {
     pub won_on: Option<NaiveDate>,
     pub picked_by: Option<i32>,
     pub picking_time: Option<NaiveDateTime>,
-    pub can_be_picked: bool,
 }
 
 #[derive(AsChangeset)]

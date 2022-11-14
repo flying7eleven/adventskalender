@@ -24,7 +24,7 @@ pub async fn get_number_of_participants_who_already_won(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
 ) -> Result<Json<ParticipantCount>, Status> {
-    use crate::schema::participants::dsl::{can_be_picked, id, participants, won_on};
+    use crate::schema::participants::dsl::{id, participants, won_on};
     use diesel::dsl::count;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
@@ -52,11 +52,7 @@ pub async fn get_number_of_participants_who_already_won(
         .build_transaction()
         .read_only()
         .run::<ParticipantCount, diesel::result::Error, _>(|connection| {
-            match participants
-                .select(count(id))
-                .filter(can_be_picked.eq(true))
-                .first::<i64>(connection)
-            {
+            match participants.select(count(id)).first::<i64>(connection) {
                 Ok(all_participants) => {
                     match participants
                         .filter(won_on.is_not_null())
@@ -232,7 +228,7 @@ pub async fn remove_participant_from_winner_list(
             authenticated_user.username,
             Action::RemovedWinner,
             Some(format!(
-                "The participant with the id {} was marked removed from the list of winners and can now be picked again",
+                "The participant with the id {} was marked removed from the list of winners",
                 participant_id
             )),
         )
@@ -378,7 +374,7 @@ pub async fn pick_random_participants_from_database(
     count: usize,
 ) -> Option<Vec<Participant>> {
     use crate::models::Participant as DatabaseParticipant;
-    use crate::schema::participants::dsl::{can_be_picked, participants, won_on};
+    use crate::schema::participants::dsl::{participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
     use rand::seq::SliceRandom;
@@ -402,7 +398,6 @@ pub async fn pick_random_participants_from_database(
         .run::<_, diesel::result::Error, _>(move |connection| {
             match participants
                 .filter(won_on.is_null())
-                .filter(can_be_picked.eq(true))
                 .load::<DatabaseParticipant>(connection)
             {
                 Ok(participants_in_raffle) => {
