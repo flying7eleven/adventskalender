@@ -2,7 +2,7 @@
 
 exports[`PickNewWinner component Matches the snapshot 1`] = `
 <button
-  className="MuiLoadingButton-root MuiButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButtonBase-root css-1twrztz-MuiButtonBase-root-MuiButton-root-MuiLoadingButton-root"
+  className="MuiButtonBase-root MuiButton-root MuiLoadingButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-root MuiLoadingButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium css-1twrztz-MuiButtonBase-root-MuiButton-root-MuiLoadingButton-root"
   disabled={false}
   onBlur={[Function]}
   onClick={[Function]}
