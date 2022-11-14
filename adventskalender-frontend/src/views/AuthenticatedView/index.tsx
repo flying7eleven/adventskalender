@@ -9,7 +9,6 @@ import MuiDrawer from '@mui/material/Drawer';
 import { styled, Theme, CSSObject } from '@mui/material/styles';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ListItemText from '@mui/material/ListItemText';
@@ -113,10 +112,6 @@ export const AuthenticatedView = (props: Props) => {
         navigate('/settings');
     };
 
-    const onClickOnParticipants = () => {
-        navigate('/participants');
-    };
-
     const isSelected = (url: string) => {
         return location.pathname === url;
     };
@@ -163,12 +158,6 @@ export const AuthenticatedView = (props: Props) => {
                             <CalendarTodayIcon />
                         </ListItemIcon>
                         <ListItemText primary={localizationContext.translate('global.navigation.calendar')} />
-                    </ListItem>
-                    <ListItem button key={'Participants'} onClick={onClickOnParticipants} selected={isSelected('/participants')}>
-                        <ListItemIcon>
-                            <FormatListNumberedIcon />
-                        </ListItemIcon>
-                        <ListItemText primary={localizationContext.translate('global.navigation.participants')} />
                     </ListItem>
                     <Divider />
                     <ListItem button key={'Settings'} onClick={onClickSettings} selected={isSelected('/settings')}>
