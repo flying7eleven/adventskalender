@@ -632,7 +632,7 @@ pub async fn mark_participant_as_not_won(
                         return Ok(());
                     }
                 Err(error) => {
-                    error!("The user {} tried to mark the user with the id {} as NOT won but we failed to do so", user_who_unpicked, participant_id);
+                    error!("The user {} tried to mark the user with the id {} as NOT won but we failed to do so. The error was: {}", user_who_unpicked, participant_id, error);
                     return Err(error);
                 }
             }
