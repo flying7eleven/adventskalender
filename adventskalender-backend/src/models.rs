@@ -12,8 +12,7 @@ pub struct Participant {
 }
 
 #[derive(AsChangeset)]
-#[diesel(table_name = participants)]
-// #[changeset_options(treat_none_as_null = "true")]
+#[diesel(table_name = participants, treat_none_as_null = true)]
 pub struct ParticipantPicking {
     pub won_on: Option<NaiveDate>,
     pub picked_by: Option<i32>,
