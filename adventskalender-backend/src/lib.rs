@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 pub mod fairings;
 pub mod guards;
 pub mod models;
+pub mod rocket_cors;
 pub mod routes;
 mod schema;
 

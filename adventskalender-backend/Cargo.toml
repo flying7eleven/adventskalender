@@ -20,14 +20,9 @@ version = "1.4.0"
 default-features = false
 
 [dependencies.rocket]
-version = "0.5.0-rc.2"
+version = "0.5.0-rc.4"
 default-features = false
 features = ["json"]
-
-[dependencies.rocket_cors]
-git = "https://github.com/lawliet89/rocket_cors.git"
-branch = "master"
-default-features = false
 
 [dependencies.chrono]
 version = "0.4.23"
@@ -64,8 +59,24 @@ version = "0.13.0"
 default-features = false
 features = ["std"]
 
+[dependencies.http]
+version = "0.2"
+default-features = false
+
 [dependencies.jsonwebtoken]
 version = "8.1.1"
+default-features = false
+
+[dependencies.regex]
+version = "1.7.2"
+default-features = false
+
+[dependencies.unicase]
+version = "2.6"
+default-features = false
+
+[dependencies.url]
+version = "2.3.1"
 default-features = false
 
 [build-dependencies.vergen]

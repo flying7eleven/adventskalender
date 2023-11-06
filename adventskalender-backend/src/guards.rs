@@ -38,7 +38,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                     maybe_authorization.split(" ").collect::<Vec<&str>>();
                 if authorization_information.len() != 2 {
                     error!("It seems that the authorization header is malformed. There were 2 parts expected but we got {}", authorization_information.len());
-                    return Outcome::Failure((
+                    return Outcome::Error((
                         Status::Forbidden,
                         AuthorizationError::MalformedAuthorizationHeader,
                     ));
@@ -47,7 +47,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                 // ensure that the token type is marked as 'bearer' token
                 if authorization_information[0].to_lowercase() != "bearer" {
                     error!("It seems that the authorization header is malformed. We expected as token type 'bearer' but got '{}'", authorization_information[0].to_lowercase());
-                    return Outcome::Failure((
+                    return Outcome::Error((
                         Status::Forbidden,
                         AuthorizationError::MalformedAuthorizationHeader,
                     ));
@@ -83,7 +83,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                             "The supplied token seems to be invalid. The error was: {}",
                             error
                         );
-                        return Outcome::Failure((
+                        return Outcome::Error((
                             Status::Forbidden,
                             AuthorizationError::InvalidToken,
                         ));
@@ -98,7 +98,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             }
             _ => {
                 error!("No authorization header could be found for an authenticated route!");
-                Outcome::Failure((
+                Outcome::Error((
                     Status::Forbidden,
                     AuthorizationError::MissingAuthorizationHeader,
                 ))

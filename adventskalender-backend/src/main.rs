@@ -1,3 +1,4 @@
+use adventskalender_backend::rocket_cors::AllowedOrigins;
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
 use diesel::PgConnection;
@@ -89,7 +90,6 @@ async fn main() {
     use rocket::http::Method;
     use rocket::routes;
     use rocket::Config as RocketConfig;
-    use rocket_cors::{AllowedHeaders, AllowedOrigins};
     use std::env;
 
     // select the logging level from a set environment variable
@@ -194,13 +194,13 @@ async fn main() {
 
     // prepare the fairing for the CORS headers
     let allowed_origins = AllowedOrigins::All;
-    let cors_header = rocket_cors::CorsOptions {
+    let cors_header = adventskalender_backend::rocket_cors::CorsOptions {
         allowed_origins,
         allowed_methods: vec![Method::Get, Method::Post, Method::Put, Method::Delete]
             .into_iter()
             .map(From::from)
             .collect(),
-        allowed_headers: AllowedHeaders::All,
+        allowed_headers: adventskalender_backend::rocket_cors::AllowedHeaders::All,
         allow_credentials: true,
         ..Default::default()
     }
