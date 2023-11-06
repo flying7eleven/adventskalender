@@ -25,16 +25,16 @@ default-features = false
 features = ["json"]
 
 [dependencies.chrono]
-version = "0.4.23"
+version = "0.4.31"
 default-features = false
 features = ["clock", "serde"]
 
 [dependencies.log]
-version = "0.4.17"
+version = "0.4.20"
 default-features = false
 
 [dependencies.fern]
-version = "0.6.1"
+version = "0.6.2"
 default-features = false
 
 [dependencies.rand]
@@ -55,28 +55,28 @@ version = "2.1.0"
 default-features = false
 
 [dependencies.bcrypt]
-version = "0.13.0"
+version = "0.15.0"
 default-features = false
 features = ["std"]
 
 [dependencies.http]
-version = "0.2"
+version = "0.2.9"
 default-features = false
 
 [dependencies.jsonwebtoken]
-version = "8.1.1"
+version = "9.1.0"
 default-features = false
 
 [dependencies.regex]
-version = "1.7.2"
+version = "1.10.2"
 default-features = false
 
 [dependencies.unicase]
-version = "2.6"
+version = "2.7.0"
 default-features = false
 
 [dependencies.url]
-version = "2.3.1"
+version = "2.4.1"
 default-features = false
 
 [build-dependencies.vergen]
