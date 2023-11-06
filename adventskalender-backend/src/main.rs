@@ -1,4 +1,5 @@
 use adventskalender_backend::{log_action, Action};
+use chrono::DateTime;
 use diesel::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 use log::LevelFilter;
@@ -110,7 +111,7 @@ async fn main() {
     // just inform the user that we are starting up
     info!(
         "Starting adventskalender backend ({}, build with rustc {})...",
-        env!("VERGEN_GIT_SEMVER"),
+        env!("VERGEN_GIT_DESCRIBE"),
         env!("VERGEN_RUSTC_SEMVER")
     );
 
@@ -218,9 +219,14 @@ async fn main() {
         None,
         Action::ServerStarted,
         Some(format!(
-            "Service with the version {} (build with rustc {}) started",
-            env!("VERGEN_GIT_SEMVER"),
-            env!("VERGEN_RUSTC_SEMVER")
+            "Service with the version {} (build with rustc {}) started (build on {} at {})",
+            env!("VERGEN_GIT_DESCRIBE"),
+            env!("VERGEN_RUSTC_SEMVER"),
+            env!("VERGEN_BUILD_DATE"),
+            DateTime::parse_from_rfc3339(env!("VERGEN_BUILD_TIMESTAMP"))
+                .unwrap()
+                .time()
+                .format("%H:%M:%S"),
         )),
     );
 
