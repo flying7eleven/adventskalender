@@ -1970,6 +1970,7 @@ mod tests {
 
     use rocket::http::hyper;
     use rocket::http::Header;
+    use rocket::http::Method;
     use rocket::local::blocking::Client;
 
     use super::*;

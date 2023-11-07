@@ -352,14 +352,14 @@ mod tests {
         let parsed_method = not_err!(AccessControlRequestMethod::from_str(method));
         assert_matches!(
             parsed_method,
-            AccessControlRequestMethod(crate::Method(rocket::http::Method::Post))
+            AccessControlRequestMethod(crate::rocket_cors::Method(rocket::http::Method::Post))
         );
 
         let method = "options";
         let parsed_method = not_err!(AccessControlRequestMethod::from_str(method));
         assert_matches!(
             parsed_method,
-            AccessControlRequestMethod(crate::Method(rocket::http::Method::Options))
+            AccessControlRequestMethod(crate::rocket_cors::Method(rocket::http::Method::Options))
         );
 
         let method = "INVALID";
