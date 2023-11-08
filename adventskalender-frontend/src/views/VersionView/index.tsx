@@ -1,6 +1,6 @@
 import Grid from '@mui/material/Grid';
 import { useEffect, useState } from 'react';
-import { API_BACKEND_URL, VersionInformation } from '../../api';
+import { API_BACKEND_URL, VersionInformation, AuditEventCount } from '../../api';
 import packageJson from '../../../package.json';
 import { Box, Card, CardContent, Divider, Link, Stack, Typography } from '@mui/material';
 import { LocalizedText } from '../../components/LocalizedText';
@@ -14,6 +14,7 @@ export const VersionView = () => {
         build_date: 'unknown',
         build_time: 'unknown',
     });
+    const [auditEventCount, setAuditEventCount] = useState<number>(0);
 
     const getFrontendBuildDateTimeString = () => {
         return moment
@@ -39,6 +40,29 @@ export const VersionView = () => {
             })
             .then((parsedJson: VersionInformation) => {
                 setBackendVersionInformation(parsedJson);
+            })
+            .catch(() => {
+                /* we do not have to anything here */
+            });
+    }, []);
+
+    useEffect(() => {
+        // get the version information from the backend
+        fetch(`${API_BACKEND_URL}/audit/count`, {
+            method: 'GET',
+            headers: {
+                'Content-type': 'application/json; charset=UTF-8',
+            },
+        })
+            .then((res) => {
+                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
+                // object and proceed processing it
+                if (res.status === 200) {
+                    return res.json();
+                }
+            })
+            .then((parsedJson: AuditEventCount) => {
+                setAuditEventCount(parsedJson.count);
             })
             .catch(() => {
                 /* we do not have to anything here */
@@ -137,7 +161,7 @@ export const VersionView = () => {
                                         <LocalizedText translationKey={'configuration.card.categories.number_of_audit_events'} />
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        0
+                                        {auditEventCount}
                                     </Typography>
                                 </Box>
                             </Stack>

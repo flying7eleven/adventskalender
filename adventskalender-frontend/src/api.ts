@@ -31,3 +31,7 @@ export interface VersionInformation {
     build_date: string;
     build_time: string;
 }
+
+export interface AuditEventCount {
+    count: number;
+}

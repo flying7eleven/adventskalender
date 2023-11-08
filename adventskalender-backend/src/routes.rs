@@ -817,6 +817,63 @@ pub async fn get_backend_version() -> Json<VersionInformation> {
 }
 
 #[derive(Serialize)]
+pub struct AuditEventCount {
+    /// The number of audit events written.
+    pub count: i64,
+}
+
+#[get("/audit/count")]
+pub async fn get_audit_event_count(
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
+) -> Result<Json<AuditEventCount>, Status> {
+    use crate::schema::performed_actions::dsl::performed_actions;
+    use diesel::dsl::count_star;
+    use diesel::{QueryDsl, RunQueryDsl};
+    use log::{debug, error};
+
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Err(Status::InternalServerError);
+        }
+    };
+
+    // try to get the number of audit events currenctly stored in the database
+    let maybe_audit_event_count = db_connection
+        .build_transaction()
+        .read_only()
+        .run::<_, diesel::result::Error, _>(|connection| {
+        return match performed_actions
+            .select(count_star())
+            .first::<i64>(connection)
+        {
+            Err(error) => {
+                error!(
+                    "Could not get the numnber of events in the audit log. The error was: {}",
+                    error
+                );
+                Err(error)
+            }
+            Ok(count) => {
+                debug!("Got {} events in the audit log", count);
+                Ok(Json(AuditEventCount { count: count }))
+            }
+        };
+    });
+
+    // return the expected result
+    return match maybe_audit_event_count {
+        Ok(count) => Ok(count),
+        Err(_) => Err(Status::InternalServerError),
+    };
+}
+
+#[derive(Serialize)]
 pub struct HealthCheck {
     /// A flag which indicates if the database is healthy or not.
     pub database_healthy: bool,
