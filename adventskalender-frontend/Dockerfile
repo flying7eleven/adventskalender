@@ -1,5 +1,5 @@
 # the container which is used to build the website
-FROM debian:bullseye AS build
+FROM debian:bookworm AS build
 
 # ensure we have npm/node installed in the appropiate version
 RUN apt update && \
