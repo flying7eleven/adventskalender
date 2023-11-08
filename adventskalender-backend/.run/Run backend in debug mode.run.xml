@@ -1,0 +1,23 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Run backend in debug mode" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+    <option name="command" value="run --package adventskalender-backend --bin adventskalender-backend" />
+    <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+    <option name="emulateTerminal" value="true" />
+    <option name="channel" value="DEFAULT" />
+    <option name="requiredFeatures" value="true" />
+    <option name="allFeatures" value="false" />
+    <option name="withSudo" value="false" />
+    <option name="buildTarget" value="REMOTE" />
+    <option name="backtrace" value="FULL" />
+    <envs>
+      <env name="ADVENTSKALENDER_DB_CONNECTION" value="postgres://adventskalender:debugpassword@127.0.0.1/adventskalender" />
+      <env name="ADVENTSKALENDER_LOGGING_LEVEL" value="trace" />
+      <env name="ADVENTSKALENDER_TOKEN_SIGNATURE_PSK" value="tokenpsk" />
+    </envs>
+    <option name="isRedirectInput" value="false" />
+    <option name="redirectInputPath" value="" />
+    <method v="2">
+      <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+    </method>
+  </configuration>
+</component>
