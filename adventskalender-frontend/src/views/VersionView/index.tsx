@@ -47,7 +47,7 @@ export const VersionView = () => {
 
     return (
         <Stack spacing={2}>
-            <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
+            <Grid container columns={12} spacing={2} rowSpacing={2} justifyContent={'center'} alignItems={'center'} direction={'column'}>
                 <Grid item xs={3}>
                     <Card variant="outlined">
                         <CardContent>
@@ -108,6 +108,36 @@ export const VersionView = () => {
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {`${backendVersionInformation.build_date} ${backendVersionInformation.build_time}`}
+                                    </Typography>
+                                </Box>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid item xs={3}>
+                    <Card variant="outlined">
+                        <CardContent>
+                            <Stack direction={'column'} spacing={1}>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                    <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
+                                        <LocalizedText translationKey={'configuration.card.headline'} />
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
+                                        <LocalizedText translationKey={'configuration.card.categories.used_backend_base_url'} />
+                                    </Typography>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
+                                        {API_BACKEND_URL}
+                                    </Typography>
+                                </Box>
+                                <Divider />
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
+                                        <LocalizedText translationKey={'configuration.card.categories.number_of_audit_events'} />
+                                    </Typography>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
+                                        0
                                     </Typography>
                                 </Box>
                             </Stack>

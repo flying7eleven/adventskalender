@@ -35,6 +35,15 @@
             }
         }
     },
+    "configuration": {
+        "card": {
+            "headline": "Genutzte Konfiguration",
+            "categories": {
+                "used_backend_base_url": "API Backend URL",
+                "number_of_audit_events": "Anzahl von Audit-Ereignissen"
+            }
+        }
+    },
     "settings": {
         "cards": {
             "password": {
