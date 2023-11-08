@@ -4,10 +4,7 @@ import { API_BACKEND_URL, VersionInformation } from '../../api';
 import packageJson from '../../../package.json';
 import { Box, Card, CardContent, Divider, Link, Stack, Typography } from '@mui/material';
 import { LocalizedText } from '../../components/LocalizedText';
-import preval from 'preval.macro';
-import { unix } from 'moment';
-
-const buildTimestamp = preval`module.exports = new Date().getTime();`;
+import moment from 'moment';
 
 export const VersionView = () => {
     const [backendVersionInformation, setBackendVersionInformation] = useState<VersionInformation>({
@@ -19,7 +16,7 @@ export const VersionView = () => {
     });
 
     const getFrontendBuildDateTimeString = () => {
-        return unix(buildTimestamp / 1000)
+        return moment.unix(import.meta.env.BUILD_TIMESTAMP / 1000)
             .utc()
             .format('YYYY-MM-DD HH:mm:ss');
     };

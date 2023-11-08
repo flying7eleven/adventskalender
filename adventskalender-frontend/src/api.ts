@@ -1,5 +1,5 @@
 const determineApiUrl = () => {
-    if (window.location && process.env.NODE_ENV === 'production') {
+    if (window.location && import.meta.env.PROD) {
         const locationValue = `${window.location.protocol}//${window.location.host}`;
         return `${locationValue}/api`;
     }
