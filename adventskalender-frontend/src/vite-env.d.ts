@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __BUILD_TIMESTAMP__: number;
+
 interface WinnerInformation {
     firstName: string;
     lastName: string;

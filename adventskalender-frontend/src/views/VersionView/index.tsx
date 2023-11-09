@@ -17,7 +17,7 @@ export const VersionView = () => {
 
     const getFrontendBuildDateTimeString = () => {
         return moment
-            .unix(BUILD_TIMESTAMP / 1000)
+            .unix(__BUILD_TIMESTAMP__ / 1000)
             .utc()
             .format('YYYY-MM-DD HH:mm:ss');
     };
