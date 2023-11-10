@@ -1,10 +1,3 @@
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import { LocalizedText } from '../../components/LocalizedText';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
 import { OutlinedCard } from '../../components/OutlinedCard';
 import { Stack } from '@mui/material';
@@ -16,10 +9,15 @@ import { useContext, useEffect, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { LocalizationContext } from '../../provider/LocalizationProvider';
+import { WinnerDialog } from '../../dialogs/WinnerDialog';
+import { UnknownErrorDialog } from '../../dialogs/UnknownErrorDialog';
+import { NoParticipantsErrorDialog } from '../../dialogs/NoParticipantsErrorDialog';
+import { MoreWinnersDialog } from '../../dialogs/MoreWinnersDialog';
 
 export const DashboardView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
     const [loadingNewWinner, setLoadingNewWinner] = useState<boolean>(false);
+    const [isLastWinnerDialogOpen, setIsLastWinnerDialogOpen] = useState<boolean>(false);
     const localizationContext = useContext(LocalizationContext);
     const [winnersOnSelectedDay, setWinnersOnSelectedDay] = useState<number>(0);
     const auth = useAuthentication();
@@ -36,7 +34,6 @@ export const DashboardView = () => {
     });
     const [lastWinners, setLastWinners] = useState<WinnerInformation[]>([]);
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
-    const [isLastWinnerDialogOpen, setIsLastWinnerDialogOpen] = useState(false);
     const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
     const [isMoreWinnersDialogOpen, setIsMoreWinnersDialogOpen] = useState(false);
 
@@ -50,18 +47,6 @@ export const DashboardView = () => {
 
     const handleNumberOfWinnersSelectionChange = (newNumberOfWinners: number) => {
         setNumberOfWinners(newNumberOfWinners);
-    };
-
-    const handleUnknownErrorDialogClose = () => {
-        setIsUnknownErrorDialogOpen(false);
-    };
-
-    const handleLastWinnerDialogClose = () => {
-        setIsLastWinnerDialogOpen(false);
-    };
-
-    const handleNoParticipantsErrorDialogOpenClose = () => {
-        setIsNoParticipantsErrorDialogOpen(false);
     };
 
     const updateWinnerCounter = () => {
@@ -247,75 +232,15 @@ export const DashboardView = () => {
 
     return (
         <>
-            <Dialog
-                open={isMoreWinnersDialogOpen}
-                onClose={handleMoreWinnersDialogClose}
-                aria-labelledby="more-winners-question-dialog-title"
-                aria-describedby="more-winners-question-dialog-description"
-            >
-                <DialogTitle id="more-winners-question-dialog-title">
-                    <LocalizedText translationKey={'dashboard.dialogs.already_picked.title'} />
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="more-winners-question-dialog-description">
-                        <LocalizedText translationKey={'dashboard.dialogs.already_picked.text'} placeholder={winnersOnSelectedDay.toString()} />
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={pickMultipleNewWinner}>
-                        <LocalizedText translationKey={'dashboard.dialogs.already_picked.accept_button'} />
-                    </Button>
-                    <Button onClick={handleMoreWinnersDialogClose} autoFocus>
-                        <LocalizedText translationKey={'dashboard.dialogs.already_picked.cancel_button'} />
-                    </Button>
-                </DialogActions>
-            </Dialog>
-            <Dialog open={isLastWinnerDialogOpen} onClose={handleLastWinnerDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
-                <DialogTitle id="alert-dialog-title">
-                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} />
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="alert-dialog-description">
-                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.text'} />
-                        <ul>{getTextForWinnersDialog()}</ul>
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleLastWinnerDialogClose} autoFocus>
-                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.accept_button'} />
-                    </Button>
-                </DialogActions>
-            </Dialog>
-            <Dialog open={isUnknownErrorDialogOpen} onClose={handleUnknownErrorDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
-                <DialogTitle id="alert-dialog-title">
-                    <LocalizedText translationKey={'dashboard.dialogs.unknown_error.title'} />
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="alert-dialog-description">
-                        <LocalizedText translationKey={'dashboard.dialogs.unknown_error.text'} />
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleUnknownErrorDialogClose} autoFocus>
-                        <LocalizedText translationKey={'dashboard.dialogs.unknown_error.accept_button'} />
-                    </Button>
-                </DialogActions>
-            </Dialog>
-            <Dialog open={isNoParticipantsErrorDialogOpen} onClose={handleNoParticipantsErrorDialogOpenClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
-                <DialogTitle id="alert-dialog-title">
-                    <LocalizedText translationKey={'dashboard.dialogs.no_participants_left.title'} />
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="alert-dialog-description">
-                        <LocalizedText translationKey={'dashboard.dialogs.no_participants_left.text'} />
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleNoParticipantsErrorDialogOpenClose} autoFocus>
-                        <LocalizedText translationKey={'dashboard.dialogs.no_participants_left.accept_button'} />
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            <WinnerDialog content={getTextForWinnersDialog()} isOpen={isLastWinnerDialogOpen} setDialogOpenStateFunction={setIsLastWinnerDialogOpen} />
+            <UnknownErrorDialog isOpen={isUnknownErrorDialogOpen} setDialogOpenStateFunction={setIsUnknownErrorDialogOpen} />
+            <NoParticipantsErrorDialog isOpen={isNoParticipantsErrorDialogOpen} setDialogOpenStateFunction={setIsNoParticipantsErrorDialogOpen} />
+            <MoreWinnersDialog
+                isOpen={isMoreWinnersDialogOpen}
+                setDialogOpenStateFunction={handleMoreWinnersDialogClose}
+                pickMoreUsersHandler={pickMultipleNewWinner}
+                numberOfAlreadyPickedUsers={winnersOnSelectedDay}
+            />
             <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
                 <Grid item>
                     <OutlinedCard
