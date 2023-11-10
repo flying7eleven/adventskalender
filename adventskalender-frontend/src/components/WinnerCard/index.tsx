@@ -7,15 +7,15 @@ import { useState } from 'react';
 
 interface Props {
     winningDate: string;
-    listOfWinner: SingleWinnerInformation[];
+    listOfWinner: WinnerInformation[];
     updateWinnerList?: () => void;
 }
 
-const PersonItem = ({ winner, updateWinnerList }: { winner: SingleWinnerInformation; updateWinnerList?: () => void }) => {
+const PersonItem = ({ winner, updateWinnerList }: { winner: WinnerInformation; updateWinnerList?: () => void }) => {
     const auth = useAuthentication();
     const navigate = useNavigate();
     const [dialogOpen, setDialogOpen] = useState<boolean>(false);
-    const [userToDelete, setUserToDelete] = useState<SingleWinnerInformation | undefined>(undefined);
+    const [userToDelete, setUserToDelete] = useState<WinnerInformation | undefined>(undefined);
 
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
@@ -72,7 +72,7 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: SingleWinnerInformat
             });
     };
 
-    const handleDeleteClick = (user: SingleWinnerInformation) => {
+    const handleDeleteClick = (user: WinnerInformation) => {
         return () => {
             setUserToDelete(user);
             setDialogOpen(true);
@@ -94,7 +94,7 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: SingleWinnerInformat
                         <Stack>
                             <LocalizedText translationKey={'calendar.dialogs.remove_participant.text'} />
                             <ul>
-                                <li>{`${userToDelete?.first_name} ${userToDelete?.last_name}`}</li>
+                                <li>{`${userToDelete?.firstName} ${userToDelete?.lastName}`}</li>
                             </ul>
                         </Stack>
                     </DialogContentText>
@@ -110,7 +110,7 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: SingleWinnerInformat
             </Dialog>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                 <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                    {getShortenedName(`${winner.first_name} ${winner.last_name}`)}
+                    {getShortenedName(`${winner.firstName} ${winner.lastName}`)}
                 </Typography>
                 <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} onClick={handleDeleteClick(winner)}>
                     <LocalizedText translationKey={'calendar.cards.winners.button_remove'} />
@@ -124,18 +124,18 @@ export const WinnerCard = (props: Props) => {
     const getWinningEntries = () => {
         const elements = [];
         const sortedWinnes = props.listOfWinner.sort((winnerA, winnerB) => {
-            return winnerA.last_name.localeCompare(winnerB.last_name);
+            return winnerA.lastName.localeCompare(winnerB.lastName);
         });
         for (let i = 0; i < sortedWinnes.length; i++) {
             elements.push(
                 <PersonItem
-                    key={`person-item-${sortedWinnes[i].first_name.toLowerCase()}-${sortedWinnes[i].last_name.toLocaleLowerCase()}`}
+                    key={`person-item-${sortedWinnes[i].firstName.toLowerCase()}-${sortedWinnes[i].lastName.toLocaleLowerCase()}`}
                     winner={sortedWinnes[i]}
                     updateWinnerList={props.updateWinnerList}
                 />
             );
             if (i !== sortedWinnes.length - 1) {
-                elements.push(<Divider key={`divider-${sortedWinnes[i].first_name.toLowerCase()}-${sortedWinnes[i].last_name.toLocaleLowerCase()}`} variant={'middle'} />);
+                elements.push(<Divider key={`divider-${sortedWinnes[i].firstName.toLowerCase()}-${sortedWinnes[i].lastName.toLocaleLowerCase()}`} variant={'middle'} />);
             }
         }
         return elements;
