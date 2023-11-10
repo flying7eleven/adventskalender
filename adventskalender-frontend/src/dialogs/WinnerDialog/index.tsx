@@ -5,10 +5,10 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
-import { Dispatch, ReactNode, SetStateAction } from 'react';
+import { Dispatch, SetStateAction } from 'react';
 
 interface Props {
-    content: ReactNode;
+    winner: WinnerInformation[];
     isOpen: boolean;
     setDialogOpenStateFunction: Dispatch<SetStateAction<boolean>>;
 }
@@ -26,7 +26,7 @@ export const WinnerDialog = (props: Props) => {
             <DialogContent>
                 <DialogContentText id="alert-dialog-description">
                     <LocalizedText translationKey={'dashboard.dialogs.new_winners.text'} />
-                    <ul>{props.content}</ul>
+                    <ul>TODO</ul>
                 </DialogContentText>
             </DialogContent>
             <DialogActions>

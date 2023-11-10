@@ -90,7 +90,7 @@ export const DashboardView = () => {
     };
 
     const updateParticipantCounters = () => {
-        // if we do not have a access token, skip fetching the infos
+        // if we do not have an access token, skip fetching the infos
         if (auth.token.accessToken.length === 0) {
             return;
         }
@@ -206,18 +206,6 @@ export const DashboardView = () => {
             });
     };
 
-    const getTextForWinnersDialog = () => {
-        const elementsToReturn = [];
-        for (const currentUser in lastWinners) {
-            elementsToReturn.push(
-                <li>
-                    {lastWinners[currentUser].firstName} {lastWinners[currentUser].lastName}
-                </li>
-            );
-        }
-        return elementsToReturn;
-    };
-
     const checkPicking = () => {
         if (winnersOnSelectedDay > 0) {
             setIsMoreWinnersDialogOpen(true);
@@ -232,7 +220,7 @@ export const DashboardView = () => {
 
     return (
         <>
-            <WinnerDialog content={getTextForWinnersDialog()} isOpen={isLastWinnerDialogOpen} setDialogOpenStateFunction={setIsLastWinnerDialogOpen} />
+            <WinnerDialog winner={lastWinners} isOpen={isLastWinnerDialogOpen} setDialogOpenStateFunction={setIsLastWinnerDialogOpen} />
             <UnknownErrorDialog isOpen={isUnknownErrorDialogOpen} setDialogOpenStateFunction={setIsUnknownErrorDialogOpen} />
             <NoParticipantsErrorDialog isOpen={isNoParticipantsErrorDialogOpen} setDialogOpenStateFunction={setIsNoParticipantsErrorDialogOpen} />
             <MoreWinnersDialog
