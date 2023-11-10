@@ -1,212 +1,3 @@
-/*!
-[![Continuous integration](https://github.com/lawliet89/rocket_cors/actions/workflows/rust.yml/badge.svg)](https://github.com/lawliet89/rocket_cors/actions/workflows/rust.yml)
-[![Repository](https://img.shields.io/github/tag/lawliet89/rocket_cors.svg)](https://github.com/lawliet89/rocket_cors)
-[![Crates.io](https://img.shields.io/crates/v/rocket_cors.svg)](https://crates.io/crates/rocket_cors)
-
-- Documentation: [master branch](https://lawliet89.github.io/rocket_cors) | [stable](https://docs.rs/rocket_cors)
-
-Cross-origin resource sharing (CORS) for [Rocket](https://rocket.rs/) applications
-
-## Requirements
-
-- Rocket >= 0.4
-
-If you are using Rocket 0.3, use the `0.3.0` version of this crate.
-
-## Installation
-
-Add the following to Cargo.toml:
-
-```toml
-rocket_cors = "0.6.0-alpha2"
-```
-
-To use the latest `master` branch, for example:
-
-```toml
-rocket_cors = { git = "https://github.com/lawliet89/rocket_cors", branch = "master" }
-```
-
-## Features
-
-By default, a `serialization` feature is enabled in this crate that allows you to (de)serialize
-the [`CorsOptions`] struct that is described below. If you would like to disable this, simply
-change your `Cargo.toml` to:
-
-```toml
-rocket_cors = { version = "0.6.0-alpha2", default-features = false }
-```
-
-## Usage
-
-Before you can add CORS responses to your application, you need to create a [`CorsOptions`]
-struct that will hold the settings. Then, you need to create a [`Cors`] struct using
-[`CorsOptions::to_cors`] which will validate and optimise the settings for Rocket to use.
-
-Each of the examples can be run off the repository via `cargo run --example xxx` where `xxx` is
-
-- `fairing`
-- `guard`
-- `manual`
-
-### `CorsOptions` Struct
-
-The [`CorsOptions`] struct contains the settings for CORS requests to be validated
-and for responses to be generated. Defaults are defined for every field in the struct, and
-are documented on the [`CorsOptions`] page. You can also deserialize
-the struct from some format like JSON, YAML or TOML when the default `serialization` feature
-is enabled.
-
-### `Cors` Struct
-
-The [`Cors`] struct is what will be used with Rocket. After creating or deserializing a
-[`CorsOptions`] struct, use [`CorsOptions::to_cors`] to create a [`Cors`] struct.
-
-### Three modes of operation
-
-You can add CORS to your routes via one of three ways, in descending order of ease and in
-ascending order of flexibility.
-
-- Fairing (should only be used exclusively)
-- Request Guard
-- Truly Manual
-
-Unfortunately, you cannot mix and match Fairing with any other of the methods, due to the
-limitation of Rocket's fairing API. That is, the checks for Fairing will always happen first,
-and if they fail, the route is never executed and so your guard or manual checks will never
-get executed.
-
-You can, however, mix and match guards and manual checks.
-
-In summary:
-
-|                                         | Fairing | Request Guard | Manual |
-|:---------------------------------------:|:-------:|:-------------:|:------:|
-|         Must apply to all routes        |    ✔    |       ✗       |    ✗   |
-| Different settings for different routes |    ✗    |       ✗       |    ✔   |
-|     May define custom OPTIONS routes    |    ✗    |       ✔       |    ✔   |
-
-### Fairing
-
-Fairing is the easiest to use and also the most inflexible. You don't have to define `OPTIONS`
-routes for your application, and the checks are done transparently.
-
-However, you can only have one set of settings that must apply to all routes. You cannot opt
-any route out of CORS checks.
-
-To use this, simply create a [`Cors`] from [`CorsOptions::to_cors`] and then
-[`attach`](https://api.rocket.rs/rocket/struct.Rocket.html#method.attach) it to Rocket.
-
-Refer to the [example](https://github.com/lawliet89/rocket_cors/blob/master/examples/fairing.rs).
-
-#### Injected Route
-
-The fairing implementation will inject a route during attachment to Rocket. This route is used
-to handle errors during CORS validation.
-
-This is due to the limitation in Rocket's Fairing
-[lifecycle](https://rocket.rs/guide/fairings/). Ideally, we want to validate the CORS request
-during `on_request`, and if the validation fails, we want to stop the route from even executing
-to
-
-1) prevent side effects
-1) prevent resource usage from unnecessary computation
-
-The only way to do this is to hijack the request and route it to our own injected route to
-handle errors. Rocket does not allow Fairings to stop the processing of a route.
-
-You can configure the behaviour of the injected route through a couple of fields in the
-[`CorsOptions`].
-
-### Request Guard
-
-Using request guard requires you to sacrifice the convenience of Fairings for being able to
-opt some routes out of CORS checks and enforcement. _BUT_ you are still restricted to only
-one set of CORS settings and you have to mount additional routes to catch and process OPTIONS
-requests. The `OPTIONS` routes are used for CORS preflight checks.
-
-You will have to do the following:
-
-- Create a [`Cors`] from [`CorsOptions`] and during Rocket's ignite, add the struct to
-Rocket's [managed state](https://rocket.rs/guide/state/#managed-state).
-- For all the routes that you want to enforce CORS on, you can mount either some
-[catch all route](catch_all_options_routes) or define your own route for the OPTIONS
-verb.
-- Then in all the routes you want to enforce CORS on, add a
-[Request Guard](https://rocket.rs/guide/requests/#request-guards) for the
-[`Guard`](Guard) struct in the route arguments. You should not wrap this in an
-`Option` or `Result` because the guard will let non-CORS requests through and will take over
-error handling in case of errors.
-- In your routes, to add CORS headers to your responses, use the appropriate functions on the
-[`Guard`](Guard) for a `Response` or a `Responder`.
-
-Refer to the [example](https://github.com/lawliet89/rocket_cors/blob/master/examples/guard.rs).
-
-## Truly Manual
-
-This mode is the most difficult to use but offers the most amount of flexibility.
-You might have to understand how the library works internally to know how to use this mode.
-In exchange, you can selectively choose which routes to offer CORS protection to, and you
-can mix and match CORS settings for the routes. You can combine usage of this mode with
-"guard" to offer a mix of ease of use and flexibility.
-
-You really do not need to use this unless you have a truly ad-hoc need to respond to CORS
-differently in a route. For example, you have a `ping` endpoint that allows all origins but
-the rest of your routes do not.
-
-### Handler
-
-This mode requires that you pass in a closure that will be lazily evaluated once a CORS request
-has been validated. If validation fails, the closure will not be run. You should put any code
-that has any side effects or with an appreciable computation cost inside this handler.
-
-### Steps to perform:
-- You will first need to have a [`Cors`] struct ready. This struct can be borrowed with a lifetime
-at least as long as `'r` which is the lifetime of a Rocket request. `'static` works too.
-In this case, you might as well use the `Guard` method above and place the `Cors` struct in
-Rocket's [state](https://rocket.rs/guide/state/).
-Alternatively, you can create a [`Cors`] struct directly in the route.
-- Your routes _might_ need to have a `'r` lifetime and return `impl Responder<'r>`. See below.
-- Using the [`Cors`] struct, use either the
-[`Cors::respond_owned`] or
-[`Cors::respond_borrowed`] function and pass in a handler
-that will be executed once CORS validation is successful.
-- Your handler will be passed a [`Guard`] which you will have to use to
-add CORS headers into your own response.
-- You will have to manually define your own `OPTIONS` routes.
-
-### Notes about route lifetime
-You might have to specify a `'r` lifetime in your routes and then return `impl Responder<'r>`.
-If you are not sure what to do, you can try to leave the lifetime out and then add it in
-when the compiler complains.
-
-Generally, you will need to manually annotate the lifetime for the following cases where
-the compiler is unable to [elide](https://doc.rust-lang.org/beta/nomicon/lifetime-elision.html)
-the lifetime:
-
-- Your function arguments do not borrow anything.
-- Your function arguments borrow from more than one lifetime.
-- Your function arguments borrow from a lifetime that is shorter than the `'r` lifetime
-required.
-
-You can see examples when the lifetime annotation is required (or not) in `examples/manual.rs`.
-
-See the [example](https://github.com/lawliet89/rocket_cors/blob/master/examples/manual.rs).
-
-## Mixing Guard and Manual
-
-You can mix `Guard` and `Truly Manual` modes together for your application. For example, your
-application might restrict the Origins that can access it, except for one `ping` route that
-allows all access.
-
-See the [example](https://github.com/lawliet89/rocket_cors/blob/master/examples/guard.rs).
-
-## Reference
-- [Fetch CORS Specification](https://fetch.spec.whatwg.org/#cors-protocol)
-- [Supplanted W3C CORS Specification](https://www.w3.org/TR/cors/)
-- [Resource Advice](https://w3c.github.io/webappsec-cors-for-developers/#resources)
- */
-
 #[cfg(test)]
 #[macro_use]
 pub mod test_macros;
@@ -222,15 +13,12 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[allow(unused_imports)]
-use ::log::{debug, error, info};
+use ::log::info;
 use regex::RegexSet;
 use rocket::http::{self, Status};
 use rocket::request::{FromRequest, Request};
 use rocket::response;
 use rocket::{debug_, error_, info_, outcome::Outcome, State};
-#[cfg(feature = "serialization")]
-use serde_derive::{Deserialize, Serialize};
 
 use crate::rocket_cors::headers::{
     AccessControlRequestHeaders, AccessControlRequestMethod, HeaderFieldName, HeaderFieldNamesSet,
@@ -455,55 +243,6 @@ impl fmt::Display for Method {
     }
 }
 
-#[cfg(feature = "serialization")]
-mod method_serde {
-    use std::fmt;
-    use std::str::FromStr;
-
-    use serde::{self, Deserialize, Serialize};
-
-    use crate::Method;
-
-    impl Serialize for Method {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            serializer.serialize_str(self.as_str())
-        }
-    }
-
-    impl<'de> Deserialize<'de> for Method {
-        fn deserialize<D>(deserializer: D) -> Result<Method, D::Error>
-        where
-            D: serde::Deserializer<'de>,
-        {
-            use serde::de::{self, Visitor};
-
-            struct MethodVisitor;
-            impl<'de> Visitor<'de> for MethodVisitor {
-                type Value = Method;
-
-                fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                    formatter.write_str("a string containing a HTTP Verb")
-                }
-
-                fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
-                where
-                    E: de::Error,
-                {
-                    match Self::Value::from_str(s) {
-                        Ok(value) => Ok(value),
-                        Err(e) => Err(de::Error::custom(format!("{:?}", e))),
-                    }
-                }
-            }
-
-            deserializer.deserialize_string(MethodVisitor)
-        }
-    }
-}
-
 /// A list of allowed origins. Either Some origins are allowed, or all origins are allowed.
 ///
 /// Exact matches are matched exactly with the
@@ -677,8 +416,6 @@ impl AllowedOrigins {
 /// then it is permitted to match anywhere in the text. You are encouraged to use the anchors when
 /// crafting your Regex expressions.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serialization", serde(default))]
 pub struct Origins {
     /// Whether null origins are accepted
     #[cfg_attr(feature = "serialization", serde(default))]
@@ -930,7 +667,6 @@ impl AllowedHeaders {
 ///
 /// ```
 #[derive(Eq, PartialEq, Clone, Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct CorsOptions {
     /// Origins that are allowed to make requests.
     /// Will be verified against the `Origin` request header.
@@ -947,7 +683,6 @@ pub struct CorsOptions {
     ///
     /// Defaults to `All`.
     ///
-    #[cfg_attr(feature = "serialization", serde(default))]
     pub allowed_origins: AllowedOrigins,
     /// The list of methods which the allowed origins are allowed to access for
     /// non-simple requests.
@@ -956,10 +691,6 @@ pub struct CorsOptions {
     /// [Resource Processing Model](https://www.w3.org/TR/cors/#resource-processing-model).
     ///
     /// Defaults to `[GET, HEAD, POST, OPTIONS, PUT, PATCH, DELETE]`
-    #[cfg_attr(
-        feature = "serialization",
-        serde(default = "CorsOptions::default_allowed_methods")
-    )]
     pub allowed_methods: AllowedMethods,
     /// The list of header field names which can be used when this resource is accessed by allowed
     /// origins.
@@ -991,13 +722,11 @@ pub struct CorsOptions {
     /// [Resource Processing Model](https://www.w3.org/TR/cors/#resource-processing-model).
     ///
     /// This defaults to an empty set.
-    #[cfg_attr(feature = "serialization", serde(default))]
     pub expose_headers: HashSet<String>,
     /// The maximum time for which this CORS request maybe cached. This value is set as the
     /// `Access-Control-Max-Age` header.
     ///
     /// This defaults to `None` (unset).
-    #[cfg_attr(feature = "serialization", serde(default))]
     pub max_age: Option<usize>,
     /// If true, and the `allowed_origins` parameter is `All`, a wildcard
     /// `Access-Control-Allow-Origin` response header is sent, rather than the request’s
@@ -1011,27 +740,18 @@ pub struct CorsOptions {
     /// in an `Error::CredentialsWithWildcardOrigin` error during Rocket launch or runtime.
     ///
     /// Defaults to `false`.
-    #[cfg_attr(feature = "serialization", serde(default))]
     pub send_wildcard: bool,
     /// When used as Fairing, Cors will need to redirect failed CORS checks to a custom route
     /// mounted by the fairing. Specify the base of the route so that it doesn't clash with any
     /// of your existing routes.
     ///
     /// Defaults to "/cors"
-    #[cfg_attr(
-        feature = "serialization",
-        serde(default = "CorsOptions::default_fairing_route_base")
-    )]
     pub fairing_route_base: String,
     /// When used as Fairing, Cors will need to redirect failed CORS checks to a custom route
     /// mounted by the fairing. Specify the rank of the route so that it doesn't clash with any
     /// of your existing routes. Remember that a higher ranked route has lower priority.
     ///
     /// Defaults to 0
-    #[cfg_attr(
-        feature = "serialization",
-        serde(default = "CorsOptions::default_fairing_route_rank")
-    )]
     pub fairing_route_rank: isize,
 }
 
@@ -2055,72 +1775,6 @@ mod tests {
         assert_eq!(cors_options_from_builder, make_cors_options());
     }
 
-    /// Check that the the default deserialization matches the one returned by `Default::default`
-    #[cfg(feature = "serialization")]
-    #[test]
-    fn cors_default_deserialization_is_correct() {
-        let deserialized: CorsOptions = serde_json::from_str("{}").expect("To not fail");
-        assert_eq!(deserialized, CorsOptions::default());
-
-        let expected_json = r#"
-{
-  "allowed_origins": "All",
-  "allowed_methods": [
-    "POST",
-    "PATCH",
-    "PUT",
-    "DELETE",
-    "HEAD",
-    "OPTIONS",
-    "GET"
-  ],
-  "allowed_headers": "All",
-  "allow_credentials": false,
-  "expose_headers": [],
-  "max_age": null,
-  "send_wildcard": false,
-  "fairing_route_base": "/cors",
-  "fairing_route_rank": 0
-}
-"#;
-        let actual: CorsOptions = serde_json::from_str(expected_json).expect("to not fail");
-        assert_eq!(actual, CorsOptions::default());
-    }
-
-    /// Checks that the example provided can actually be deserialized
-    #[cfg(feature = "serialization")]
-    #[test]
-    fn cors_options_example_can_be_deserialized() {
-        let json = r#"{
-  "allowed_origins": {
-    "Some": {
-        "exact": ["https://www.acme.com"],
-        "regex": ["^https://www.example-[A-z0-9]*.com$"]
-    }
-  },
-  "allowed_methods": [
-    "POST",
-    "DELETE",
-    "GET"
-  ],
-  "allowed_headers": {
-    "Some": [
-      "Accept",
-      "Authorization"
-    ]
-  },
-  "allow_credentials": true,
-  "expose_headers": [
-    "Content-Type",
-    "X-Custom"
-  ],
-  "max_age": 42,
-  "send_wildcard": false,
-  "fairing_route_base": "/mycors"
-}"#;
-        let _: CorsOptions = serde_json::from_str(json).expect("to not fail");
-    }
-
     #[test]
     fn allowed_some_origins_allows_different_lifetimes() {
         let static_exact = ["http://www.example.com"];
@@ -2507,29 +2161,6 @@ mod tests {
     #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
     struct MethodTest {
         method: Method,
-    }
-
-    #[cfg(feature = "serialization")]
-    #[test]
-    fn method_serde_roundtrip() {
-        use serde_test::{assert_tokens, Token};
-
-        let test = MethodTest {
-            method: From::from(http::Method::Get),
-        };
-
-        assert_tokens(
-            &test,
-            &[
-                Token::Struct {
-                    name: "MethodTest",
-                    len: 1,
-                },
-                Token::Str("method"),
-                Token::Str("GET"),
-                Token::StructEnd,
-            ],
-        );
     }
 
     #[test]

@@ -3,8 +3,6 @@
 use crate::rocket_cors::{
     actual_request_response, origin, preflight_response, request_headers, validate, Cors, Error,
 };
-#[allow(unused_imports)]
-use ::log::{error, info};
 use rocket::http::{self, uri::Origin, Status};
 use rocket::{self, error_, info_, outcome::Outcome, Request};
 

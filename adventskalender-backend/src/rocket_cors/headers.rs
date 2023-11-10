@@ -8,16 +8,11 @@ use std::str::FromStr;
 use rocket::http::Status;
 use rocket::request::{self, FromRequest};
 use rocket::{self, outcome::Outcome};
-#[cfg(feature = "serialization")]
-use serde_derive::{Deserialize, Serialize};
 use unicase::UniCase;
 
 /// A case insensitive header name
 #[derive(Eq, PartialEq, Clone, Debug, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct HeaderFieldName(
-    #[cfg_attr(feature = "serialization", serde(with = "unicase_serde::unicase"))] UniCase<String>,
-);
+pub struct HeaderFieldName(UniCase<String>);
 
 impl Deref for HeaderFieldName {
     type Target = String;
