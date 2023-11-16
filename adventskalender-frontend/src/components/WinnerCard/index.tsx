@@ -30,7 +30,7 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: WinnerInformation; u
     };
 
     const handleRemoveParticipant = () => {
-        // if we do not have a access token, skip fetching the infos
+        // if we do not have an access token, skip fetching the infos
         if (auth.token.accessToken.length === 0) {
             return;
         }
@@ -127,15 +127,9 @@ export const WinnerCard = (props: Props) => {
             return winnerA.lastName.localeCompare(winnerB.lastName);
         });
         for (let i = 0; i < sortedWinnes.length; i++) {
-            elements.push(
-                <PersonItem
-                    key={`person-item-${sortedWinnes[i].firstName.toLowerCase()}-${sortedWinnes[i].lastName.toLocaleLowerCase()}`}
-                    winner={sortedWinnes[i]}
-                    updateWinnerList={props.updateWinnerList}
-                />
-            );
+            elements.push(<PersonItem key={`person-item-${sortedWinnes[i].id}`} winner={sortedWinnes[i]} updateWinnerList={props.updateWinnerList} />);
             if (i !== sortedWinnes.length - 1) {
-                elements.push(<Divider key={`divider-${sortedWinnes[i].firstName.toLowerCase()}-${sortedWinnes[i].lastName.toLocaleLowerCase()}`} variant={'middle'} />);
+                elements.push(<Divider key={`divider-${sortedWinnes[i].id}`} variant={'middle'} />);
             }
         }
         return elements;

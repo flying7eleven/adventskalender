@@ -45,7 +45,7 @@ fn setup_logging(logging_level: LevelFilter) {
     // set the corresponding logging level
     base_config = base_config.level(logging_level);
 
-    // define how a logging line should look like and attatch the streams to which the output will be
+    // define how a logging line should look like and attach the streams to which the output will be
     // written to
     let file_config = fern::Dispatch::new()
         .format(|out, message, record| {
