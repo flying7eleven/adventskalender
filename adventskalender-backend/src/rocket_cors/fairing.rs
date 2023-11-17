@@ -85,10 +85,6 @@ fn on_response_wrapper(
     // TODO: Is there anyway we can make this smarter? Only modify status codes for
     // requests where an actual route exist?
     if request.method() == http::Method::Options && request.route().is_none() {
-        debug_!(
-            "CORS Fairing: Turned missing route {} into an OPTIONS pre-flight request",
-            request
-        );
         response.set_status(Status::NoContent);
         let _ = response.body_mut().take();
     }
