@@ -3,8 +3,10 @@ use crate::guards::AuthenticatedUser;
 use crate::models::User;
 use crate::Action;
 use chrono::{DateTime, NaiveDate};
+use diesel::{update, ExpressionMethods, NotFound, QueryDsl, RunQueryDsl};
 use rocket::http::Status;
 use rocket::serde::json::Json;
+use rocket::yansi::Paint;
 use rocket::{delete, get, post, put, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -350,10 +352,84 @@ pub struct NewPackageSelection {
 pub async fn update_participant_values(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
-    user_id: usize,
+    user_id: i32,
     new_package_selection: Json<NewPackageSelection>,
 ) -> Status {
-    return Status::NoContent; // TODO: implement this
+    use crate::models::Participant as DatabaseParticipant;
+    use crate::schema::participants::dsl::{id, participants, present_identifier, won_on};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::error;
+
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {}",
+                error
+            );
+            return Status::InternalServerError;
+        }
+    };
+
+    // get the user on which the package should be selected on
+    let mut participant_won = match participants
+        .filter(id.eq(user_id))
+        .load::<DatabaseParticipant>(db_connection)
+    {
+        Ok(users) => {
+            if users.len() != 1 {
+                // TODO: logging
+                return Status::BadRequest;
+            }
+            users.get(0).unwrap().clone()
+        }
+        Err(error) => {
+            // TODO: logging
+            return Status::InternalServerError;
+        }
+    };
+
+    //
+    if (participant_won.won_on.is_none()) {
+        // TODO: logging
+        return Status::InternalServerError;
+    }
+    let date_of_win = participant_won.won_on.unwrap();
+
+    // get the already selected packages for the given date
+    let already_selected_packages: Vec<String> = match participants
+        .filter(won_on.eq(date_of_win))
+        .load::<DatabaseParticipant>(db_connection)
+    {
+        Ok(users) => users
+            .iter()
+            .filter(|user| user.present_identifier.is_some())
+            .map(|user| user.present_identifier.clone().unwrap())
+            .collect(),
+        Err(error) => {
+            // TODO: logging
+            return Status::InternalServerError;
+        }
+    };
+
+    // check if the package was already assigned to another user
+    if already_selected_packages.contains(&new_package_selection.package) {
+        // TODO: logging
+        return Status::BadRequest;
+    }
+
+    // set the selected package for a user
+    let rows_updated = update(participants.filter(id.eq(user_id)))
+        .set(present_identifier.eq(new_package_selection.package.clone()))
+        .execute(db_connection); // TODO: use enum?!
+    if rows_updated.is_err() || rows_updated.unwrap() != 1 {
+        // TODO: logging
+        return Status::InternalServerError;
+    }
+
+    // if we get here we successfully selected a package
+    return Status::NoContent;
 }
 
 #[get("/participants/won/<date_as_str>/count")]
@@ -459,7 +535,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         return Err(Status::BadRequest);
     }
 
-    // try to get the number of random picks from the database (they are not marked as won after this call)
+    // try to get the number of random picks from the database (they are not marked as won after this call!!!)
     let maybe_result = pick_random_participants_from_database(&db_connection_pool, count).await;
 
     // if we could fetch a result from the database, return the requested information

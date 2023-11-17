@@ -1,7 +1,7 @@
 use crate::schema::{participants, performed_actions};
 use chrono::{NaiveDate, NaiveDateTime};
 
-#[derive(Queryable)]
+#[derive(Queryable, Clone)]
 pub struct Participant {
     pub id: i32,
     pub first_name: String,
