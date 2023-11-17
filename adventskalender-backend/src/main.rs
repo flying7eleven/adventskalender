@@ -81,7 +81,7 @@ async fn main() {
         get_audit_event_count, get_backend_version, get_login_token,
         get_number_of_participants_who_already_won,
         pick_multiple_random_participant_from_raffle_list, remove_participant_from_winner_list,
-        update_user_password,
+        update_participant_values, update_user_password,
     };
     use log::{debug, error, info};
     use rocket::figment::{
@@ -245,6 +245,7 @@ async fn main() {
                 pick_multiple_random_participant_from_raffle_list,
                 get_all_won_participants,
                 count_won_participants_on_day,
+                update_participant_values,
                 remove_participant_from_winner_list,
                 check_backend_health,
                 get_backend_version,

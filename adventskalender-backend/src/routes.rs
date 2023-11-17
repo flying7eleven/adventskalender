@@ -340,6 +340,22 @@ pub async fn update_user_password(
     Status::NoContent
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct NewPackageSelection {
+    /// The package the user should be assigned to.
+    package: String,
+}
+
+#[put("/participants/<user_id>", data = "<new_package_selection>")]
+pub async fn update_participant_values(
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
+    authenticated_user: AuthenticatedUser,
+    user_id: usize,
+    new_package_selection: Json<NewPackageSelection>,
+) -> Status {
+    return Status::NoContent; // TODO: implement this
+}
+
 #[get("/participants/won/<date_as_str>/count")]
 pub async fn count_won_participants_on_day(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
