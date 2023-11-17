@@ -113,6 +113,14 @@
             "new_winners": {
                 "title": "Neue Gewinner:innen",
                 "text": "Die folgenden Personen haben an dem ausgewählten Datum gewonnen:",
+                "table": {
+                    "column_winner": "Gewinner:in",
+                    "column_package": "Paket",
+                    "error_package_selection": "Paket konnte nicht gewählt werden",
+                    "select": {
+                        "package_label": "Paket"
+                    }
+                },
                 "accept_button": "Okay"
             },
             "already_picked": {

@@ -113,6 +113,14 @@
             "new_winners": {
                 "title": "New winner",
                 "text": "The following participants won on the selected day. Congratulations!",
+                "table": {
+                    "column_winner": "Winner",
+                    "column_package": "Package",
+                    "error_package_selection": "Failed to select package",
+                    "select": {
+                        "package_label": "Package"
+                    }
+                },
                 "accept_button": "Okay"
             },
             "already_picked": {
