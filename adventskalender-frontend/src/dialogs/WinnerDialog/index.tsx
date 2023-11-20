@@ -19,9 +19,11 @@ import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import { LocalizationContext } from '../../provider/LocalizationProvider';
+import moment from 'moment';
 
 interface Props {
     winner: WinnerInformation[];
+    date: string;
     isOpen: boolean;
     setDialogOpenStateFunction: Dispatch<SetStateAction<boolean>>;
 }
@@ -59,7 +61,7 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const handleDialogClose = () => {
-        // TODO: implement if needed
+        props.setDialogOpenStateFunction(false);
     };
 
     const handleDialogNextPage = () => {
@@ -151,7 +153,7 @@ export const WinnerDialog = (props: Props) => {
     const getWinnerText = () => {
         let packageLabelText = localizationContext.translate('dashboard.dialogs.new_winners.package_label');
         let winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
-        let winningDate = 'DATE'; // TODO: add the correct date
+        let winningDate = moment(props.date).format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
 
         return winnerParagraphTemplate
             .replace(
