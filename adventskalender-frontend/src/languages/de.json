@@ -113,6 +113,8 @@
             "new_winners": {
                 "title": "Neue Gewinner:innen",
                 "text": "Die folgenden Personen haben an dem ausgewählten Datum gewonnen. Bitte wähle die entsprechenden Pakete für die Personen aus und klicke auf 'weiter':",
+                "package_label": "Paket",
+                "winner_paragraph_template": "Die Gewinner:innen für den {0} sind {1} 🎄.",
                 "table": {
                     "column_winner": "Gewinner:in",
                     "column_package": "Paket",
@@ -121,7 +123,12 @@
                         "package_label": "Paket"
                     }
                 },
-                "accept_button": "Weiter"
+                "steps": {
+                    "selection_step": "Paketauswahl",
+                    "finish_step": "Gewinner:innen Liste"
+                },
+                "accept_button": "Weiter",
+                "finish_button": "Schließen"
             },
             "already_picked": {
                 "title": "Gewinner:innen schon gezogen",

@@ -5,7 +5,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
-import { Dispatch, ReactNode, SetStateAction, useState } from 'react';
+import { Dispatch, ReactNode, SetStateAction, useContext, useState } from 'react';
 import { FormHelperText, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import Paper from '@mui/material/Paper';
 import FormControl from '@mui/material/FormControl';
@@ -15,6 +15,10 @@ import MenuItem from '@mui/material/MenuItem';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { API_BACKEND_URL } from '../../api.ts';
+import Stepper from '@mui/material/Stepper';
+import Step from '@mui/material/Step';
+import StepLabel from '@mui/material/StepLabel';
+import { LocalizationContext } from '../../provider/LocalizationProvider';
 
 interface Props {
     winner: WinnerInformation[];
@@ -25,8 +29,11 @@ interface Props {
 export const WinnerDialog = (props: Props) => {
     const auth = useAuthentication();
     const navigate = useNavigate();
+    const localizationContext = useContext(LocalizationContext);
+    const [activeStep, setActiveStep] = useState(0);
     const [packageSelections, setPackageSelections] = useState<{ [key: string]: string }>({});
     const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<{ [key: string]: boolean }>({});
+    const stepLabels = [localizationContext.translate('dashboard.dialogs.new_winners.steps.selection_step'), localizationContext.translate('dashboard.dialogs.new_winners.steps.finish_step')];
 
     const allSubPackagesAreSelected = () => {
         // ensure we have selected a package for each winner
@@ -43,13 +50,11 @@ export const WinnerDialog = (props: Props) => {
         // get a copy of the currently selected packages and the error states
         let previouslySelectedPackages = Object.assign({}, packageSelections); // recreate the json object so React sees a change
         let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
-        console.log(previousErrorStates);
 
         // for each not-selected package / participant, mark the field as 'error'
         props.winner.filter((currentWinner) => !previouslySelectedPackages.hasOwnProperty(currentWinner.id)).map((winnerNotFound) => (previousErrorStates[winnerNotFound.id] = true));
 
         // set the new error states
-        console.log(previousErrorStates);
         setPackageSelectionErrorStates(previousErrorStates);
     };
 
@@ -62,7 +67,7 @@ export const WinnerDialog = (props: Props) => {
             markPackagesNotSelectedAsError();
             return;
         }
-        props.setDialogOpenStateFunction(false);
+        setActiveStep(activeStep + 1);
     };
 
     const getPossiblePackageMenuItems = (userId: number, maxPackageCount: number) => {
@@ -143,73 +148,113 @@ export const WinnerDialog = (props: Props) => {
             });
     };
 
+    const getWinnerText = () => {
+        let packageLabelText = localizationContext.translate('dashboard.dialogs.new_winners.package_label');
+        let winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
+        let winningDate = 'DATE'; // TODO: add the correct date
+
+        return winnerParagraphTemplate
+            .replace(
+                '{1}',
+                props.winner
+                    .map((winner) => {
+                        let selectedPackage = packageSelections[winner.id];
+                        return `${winner.firstName} ${winner.firstName} (${packageLabelText} ${selectedPackage})`;
+                    })
+                    .join(', ')
+            )
+            .replace('{0}', winningDate);
+    };
+
     return (
         <Dialog open={props.isOpen} onClose={handleDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
             <DialogTitle id="alert-dialog-title">
                 <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} />
             </DialogTitle>
             <DialogContent>
-                <DialogContentText id="alert-dialog-description">
-                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.text'} />
-                    <br />
-                    <br />
-                </DialogContentText>
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>
-                                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.column_winner'} />
-                                </TableCell>
-                                <TableCell>
-                                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.column_package'} />
-                                </TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {props.winner.map((currentWinner) => {
-                                return (
-                                    <TableRow key={currentWinner.id}>
-                                        <TableCell>
-                                            {currentWinner.firstName}&nbsp;{currentWinner.lastName}
-                                        </TableCell>
-                                        <TableCell>
-                                            <FormControl fullWidth>
-                                                <InputLabel id={`winner-${currentWinner.id}-package-selection-label`}>
-                                                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.select.package_label'} />
-                                                </InputLabel>
-                                                <Select
-                                                    labelId={`winner-${currentWinner.id}-package-selection-label`}
-                                                    id={`winner-${currentWinner.id}-package-selection-value`}
-                                                    value={packageSelections[currentWinner.id] ? packageSelections[currentWinner.id] : ''}
-                                                    label={<LocalizedText translationKey={'dashboard.dialogs.new_winners.table.select.package_label'} />}
-                                                    onChange={(e) => selectPackageForUser(currentWinner.id, e.target.value)}
-                                                    error={packageSelectionErrorStates[currentWinner.id] ? packageSelectionErrorStates[currentWinner.id] : false}
-                                                >
-                                                    {getPossiblePackageMenuItems(
-                                                        currentWinner.id,
-                                                        props.winner.length // TODO: use the select value for the number of participants for that day and not the passed winners (for re-draw)
-                                                    )}
-                                                </Select>
-                                                <FormHelperText>
-                                                    {packageSelectionErrorStates[currentWinner.id] ? (
-                                                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.error_package_selection'} />
-                                                    ) : (
-                                                        ''
-                                                    )}
-                                                </FormHelperText>
-                                            </FormControl>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                {activeStep === 0 ? (
+                    <>
+                        <DialogContentText id="alert-dialog-description">
+                            <LocalizedText translationKey={'dashboard.dialogs.new_winners.text'} />
+                            <br />
+                            <br />
+                        </DialogContentText>
+                    </>
+                ) : (
+                    <></>
+                )}
+                <Stepper activeStep={activeStep}>
+                    {stepLabels.map((label, _) => {
+                        return (
+                            <Step key={label}>
+                                <StepLabel>{label}</StepLabel>
+                            </Step>
+                        );
+                    })}
+                </Stepper>
+                <br />
+                {activeStep === 0 ? (
+                    <TableContainer component={Paper}>
+                        <Table>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>
+                                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.column_winner'} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.column_package'} />
+                                    </TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {props.winner.map((currentWinner) => {
+                                    return (
+                                        <TableRow key={currentWinner.id}>
+                                            <TableCell>
+                                                {currentWinner.firstName}&nbsp;{currentWinner.lastName}
+                                            </TableCell>
+                                            <TableCell>
+                                                <FormControl fullWidth>
+                                                    <InputLabel id={`winner-${currentWinner.id}-package-selection-label`}>
+                                                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.select.package_label'} />
+                                                    </InputLabel>
+                                                    <Select
+                                                        labelId={`winner-${currentWinner.id}-package-selection-label`}
+                                                        id={`winner-${currentWinner.id}-package-selection-value`}
+                                                        value={packageSelections[currentWinner.id] ? packageSelections[currentWinner.id] : ''}
+                                                        label={<LocalizedText translationKey={'dashboard.dialogs.new_winners.table.select.package_label'} />}
+                                                        onChange={(e) => selectPackageForUser(currentWinner.id, e.target.value)}
+                                                        error={packageSelectionErrorStates[currentWinner.id] ? packageSelectionErrorStates[currentWinner.id] : false}
+                                                    >
+                                                        {getPossiblePackageMenuItems(
+                                                            currentWinner.id,
+                                                            props.winner.length // TODO: use the select value for the number of participants for that day and not the passed winners (for re-draw)
+                                                        )}
+                                                    </Select>
+                                                    <FormHelperText>
+                                                        {packageSelectionErrorStates[currentWinner.id] ? (
+                                                            <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.error_package_selection'} />
+                                                        ) : (
+                                                            ''
+                                                        )}
+                                                    </FormHelperText>
+                                                </FormControl>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                ) : (
+                    <>
+                        <DialogContentText id="alert-dialog-description">{getWinnerText()}</DialogContentText>
+                    </>
+                )}
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleDialogNextPage} autoFocus>
-                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.accept_button'} />
+                <Button onClick={activeStep === 0 ? handleDialogNextPage : handleDialogClose} autoFocus>
+                    <LocalizedText translationKey={activeStep === 0 ? 'dashboard.dialogs.new_winners.accept_button' : 'dashboard.dialogs.new_winners.finish_button'} />
                 </Button>
             </DialogActions>
         </Dialog>
