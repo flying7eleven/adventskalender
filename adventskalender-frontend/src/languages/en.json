@@ -112,7 +112,7 @@
         "dialogs": {
             "new_winners": {
                 "title": "New winner",
-                "text": "The following participants won on the selected day. Congratulations!",
+                "text": "The following participants won on the selected day. Please select the corresponding packages for the winner and click on 'continue':",
                 "table": {
                     "column_winner": "Winner",
                     "column_package": "Package",
@@ -121,7 +121,7 @@
                         "package_label": "Package"
                     }
                 },
-                "accept_button": "Okay"
+                "accept_button": "Continue"
             },
             "already_picked": {
                 "title": "Already picked winners",

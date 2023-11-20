@@ -39,13 +39,27 @@ export const WinnerDialog = (props: Props) => {
         return Object.values(packageSelectionErrorStates).filter((item) => item).length == 0;
     };
 
-    const showAlertForPackageSelection = () => {
-        // TODO implement: this
+    const markPackagesNotSelectedAsError = () => {
+        // get a copy of the currently selected packages and the error states
+        let previouslySelectedPackages = Object.assign({}, packageSelections); // recreate the json object so React sees a change
+        let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+        console.log(previousErrorStates);
+
+        // for each not-selected package / participant, mark the field as 'error'
+        props.winner.filter((currentWinner) => !previouslySelectedPackages.hasOwnProperty(currentWinner.id)).map((winnerNotFound) => (previousErrorStates[winnerNotFound.id] = true));
+
+        // set the new error states
+        console.log(previousErrorStates);
+        setPackageSelectionErrorStates(previousErrorStates);
     };
 
     const handleDialogClose = () => {
+        // TODO: implement if needed
+    };
+
+    const handleDialogNextPage = () => {
         if (!allSubPackagesAreSelected()) {
-            showAlertForPackageSelection();
+            markPackagesNotSelectedAsError();
             return;
         }
         props.setDialogOpenStateFunction(false);
@@ -137,6 +151,8 @@ export const WinnerDialog = (props: Props) => {
             <DialogContent>
                 <DialogContentText id="alert-dialog-description">
                     <LocalizedText translationKey={'dashboard.dialogs.new_winners.text'} />
+                    <br />
+                    <br />
                 </DialogContentText>
                 <TableContainer component={Paper}>
                     <Table>
@@ -192,7 +208,7 @@ export const WinnerDialog = (props: Props) => {
                 </TableContainer>
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleDialogClose} autoFocus>
+                <Button onClick={handleDialogNextPage} autoFocus>
                     <LocalizedText translationKey={'dashboard.dialogs.new_winners.accept_button'} />
                 </Button>
             </DialogActions>
