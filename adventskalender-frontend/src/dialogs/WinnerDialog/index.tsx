@@ -154,6 +154,7 @@ export const WinnerDialog = (props: Props) => {
         let packageLabelText = localizationContext.translate('dashboard.dialogs.new_winners.package_label');
         let winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
         let winningDate = moment(props.date).format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
+        let winningDay = moment(props.date).format('D');
 
         return winnerParagraphTemplate
             .replace(
@@ -161,7 +162,7 @@ export const WinnerDialog = (props: Props) => {
                 props.winner
                     .map((winner) => {
                         let selectedPackage = packageSelections[winner.id];
-                        return `${winner.firstName} ${winner.firstName} (${packageLabelText} ${selectedPackage})`;
+                        return `${winner.firstName} ${winner.firstName} (${packageLabelText} ${winningDay}${selectedPackage})`;
                     })
                     .join(', ')
             )
