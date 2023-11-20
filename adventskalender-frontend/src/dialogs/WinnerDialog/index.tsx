@@ -23,6 +23,7 @@ import moment from 'moment';
 
 interface Props {
     winner: WinnerInformation[];
+    numberOfMaxSubPackages: number;
     date: string;
     isOpen: boolean;
     setDialogOpenStateFunction: Dispatch<SetStateAction<boolean>>;
@@ -39,8 +40,7 @@ export const WinnerDialog = (props: Props) => {
 
     const allSubPackagesAreSelected = () => {
         // ensure we have selected a package for each winner
-        // TODO: use the select value for the number of participants for that day and not the passed winners (for re-draw)
-        if (Object.keys(packageSelections).length != props.winner.length) {
+        if (Object.keys(packageSelections).length != props.numberOfMaxSubPackages) {
             return false;
         }
 
@@ -229,10 +229,7 @@ export const WinnerDialog = (props: Props) => {
                                                         onChange={(e) => selectPackageForUser(currentWinner.id, e.target.value)}
                                                         error={packageSelectionErrorStates[currentWinner.id] ? packageSelectionErrorStates[currentWinner.id] : false}
                                                     >
-                                                        {getPossiblePackageMenuItems(
-                                                            currentWinner.id,
-                                                            props.winner.length // TODO: use the select value for the number of participants for that day and not the passed winners (for re-draw)
-                                                        )}
+                                                        {getPossiblePackageMenuItems(currentWinner.id, props.numberOfMaxSubPackages)}
                                                     </Select>
                                                     <FormHelperText>
                                                         {packageSelectionErrorStates[currentWinner.id] ? (

@@ -220,7 +220,7 @@ export const DashboardView = () => {
 
     return (
         <>
-            <WinnerDialog date={getSelectedDateAsString()} winner={lastWinners} isOpen={isLastWinnerDialogOpen} setDialogOpenStateFunction={setIsLastWinnerDialogOpen} />
+            <WinnerDialog date={getSelectedDateAsString()} numberOfMaxSubPackages={5} winner={lastWinners} isOpen={isLastWinnerDialogOpen} setDialogOpenStateFunction={setIsLastWinnerDialogOpen} />
             <UnknownErrorDialog isOpen={isUnknownErrorDialogOpen} setDialogOpenStateFunction={setIsUnknownErrorDialogOpen} />
             <NoParticipantsErrorDialog isOpen={isNoParticipantsErrorDialogOpen} setDialogOpenStateFunction={setIsNoParticipantsErrorDialogOpen} />
             <MoreWinnersDialog
