@@ -40,7 +40,7 @@ export const WinnerDialog = (props: Props) => {
 
     const allSubPackagesAreSelected = () => {
         // ensure we have selected a package for each winner
-        if (Object.keys(packageSelections).length != props.numberOfMaxSubPackages) {
+        if (Object.keys(packageSelections).length != props.winner.length) {
             return false;
         }
 
