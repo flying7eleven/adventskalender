@@ -123,13 +123,13 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: WinnerInformation; u
 export const WinnerCard = (props: Props) => {
     const getWinningEntries = () => {
         const elements = [];
-        const sortedWinnes = props.listOfWinner.sort((winnerA, winnerB) => {
+        const sortedWinners = props.listOfWinner.sort((winnerA, winnerB) => {
             return winnerA.lastName.localeCompare(winnerB.lastName);
         });
-        for (let i = 0; i < sortedWinnes.length; i++) {
-            elements.push(<PersonItem key={`person-item-${sortedWinnes[i].id}`} winner={sortedWinnes[i]} updateWinnerList={props.updateWinnerList} />);
-            if (i !== sortedWinnes.length - 1) {
-                elements.push(<Divider key={`divider-${sortedWinnes[i].id}`} variant={'middle'} />);
+        for (let i = 0; i < sortedWinners.length; i++) {
+            elements.push(<PersonItem key={`person-item-${sortedWinners[i].id}`} winner={sortedWinners[i]} updateWinnerList={props.updateWinnerList} />);
+            if (i !== sortedWinners.length - 1) {
+                elements.push(<Divider key={`divider-${sortedWinners[i].id}`} variant={'middle'} />);
             }
         }
         return elements;

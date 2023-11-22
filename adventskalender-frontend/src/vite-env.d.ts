@@ -8,4 +8,10 @@ interface WinnerInformation {
     lastName: string;
 }
 
-type WinnersOnDateMap = { [key: string]: WinnerInformation[] };
+interface WinnerInformation2 {
+    id: number;
+    first_name: string;
+    last_name: string;
+}
+
+type WinnersOnDateMap = { [key: string]: WinnerInformation2[] };

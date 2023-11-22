@@ -72,7 +72,13 @@ export const CalendarView = () => {
         const elements = [];
         const sortedKeys = Object.keys(allWinners).sort();
         for (const i in sortedKeys) {
-            const winnersForDay = allWinners[sortedKeys[i]];
+            const winnersForDay = allWinners[sortedKeys[i]].map((winnerEntry) => {
+                return {
+                    id: winnerEntry.id,
+                    firstName: winnerEntry.first_name,
+                    lastName: winnerEntry.last_name,
+                };
+            });
             elements.push(
                 <Grid item xs={3} key={`winner-card-grid-item-${sortedKeys[i]}`}>
                     <WinnerCard key={`winner-card-${sortedKeys[i]}`} winningDate={sortedKeys[i]} listOfWinner={winnersForDay} updateWinnerList={getWinnersForAllDays} />
