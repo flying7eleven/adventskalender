@@ -4,7 +4,7 @@ import { Stack } from '@mui/material';
 import { NumberOfWinnersSelector } from '../../components/NumberOfWinnersSelector';
 import { WinningDaySelector } from '../../components/WinningDaySelector';
 import { PickNewWinner } from '../../components/PickNewWinner';
-import { API_BACKEND_URL, Participant, ParticipantCount } from '../../api';
+import { API_BACKEND_URL, Participant, ParticipantCount, WinnerInformation } from '../../api';
 import { useContext, useEffect, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';

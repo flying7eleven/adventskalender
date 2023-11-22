@@ -1,6 +1,6 @@
 import { LocalizedText } from '../LocalizedText';
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Stack, Typography } from '@mui/material';
-import { API_BACKEND_URL } from '../../api';
+import { API_BACKEND_URL, WinnerInformation } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';

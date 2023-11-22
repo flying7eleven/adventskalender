@@ -21,6 +21,13 @@ export interface Participant {
     present_identifier?: string;
 }
 
+export interface WinnerInformation {
+    id: number;
+    firstName: string;
+    lastName: string;
+    presentIdentifier?: string;
+}
+
 export interface AccessToken {
     accessToken: string;
 }
