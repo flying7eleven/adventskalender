@@ -3,10 +3,8 @@ use crate::guards::AuthenticatedUser;
 use crate::models::User;
 use crate::Action;
 use chrono::{DateTime, NaiveDate};
-use diesel::{update, ExpressionMethods, NotFound, QueryDsl, RunQueryDsl};
 use rocket::http::Status;
 use rocket::serde::json::Json;
-use rocket::yansi::Paint;
 use rocket::{delete, get, post, put, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -352,7 +350,10 @@ pub struct NewPackageSelection {
     package: String,
 }
 
-#[put("/participants/<current_participant_id>", data = "<new_package_selection>")]
+#[put(
+    "/participants/<current_participant_id>",
+    data = "<new_package_selection>"
+)]
 pub async fn update_participant_values(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
@@ -362,7 +363,7 @@ pub async fn update_participant_values(
     use crate::log_action_rocket;
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{id, participants, present_identifier, won_on};
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
     // get a connection to the database for dealing with the request
@@ -378,26 +379,26 @@ pub async fn update_participant_values(
     };
 
     // get the user on which the package should be selected on
-    let mut participant_won = match participants
+    let participant_won = match participants
         .filter(id.eq(current_participant_id))
         .load::<DatabaseParticipant>(db_connection)
     {
         Ok(users) => {
             if users.len() != 1 {
-                // TODO: logging
+                error!("Tried to fetch the participant with the id {} from the database but got {} participants as a result", current_participant_id, users.len());
                 return Status::BadRequest;
             }
             users.get(0).unwrap().clone()
         }
         Err(error) => {
-            // TODO: logging
+            error!("Tried to fetch the participant with the id {} from the database but an error occurred. The error was: {}", current_participant_id, error);
             return Status::InternalServerError;
         }
     };
 
     //
-    if (participant_won.won_on.is_none()) {
-        // TODO: logging
+    if participant_won.won_on.is_none() {
+        error!("Tried to select a package for the participant with the id {} but the participant was not picked before", current_participant_id);
         return Status::InternalServerError;
     }
     let date_of_win = participant_won.won_on.unwrap();
@@ -413,24 +414,33 @@ pub async fn update_participant_values(
             .map(|user| user.present_identifier.clone().unwrap())
             .collect(),
         Err(error) => {
-            // TODO: logging
+            error!("Tried to fetch the already selected sub-packages for the date {} from the database but an error occurred. The error was: {}", date_of_win, error);
             return Status::InternalServerError;
         }
     };
 
     // check if the package was already assigned to another user
     if already_selected_packages.contains(&new_package_selection.package) {
-        // TODO: logging
+        error!("Tried to select the package {} for the user {} but the package was already assigned to another user for the date of {}", new_package_selection.package, current_participant_id, date_of_win);
         return Status::BadRequest;
     }
 
     // set the selected package for a user
-    let rows_updated = update(participants.filter(id.eq(current_participant_id)))
+    match update(participants.filter(id.eq(current_participant_id)))
         .set(present_identifier.eq(new_package_selection.package.clone()))
-        .execute(db_connection); // TODO: use enum?!
-    if rows_updated.is_err() || rows_updated.unwrap() != 1 {
-        // TODO: logging
-        return Status::InternalServerError;
+        .execute(db_connection)
+    {
+        // TODO: use enum?!
+        Ok(rows_updated) => {
+            if rows_updated != 1 {
+                error!("Tried to save the sub-packages {} for the user {} on {} but it failed and {} rows were updated", new_package_selection.package, current_participant_id, date_of_win, rows_updated);
+                return Status::InternalServerError;
+            }
+        }
+        Err(error) => {
+            error!("Tried to save the sub-packages {} for the user {} on {} but it failed. The error was: {}", new_package_selection.package, current_participant_id, date_of_win, error);
+            return Status::InternalServerError;
+        }
     }
 
     // if we get here we successfully selected a package

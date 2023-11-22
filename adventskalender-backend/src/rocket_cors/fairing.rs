@@ -4,7 +4,7 @@ use crate::rocket_cors::{
     actual_request_response, origin, preflight_response, request_headers, validate, Cors, Error,
 };
 use rocket::http::{self, uri::Origin, Status};
-use rocket::{self, debug_, error_, outcome::Outcome, Request};
+use rocket::{self, error_, outcome::Outcome, Request};
 
 /// Request Local State to store CORS validation results
 enum CorsValidation {
