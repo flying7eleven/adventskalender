@@ -61,6 +61,9 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const handleDialogClose = () => {
+        setActiveStep(0);
+        setPackageSelections({});
+        setPackageSelectionErrorStates({});
         props.setDialogOpenStateFunction(false);
     };
 
