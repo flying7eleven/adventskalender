@@ -16,7 +16,7 @@ jobs:
       run: sudo apt-get install -y libpq-dev
     - uses: actions/checkout@v4
       with:
-        fetch-tags: true
+        fetch-depth: 0
     - name: Install the required rust toolchain
       uses: actions-rs/toolchain@v1
       with:
