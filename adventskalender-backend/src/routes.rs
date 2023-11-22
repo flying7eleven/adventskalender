@@ -352,13 +352,14 @@ pub struct NewPackageSelection {
     package: String,
 }
 
-#[put("/participants/<user_id>", data = "<new_package_selection>")]
+#[put("/participants/<current_participant_id>", data = "<new_package_selection>")]
 pub async fn update_participant_values(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
-    user_id: i32,
+    current_participant_id: i32,
     new_package_selection: Json<NewPackageSelection>,
 ) -> Status {
+    use crate::log_action_rocket;
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{id, participants, present_identifier, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
@@ -378,7 +379,7 @@ pub async fn update_participant_values(
 
     // get the user on which the package should be selected on
     let mut participant_won = match participants
-        .filter(id.eq(user_id))
+        .filter(id.eq(current_participant_id))
         .load::<DatabaseParticipant>(db_connection)
     {
         Ok(users) => {
@@ -424,7 +425,7 @@ pub async fn update_participant_values(
     }
 
     // set the selected package for a user
-    let rows_updated = update(participants.filter(id.eq(user_id)))
+    let rows_updated = update(participants.filter(id.eq(current_participant_id)))
         .set(present_identifier.eq(new_package_selection.package.clone()))
         .execute(db_connection); // TODO: use enum?!
     if rows_updated.is_err() || rows_updated.unwrap() != 1 {
@@ -433,6 +434,16 @@ pub async fn update_participant_values(
     }
 
     // if we get here we successfully selected a package
+    log_action_rocket(
+        &db_connection_pool,
+        authenticated_user.username.clone(),
+        Action::PackageSelected,
+        Some(format!(
+            "The participant with the id {} was assigned to package {}",
+            current_participant_id, new_package_selection.package,
+        )),
+    )
+    .await;
     return Status::NoContent;
 }
 
