@@ -154,6 +154,9 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const getWinnerText = () => {
+        // FIXME: if a re-draw of some participants happens, the second step of the dialog does only contain the
+        // text for the newly picked people. We should show the text for all winners (also the old ones) for
+        // that day
         let packageLabelText = localizationContext.translate('dashboard.dialogs.new_winners.package_label');
         let winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
         let winningDate = moment(props.date).format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
