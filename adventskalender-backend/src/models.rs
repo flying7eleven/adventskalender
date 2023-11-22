@@ -18,6 +18,7 @@ pub struct ParticipantPicking {
     pub won_on: Option<NaiveDate>,
     pub picked_by: Option<i32>,
     pub picking_time: Option<NaiveDateTime>,
+    pub present_identifier: Option<String>,
 }
 
 #[derive(Queryable, Clone)]

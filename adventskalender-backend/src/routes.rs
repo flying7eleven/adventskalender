@@ -640,6 +640,7 @@ pub async fn mark_participant_as_won(
                             won_on: Some(picked_for_date),
                             picking_time: Some(Utc::now().naive_utc()),
                             picked_by: Some(user_obj.id),
+                            present_identifier: None
                         };
 
                         // do the actual update of the database
@@ -704,6 +705,7 @@ pub async fn mark_participant_as_not_won(
                 won_on: None,
                 picking_time: None,
                 picked_by: None,
+                present_identifier: None
             };
 
             // do the actual update of the database
