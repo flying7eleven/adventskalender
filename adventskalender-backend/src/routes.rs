@@ -97,6 +97,8 @@ pub struct Participant {
     pub first_name: String,
     /// The last name of the participant.
     pub last_name: String,
+    /// The sub-package which was set for the winner.
+    pub present_identifier: Option<String>,
 }
 
 pub async fn get_all_winners(
@@ -139,6 +141,7 @@ pub async fn get_all_winners(
                                 id: current.id,
                                 first_name: current.first_name.clone(),
                                 last_name: current.last_name.clone(),
+                                present_identifier: current.present_identifier.clone(),
                             });
                     }
                     return Ok(result_map);
@@ -193,6 +196,7 @@ pub async fn get_won_participants_on_day(
                             id: item.id,
                             first_name: item.first_name.clone(),
                             last_name: item.last_name.clone(),
+                            present_identifier: item.present_identifier.clone(),
                         })
                         .collect());
                 }
@@ -501,6 +505,7 @@ pub async fn pick_random_participants_from_database(
                             id: current_participant.id,
                             first_name: current_participant.first_name.clone(),
                             last_name: current_participant.last_name.clone(),
+                            present_identifier: None,
                         });
                     }
                     return Ok(participants_vec);

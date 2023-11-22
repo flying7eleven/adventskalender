@@ -77,6 +77,7 @@ export const CalendarView = () => {
                     id: winnerEntry.id,
                     firstName: winnerEntry.first_name,
                     lastName: winnerEntry.last_name,
+                    presentIdentifier: winnerEntry.present_identifier,
                 };
             });
             elements.push(

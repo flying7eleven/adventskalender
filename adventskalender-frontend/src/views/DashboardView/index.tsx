@@ -189,7 +189,7 @@ export const DashboardView = () => {
             .then((parsedJson: Participant[]) => {
                 // setup the dialog for the picked winners and return ensure the dialog is shown to the user, ...
                 const mappedWinners = parsedJson.map((element) => {
-                    return { id: element.id, firstName: element.first_name, lastName: element.last_name };
+                    return { id: element.id, firstName: element.first_name, lastName: element.last_name, presentIdentifier: element.present_identifier };
                 });
                 setLastWinners(mappedWinners);
                 setIsLastWinnerDialogOpen(true);

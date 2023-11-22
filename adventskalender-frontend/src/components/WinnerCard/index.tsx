@@ -11,7 +11,7 @@ interface Props {
     updateWinnerList?: () => void;
 }
 
-const PersonItem = ({ winner, updateWinnerList }: { winner: WinnerInformation; updateWinnerList?: () => void }) => {
+const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerInformation; winningDay: number; updateWinnerList?: () => void }) => {
     const auth = useAuthentication();
     const navigate = useNavigate();
     const [dialogOpen, setDialogOpen] = useState<boolean>(false);
@@ -83,6 +83,10 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: WinnerInformation; u
         setDialogOpen(false);
     };
 
+    const getPackageName = () => {
+        return `${winningDay}${winner.presentIdentifier}`;
+    };
+
     return (
         <>
             <Dialog open={dialogOpen} onClose={handleCloseDialog} aria-labelledby="alert-dialog-remove-participant-title" aria-describedby="alert-dialog-remove-participant-description">
@@ -110,7 +114,7 @@ const PersonItem = ({ winner, updateWinnerList }: { winner: WinnerInformation; u
             </Dialog>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                 <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                    {getShortenedName(`${winner.firstName} ${winner.lastName}`)}
+                    {getShortenedName(`${winner.firstName} ${winner.lastName}`)}&nbsp;({getPackageName()})
                 </Typography>
                 <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} onClick={handleDeleteClick(winner)}>
                     <LocalizedText translationKey={'calendar.cards.winners.button_remove'} />
@@ -126,8 +130,9 @@ export const WinnerCard = (props: Props) => {
         const sortedWinners = props.listOfWinner.sort((winnerA, winnerB) => {
             return winnerA.lastName.localeCompare(winnerB.lastName);
         });
+        const winningDayFromDate = Number.parseInt(props.winningDate.substring(8)); // TODO: ugly, we should parse the date here instead
         for (let i = 0; i < sortedWinners.length; i++) {
-            elements.push(<PersonItem key={`person-item-${sortedWinners[i].id}`} winner={sortedWinners[i]} updateWinnerList={props.updateWinnerList} />);
+            elements.push(<PersonItem key={`person-item-${sortedWinners[i].id}`} winner={sortedWinners[i]} winningDay={winningDayFromDate} updateWinnerList={props.updateWinnerList} />);
             if (i !== sortedWinners.length - 1) {
                 elements.push(<Divider key={`divider-${sortedWinners[i].id}`} variant={'middle'} />);
             }
