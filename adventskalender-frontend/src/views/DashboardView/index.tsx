@@ -210,7 +210,13 @@ export const DashboardView = () => {
 
     return (
         <>
-            <WinnerDialog date={getSelectedDateAsString()} numberOfMaxSubPackages={5} winner={lastWinners} isOpen={isLastWinnerDialogOpen} setDialogOpenStateFunction={setIsLastWinnerDialogOpen} />
+            <WinnerDialog
+                date={getSelectedDateAsString()}
+                numberOfMaxSubPackages={MAX_WINNERS_PER_DAY}
+                winner={lastWinners}
+                isOpen={isLastWinnerDialogOpen}
+                setDialogOpenStateFunction={setIsLastWinnerDialogOpen}
+            />
             <UnknownErrorDialog isOpen={isUnknownErrorDialogOpen} setDialogOpenStateFunction={setIsUnknownErrorDialogOpen} />
             <NoParticipantsErrorDialog isOpen={isNoParticipantsErrorDialogOpen} setDialogOpenStateFunction={setIsNoParticipantsErrorDialogOpen} />
             <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>

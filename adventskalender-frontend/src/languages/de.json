@@ -75,7 +75,8 @@
         "cards": {
             "winners": {
                 "headline": "Gewinner:innen für den",
-                "button_remove": "Gewinner:in entfernen"
+                "button_remove": "Gewinner:in entfernen",
+                "button_edit": "Gewinner:in bearbeiten"
             }
         },
         "dialogs": {
@@ -84,6 +85,18 @@
                 "text": "Soll die/der folgende:r Gewinner:in entfernt werden? Die Person wird dann neu in den Lostopf geworfen und kann wieder gezogen werden. Die betreffende Person ist:",
                 "accept_button": "Ja, Gewinner:in entfernen",
                 "cancel_button": "Nein, abbrechen"
+            },
+            "edit_participant": {
+                "title": "Gewinner:in bearbeiten",
+                "close_button": "Schließen",
+                "table": {
+                    "column_winner": "Gewinner:in",
+                    "column_package": "Paket",
+                    "error_package_selection": "Paket konnte nicht bearbeitet werden",
+                    "select": {
+                        "package_label": "Paket"
+                    }
+                }
             }
         }
     },

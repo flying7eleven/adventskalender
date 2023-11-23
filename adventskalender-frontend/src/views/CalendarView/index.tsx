@@ -1,6 +1,6 @@
 import Grid from '@mui/material/Grid';
 import { useEffect, useState } from 'react';
-import { API_BACKEND_URL } from '../../api';
+import { API_BACKEND_URL, MAX_WINNERS_PER_DAY } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { WinnerCard } from '../../components/WinnerCard';
@@ -82,7 +82,13 @@ export const CalendarView = () => {
             });
             elements.push(
                 <Grid item xs={3} key={`winner-card-grid-item-${sortedKeys[i]}`}>
-                    <WinnerCard key={`winner-card-${sortedKeys[i]}`} winningDate={sortedKeys[i]} listOfWinner={winnersForDay} updateWinnerList={getWinnersForAllDays} />
+                    <WinnerCard
+                        key={`winner-card-${sortedKeys[i]}`}
+                        numberOfMaxSubPackages={MAX_WINNERS_PER_DAY}
+                        winningDate={sortedKeys[i]}
+                        listOfWinner={winnersForDay}
+                        updateWinnerList={getWinnersForAllDays}
+                    />
                 </Grid>
             );
         }

@@ -75,7 +75,8 @@
         "cards": {
             "winners": {
                 "headline": "Winners for",
-                "button_remove": "Remove winner"
+                "button_remove": "Remove winner",
+                "button_edit": "Edit winner"
             }
         },
         "dialogs": {
@@ -84,6 +85,18 @@
                 "text": "Are you sure that you want to delete the following participant as a winner? The person will be added to the raffle and can be picked as a winner again. The corresponding user you are going to remove is:",
                 "accept_button": "Yes, remove the participant",
                 "cancel_button": "No, cancel removal"
+            },
+            "edit_participant": {
+                "title": "Edit winner",
+                "close_button": "Close",
+                "table": {
+                    "column_winner": "Winner",
+                    "column_package": "Package",
+                    "error_package_selection": "Failed to select package",
+                    "select": {
+                        "package_label": "Package"
+                    }
+                }
             }
         }
     },
