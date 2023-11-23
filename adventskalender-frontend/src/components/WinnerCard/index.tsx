@@ -83,10 +83,6 @@ const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerIn
         setDialogOpen(false);
     };
 
-    const getPackageName = () => {
-        return `${winningDay}${winner.presentIdentifier}`;
-    };
-
     return (
         <>
             <Dialog open={dialogOpen} onClose={handleCloseDialog} aria-labelledby="alert-dialog-remove-participant-title" aria-describedby="alert-dialog-remove-participant-description">
@@ -113,9 +109,11 @@ const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerIn
                 </DialogActions>
             </Dialog>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                    {getShortenedName(`${winner.firstName} ${winner.lastName}`)}&nbsp;({getPackageName()})
-                </Typography>
+                <div style={{ display: 'flex' }}>
+                    <Typography sx={{ textAlign: 'left' }}>{getShortenedName(`${winner.firstName} ${winner.lastName}`)}</Typography>
+                    &nbsp;
+                    <Typography sx={{ fontWeight: 'bold' }}>{`${winningDay}${winner.presentIdentifier ? winner.presentIdentifier : ''}`}</Typography>
+                </div>
                 <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} onClick={handleDeleteClick(winner)}>
                     <LocalizedText translationKey={'calendar.cards.winners.button_remove'} />
                 </Button>
