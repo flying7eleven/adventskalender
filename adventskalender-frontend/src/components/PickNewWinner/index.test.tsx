@@ -6,7 +6,7 @@ describe('PickNewWinner component', () => {
         const testMethod = () => {
             /* nothing to do here */
         };
-        const component = create(<PickNewWinner isLoadingNewWinner={false} label={'Some text'} onRequestWinner={testMethod} />);
+        const component = create(<PickNewWinner isLoadingNewWinner={false} isEnabled={true} label={'Some text'} onRequestWinner={testMethod} />);
         expect(component.toJSON()).toMatchSnapshot();
     });
 });

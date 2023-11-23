@@ -1,6 +1,6 @@
 import Grid from '@mui/material/Grid';
 import { useEffect, useState } from 'react';
-import { API_BACKEND_URL, VersionInformation, AuditEventCount } from '../../api';
+import { API_BACKEND_URL, VersionInformation, AuditEventCount, MAX_WINNERS_PER_DAY } from '../../api';
 import packageJson from '../../../package.json';
 import { Box, Card, CardContent, Divider, Link, Stack, Typography } from '@mui/material';
 import { LocalizedText } from '../../components/LocalizedText';
@@ -162,6 +162,15 @@ export const VersionView = () => {
                                     </Typography>
                                     <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
                                         {auditEventCount}
+                                    </Typography>
+                                </Box>
+                                <Divider />
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
+                                        <LocalizedText translationKey={'configuration.card.categories.max_winners_per_day'} />
+                                    </Typography>
+                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
+                                        {MAX_WINNERS_PER_DAY}
                                     </Typography>
                                 </Box>
                             </Stack>

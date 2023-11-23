@@ -8,6 +8,8 @@ const determineApiUrl = () => {
 
 export const API_BACKEND_URL = `${determineApiUrl()}/v1`;
 
+export const MAX_WINNERS_PER_DAY = 5;
+
 export interface ParticipantCount {
     number_of_participants: number;
     number_of_participants_won: number;

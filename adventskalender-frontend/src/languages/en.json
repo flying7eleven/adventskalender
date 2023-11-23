@@ -40,7 +40,8 @@
             "headline": "Used configuration",
             "categories": {
                 "used_backend_base_url": "API Backend URL",
-                "number_of_audit_events": "Number of audit events"
+                "number_of_audit_events": "Number of audit events",
+                "max_winners_per_day": "Number of max. winners per day"
             }
         }
     },

@@ -1,10 +1,9 @@
 import Grid from '@mui/material/Grid';
 import { OutlinedCard } from '../../components/OutlinedCard';
 import { Stack } from '@mui/material';
-import { NumberOfWinnersSelector } from '../../components/NumberOfWinnersSelector';
 import { WinningDaySelector } from '../../components/WinningDaySelector';
 import { PickNewWinner } from '../../components/PickNewWinner';
-import { API_BACKEND_URL, Participant, ParticipantCount, WinnerInformation } from '../../api';
+import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, Participant, ParticipantCount, WinnerInformation } from '../../api';
 import { useContext, useEffect, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +11,6 @@ import { LocalizationContext } from '../../provider/LocalizationProvider';
 import { WinnerDialog } from '../../dialogs/WinnerDialog';
 import { UnknownErrorDialog } from '../../dialogs/UnknownErrorDialog';
 import { NoParticipantsErrorDialog } from '../../dialogs/NoParticipantsErrorDialog';
-import { MoreWinnersDialog } from '../../dialogs/MoreWinnersDialog';
 
 export const DashboardView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
@@ -22,7 +20,6 @@ export const DashboardView = () => {
     const [winnersOnSelectedDay, setWinnersOnSelectedDay] = useState<number>(0);
     const auth = useAuthentication();
     const navigate = useNavigate();
-    const [numberOfWinners, setNumberOfWinners] = useState<number>(5);
     const [selectedDay, setSelectedDay] = useState<number>(() => {
         const today = new Date().getUTCDate();
         if (today < 1) {
@@ -35,7 +32,6 @@ export const DashboardView = () => {
     const [lastWinners, setLastWinners] = useState<WinnerInformation[]>([]);
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
     const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
-    const [isMoreWinnersDialogOpen, setIsMoreWinnersDialogOpen] = useState(false);
 
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
@@ -43,10 +39,6 @@ export const DashboardView = () => {
 
     const handleDateSelectionChange = (newDay: number) => {
         setSelectedDay(newDay);
-    };
-
-    const handleNumberOfWinnersSelectionChange = (newNumberOfWinners: number) => {
-        setNumberOfWinners(newNumberOfWinners);
     };
 
     const updateWinnerCounter = () => {
@@ -141,17 +133,23 @@ export const DashboardView = () => {
 
     const getSelectedDateAsString = () => `${new Date().getFullYear()}-12-${selectedDay}`;
 
-    const pickMultipleNewWinner = () => {
+    const getNumberOfWinnersToPick = (winnersOnThisDay: number) => {
+        return MAX_WINNERS_PER_DAY - winnersOnThisDay;
+    };
+
+    const pickMultipleNewWinner = (winnersOnThisDay: number) => {
         // first we have to set the button into a loading state, so the user cannot fetch another winner until we are
         // done processing the first request
         setLoadingNewWinner(true);
 
-        // it might happen that a warning dialog was opened before this method was called. ensure that the dialog
-        // is closed
-        setIsMoreWinnersDialogOpen(false);
+        // determine the number of winners which are missing for that day
+        const winnersStillToPick = getNumberOfWinnersToPick(winnersOnThisDay);
+        if (winnersStillToPick <= 0) {
+            return;
+        }
 
         // try to pick a new winner from the backend
-        fetch(`${API_BACKEND_URL}/participants/pick/${numberOfWinners}/for/${getSelectedDateAsString()}`, {
+        fetch(`${API_BACKEND_URL}/participants/pick/${winnersStillToPick}/for/${getSelectedDateAsString()}`, {
             method: 'GET',
             headers: {
                 Authorization: `Bearer ${auth.token.accessToken}`,
@@ -207,15 +205,7 @@ export const DashboardView = () => {
     };
 
     const checkPicking = () => {
-        if (winnersOnSelectedDay > 0) {
-            setIsMoreWinnersDialogOpen(true);
-            return;
-        }
-        pickMultipleNewWinner();
-    };
-
-    const handleMoreWinnersDialogClose = () => {
-        setIsMoreWinnersDialogOpen(false);
+        pickMultipleNewWinner(winnersOnSelectedDay);
     };
 
     return (
@@ -223,12 +213,6 @@ export const DashboardView = () => {
             <WinnerDialog date={getSelectedDateAsString()} numberOfMaxSubPackages={5} winner={lastWinners} isOpen={isLastWinnerDialogOpen} setDialogOpenStateFunction={setIsLastWinnerDialogOpen} />
             <UnknownErrorDialog isOpen={isUnknownErrorDialogOpen} setDialogOpenStateFunction={setIsUnknownErrorDialogOpen} />
             <NoParticipantsErrorDialog isOpen={isNoParticipantsErrorDialogOpen} setDialogOpenStateFunction={setIsNoParticipantsErrorDialogOpen} />
-            <MoreWinnersDialog
-                isOpen={isMoreWinnersDialogOpen}
-                setDialogOpenStateFunction={handleMoreWinnersDialogClose}
-                pickMoreUsersHandler={pickMultipleNewWinner}
-                numberOfAlreadyPickedUsers={winnersOnSelectedDay}
-            />
             <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
                 <Grid item>
                     <OutlinedCard
@@ -258,13 +242,13 @@ export const DashboardView = () => {
                         headline={localizationContext.translate('dashboard.cards.pick_new_winner.title')}
                         value={
                             <Stack spacing={2} sx={{ marginTop: '16px', marginBottom: '16px' }}>
-                                <NumberOfWinnersSelector
-                                    label={localizationContext.translate('dashboard.number_of_winners')}
-                                    value={numberOfWinners}
-                                    changeHandler={handleNumberOfWinnersSelectionChange}
-                                />
                                 <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
-                                <PickNewWinner isLoadingNewWinner={loadingNewWinner} onRequestWinner={checkPicking} label={localizationContext.translate('dashboard.pick_winner_button')} />
+                                <PickNewWinner
+                                    isEnabled={getNumberOfWinnersToPick(winnersOnSelectedDay) > 0}
+                                    isLoadingNewWinner={loadingNewWinner}
+                                    onRequestWinner={checkPicking}
+                                    label={localizationContext.translate('dashboard.pick_winner_button')}
+                                />
                             </Stack>
                         }
                         description={localizationContext.translateWithPlaceholder('dashboard.cards.pick_new_winner.description', winnersOnSelectedDay.toString())}
