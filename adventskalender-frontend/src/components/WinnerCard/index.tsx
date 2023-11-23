@@ -83,6 +83,17 @@ const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerIn
         setDialogOpen(false);
     };
 
+    const getPersonStyle = (winner: WinnerInformation) => {
+        const baseStyle = {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+        };
+        if (!winner.presentIdentifier) {
+            return { ...baseStyle, color: 'red' };
+        }
+        return baseStyle;
+    };
+
     return (
         <>
             <Dialog open={dialogOpen} onClose={handleCloseDialog} aria-labelledby="alert-dialog-remove-participant-title" aria-describedby="alert-dialog-remove-participant-description">
@@ -108,7 +119,7 @@ const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerIn
                     </Button>
                 </DialogActions>
             </Dialog>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+            <Box sx={getPersonStyle(winner)}>
                 <div style={{ display: 'flex' }}>
                     <Typography sx={{ textAlign: 'left' }}>{getShortenedName(`${winner.firstName} ${winner.lastName}`)}</Typography>
                     &nbsp;
