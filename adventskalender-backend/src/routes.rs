@@ -403,6 +403,9 @@ pub async fn update_participant_values(
     }
     let date_of_win = participant_won.won_on.unwrap();
 
+    // variable to store a previously selected package
+    let mut old_package: Option<String> = None;
+
     // get the already selected packages for the given date
     let already_selected_packages: Vec<String> = match participants
         .filter(won_on.eq(date_of_win))
@@ -410,7 +413,12 @@ pub async fn update_participant_values(
     {
         Ok(users) => users
             .iter()
-            .filter(|user| user.present_identifier.is_some())
+            .filter(|user| {
+                if user.id == current_participant_id {
+                    old_package = user.present_identifier.clone();
+                }
+                return user.present_identifier.is_some();
+            })
             .map(|user| user.present_identifier.clone().unwrap())
             .collect(),
         Err(error) => {
@@ -444,16 +452,29 @@ pub async fn update_participant_values(
     }
 
     // if we get here we successfully selected a package
-    log_action_rocket(
-        &db_connection_pool,
-        authenticated_user.username.clone(),
-        Action::PackageSelected,
-        Some(format!(
-            "The participant with the id {} was assigned to package {}",
-            current_participant_id, new_package_selection.package,
-        )),
-    )
-    .await;
+    if old_package.is_none() {
+        log_action_rocket(
+            &db_connection_pool,
+            authenticated_user.username.clone(),
+            Action::PackageSelected,
+            Some(format!(
+                "The participant with the id {} was assigned to package {}",
+                current_participant_id, new_package_selection.package,
+            )),
+        )
+        .await;
+    } else {
+        log_action_rocket(
+            &db_connection_pool,
+            authenticated_user.username.clone(),
+            Action::PackageChanged,
+            Some(format!(
+                "The participant with the id {} was assigned a new package {}. The previous package was {}",
+                current_participant_id, new_package_selection.package, old_package.unwrap()
+            )),
+        )
+            .await;
+    }
     return Status::NoContent;
 }
 
