@@ -180,7 +180,7 @@ export const WinnerDialog = (props: Props) => {
     };
 
     return (
-        <Dialog open={props.isOpen} onClose={handleDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
+        <Dialog open={props.isOpen} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
             <DialogTitle id="alert-dialog-title">
                 <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} />
             </DialogTitle>
