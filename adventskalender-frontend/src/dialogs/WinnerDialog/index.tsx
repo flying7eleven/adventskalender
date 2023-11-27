@@ -302,11 +302,11 @@ export const WinnerDialog = (props: Props) => {
                 )}
             </DialogContent>
             <DialogActions>
+                <Button onClick={handleDialogCancelClick} color={'error'}>
+                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
+                </Button>
                 <Button onClick={activeStep === 0 ? handleDialogNextPage : handleDialogClose} autoFocus>
                     <LocalizedText translationKey={activeStep === 0 ? 'dashboard.dialogs.new_winners.accept_button' : 'dashboard.dialogs.new_winners.finish_button'} />
-                </Button>
-                <Button onClick={handleDialogCancelClick}>
-                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
                 </Button>
             </DialogActions>
         </Dialog>
