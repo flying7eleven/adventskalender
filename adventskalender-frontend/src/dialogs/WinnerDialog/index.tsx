@@ -5,7 +5,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
-import { Dispatch, ReactNode, SetStateAction, useContext, useState } from 'react';
+import { ReactNode, useContext, useState } from 'react';
 import { FormHelperText, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import Paper from '@mui/material/Paper';
 import FormControl from '@mui/material/FormControl';
@@ -26,7 +26,7 @@ interface Props {
     numberOfMaxSubPackages: number;
     date: string;
     isOpen: boolean;
-    setDialogOpenStateFunction: Dispatch<SetStateAction<boolean>>;
+    setDialogOpenStateFunction: (shouldBeOpen: boolean) => void;
 }
 
 // TODO: un-select the winners for the day if the user closes the dialog pre-maturely
@@ -79,6 +79,10 @@ export const WinnerDialog = (props: Props) => {
         setActiveStep(activeStep + 1);
     };
 
+    const handleDialogCancelClick = () => {
+        unselectAllWinnersForDay();
+    };
+
     const getPossiblePackageMenuItems = (userId: number, maxPackageCount: number) => {
         const alphabet = Array.from(Array(maxPackageCount))
             .map((_, i) => i + 65)
@@ -104,6 +108,41 @@ export const WinnerDialog = (props: Props) => {
 
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
+    };
+
+    const unselectAllWinnersForDay = () => {
+        // if we do not have an access token, skip fetching the infos
+        if (auth.token.accessToken.length === 0) {
+            return;
+        }
+
+        // get all ids of the winners
+        const winnerIds = props.winner.map((currentWinner) => currentWinner.id);
+
+        // since we have a token, we can now unselect all participants
+        Promise.all(
+            winnerIds.map(async (winnerId) => {
+                let res = await fetch(`${API_BACKEND_URL}/participants/won/${winnerId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        Authorization: `Bearer ${auth.token.accessToken}`,
+                        'Content-type': 'application/json; charset=UTF-8',
+                    },
+                });
+                if (res.status === 204) {
+                    return;
+                }
+                if (res.status === 401 || res.status === 403) {
+                    logoutUser();
+                    return Promise.reject();
+                }
+                return Promise.reject();
+            })
+        )
+            .then(handleDialogClose)
+            .catch(() => {
+                // FIXME: show an actual error message that this was not successful
+            });
     };
 
     const selectPackageForUser = (userId: number, selectedPackage: string) => {
@@ -180,7 +219,7 @@ export const WinnerDialog = (props: Props) => {
     };
 
     return (
-        <Dialog open={props.isOpen} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
+        <Dialog open={props.isOpen} onClose={handleDialogCancelClick} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
             <DialogTitle id="alert-dialog-title">
                 <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} />
             </DialogTitle>
@@ -265,6 +304,9 @@ export const WinnerDialog = (props: Props) => {
             <DialogActions>
                 <Button onClick={activeStep === 0 ? handleDialogNextPage : handleDialogClose} autoFocus>
                     <LocalizedText translationKey={activeStep === 0 ? 'dashboard.dialogs.new_winners.accept_button' : 'dashboard.dialogs.new_winners.finish_button'} />
+                </Button>
+                <Button onClick={handleDialogCancelClick}>
+                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
                 </Button>
             </DialogActions>
         </Dialog>

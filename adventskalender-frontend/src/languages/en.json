@@ -143,7 +143,8 @@
                     "finish_step": "List of winners"
                 },
                 "accept_button": "Continue",
-                "finish_button": "Close"
+                "cancel_button": "Cancel",
+                "finish_button": "Finish"
             },
             "already_picked": {
                 "title": "Already picked winners",

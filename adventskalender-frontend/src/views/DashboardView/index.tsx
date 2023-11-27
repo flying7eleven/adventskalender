@@ -41,6 +41,11 @@ export const DashboardView = () => {
         setSelectedDay(newDay);
     };
 
+    const handleWinnerDialogVisibilityChange = (shouldBeOpen: boolean) => {
+        updateWinnerCounter();
+        setIsLastWinnerDialogOpen(shouldBeOpen);
+    };
+
     const updateWinnerCounter = () => {
         // if we do not have a access token, skip fetching the infos
         if (auth.token.accessToken.length === 0) {
@@ -215,7 +220,7 @@ export const DashboardView = () => {
                 numberOfMaxSubPackages={MAX_WINNERS_PER_DAY}
                 winner={lastWinners}
                 isOpen={isLastWinnerDialogOpen}
-                setDialogOpenStateFunction={setIsLastWinnerDialogOpen}
+                setDialogOpenStateFunction={handleWinnerDialogVisibilityChange}
             />
             <UnknownErrorDialog isOpen={isUnknownErrorDialogOpen} setDialogOpenStateFunction={setIsUnknownErrorDialogOpen} />
             <NoParticipantsErrorDialog isOpen={isNoParticipantsErrorDialogOpen} setDialogOpenStateFunction={setIsNoParticipantsErrorDialogOpen} />
