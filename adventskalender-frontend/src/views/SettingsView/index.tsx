@@ -4,7 +4,7 @@ import { LocalizedText } from '../../components/LocalizedText';
 import { ChangeEvent, useContext, useState } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationProvider';
 import { API_BACKEND_URL } from '../../api';
-import { useAuthentication } from '../../hooks/useAuthentication';
+import { getUsernameFromToken, useAuthentication } from '../../hooks/useAuthentication';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -119,40 +119,43 @@ export const SettingsView = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-            <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
-                <Grid item xs={3}>
-                    <Card variant="outlined">
-                        <CardContent>
-                            <Stack direction={'column'} spacing={2}>
-                                <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
-                                    <LocalizedText translationKey={'settings.cards.password.headline'} />
-                                </Typography>
-                                <TextField
-                                    id={'first-password-input'}
-                                    label={localizationContext.translate('settings.cards.password.labels.password_first')}
-                                    type={'password'}
-                                    autoComplete={'new-password'}
-                                    variant={'outlined'}
-                                    onChange={handleChangeOfFirstPassword}
-                                    error={isPasswordNotEqualFirst}
-                                />
-                                <TextField
-                                    id={'first-password-input'}
-                                    label={localizationContext.translate('settings.cards.password.labels.password_repeated')}
-                                    type={'password'}
-                                    autoComplete={'new-password'}
-                                    variant={'outlined'}
-                                    onChange={handleChangeOfSecondPassword}
-                                    error={isPasswordNotEqualSecond}
-                                />
-                                <Button variant="contained" disableElevation onClick={changePassword}>
-                                    <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
-                                </Button>
-                            </Stack>
-                        </CardContent>
-                    </Card>
+            <form>
+                <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
+                    <Grid item xs={3}>
+                        <Card variant="outlined">
+                            <CardContent>
+                                <Stack direction={'column'} spacing={2}>
+                                    <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
+                                        <LocalizedText translationKey={'settings.cards.password.headline'} />
+                                    </Typography>
+                                    <input type={'hidden'} id={'username'} name={'username'} value={getUsernameFromToken(auth.token.accessToken)} />
+                                    <TextField
+                                        id={'first-password-input'}
+                                        label={localizationContext.translate('settings.cards.password.labels.password_first')}
+                                        type={'password'}
+                                        autoComplete={'new-password'}
+                                        variant={'outlined'}
+                                        onChange={handleChangeOfFirstPassword}
+                                        error={isPasswordNotEqualFirst}
+                                    />
+                                    <TextField
+                                        id={'second-password-input'}
+                                        label={localizationContext.translate('settings.cards.password.labels.password_repeated')}
+                                        type={'password'}
+                                        autoComplete={'new-password'}
+                                        variant={'outlined'}
+                                        onChange={handleChangeOfSecondPassword}
+                                        error={isPasswordNotEqualSecond}
+                                    />
+                                    <Button variant="contained" disableElevation onClick={changePassword}>
+                                        <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
+                                    </Button>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
                 </Grid>
-            </Grid>
+            </form>
         </>
     );
 };

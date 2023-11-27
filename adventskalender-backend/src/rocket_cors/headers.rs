@@ -252,15 +252,14 @@ impl<'r> FromRequest<'r> for AccessControlRequestHeaders {
 mod tests {
     use std::str::FromStr;
 
-    use rocket::http::hyper;
+    use http::header::HeaderName;
     use rocket::http::Header;
     use rocket::local::blocking::Client;
 
-    static ORIGIN: http::header::HeaderName = hyper::header::ORIGIN;
-    static ACCESS_CONTROL_REQUEST_METHOD: http::header::HeaderName =
-        hyper::header::ACCESS_CONTROL_REQUEST_METHOD;
-    static ACCESS_CONTROL_REQUEST_HEADERS: http::header::HeaderName =
-        hyper::header::ACCESS_CONTROL_REQUEST_HEADERS;
+    static ORIGIN: HeaderName = http::header::ORIGIN;
+    static ACCESS_CONTROL_REQUEST_METHOD: HeaderName = http::header::ACCESS_CONTROL_REQUEST_METHOD;
+    static ACCESS_CONTROL_REQUEST_HEADERS: HeaderName =
+        http::header::ACCESS_CONTROL_REQUEST_HEADERS;
 
     use super::*;
 
@@ -367,7 +366,7 @@ mod tests {
         let mut request = client.get("/");
         let method = Header::new(
             ACCESS_CONTROL_REQUEST_METHOD.as_str(),
-            hyper::Method::GET.as_str(),
+            http::Method::GET.as_str(),
         );
         request.add_header(method);
         let outcome = AccessControlRequestMethod::from_request_sync(request.inner());

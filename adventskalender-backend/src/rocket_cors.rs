@@ -1686,20 +1686,18 @@ impl rocket::route::Handler for CatchAllOptionsRouteHandler {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use rocket::http::hyper;
+    use ::http::header::HeaderName;
     use rocket::http::Header;
-    use rocket::http::Method;
     use rocket::local::blocking::Client;
+    use std::str::FromStr;
 
     use super::*;
 
-    static ORIGIN: ::http::header::HeaderName = hyper::header::ORIGIN;
-    static ACCESS_CONTROL_REQUEST_METHOD: ::http::header::HeaderName =
-        hyper::header::ACCESS_CONTROL_REQUEST_METHOD;
-    static ACCESS_CONTROL_REQUEST_HEADERS: ::http::header::HeaderName =
-        hyper::header::ACCESS_CONTROL_REQUEST_HEADERS;
+    static ORIGIN: HeaderName = ::http::header::ORIGIN;
+    static ACCESS_CONTROL_REQUEST_METHOD: HeaderName =
+        ::http::header::ACCESS_CONTROL_REQUEST_METHOD;
+    static ACCESS_CONTROL_REQUEST_HEADERS: HeaderName =
+        ::http::header::ACCESS_CONTROL_REQUEST_HEADERS;
 
     fn to_parsed_origin<S: AsRef<str>>(origin: S) -> Result<Origin, Error> {
         Origin::from_str(origin.as_ref())
@@ -2036,7 +2034,7 @@ mod tests {
 
     #[test]
     fn allowed_methods_validated_correctly() {
-        let allowed_methods = vec![Method::Get, Method::Head, Method::Post]
+        let allowed_methods = vec![http::Method::Get, http::Method::Head, http::Method::Post]
             .into_iter()
             .map(From::from)
             .collect();
@@ -2052,7 +2050,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "MethodNotAllowed")]
     fn allowed_methods_errors_on_disallowed_method() {
-        let allowed_methods = vec![Method::Get, Method::Head, Method::Post]
+        let allowed_methods = vec![http::Method::Get, http::Method::Head, http::Method::Post]
             .into_iter()
             .map(From::from)
             .collect();
@@ -2171,7 +2169,7 @@ mod tests {
         let origin_header = Header::new(ORIGIN.as_str(), "https://www.acme.com");
         let method_header = Header::new(
             ACCESS_CONTROL_REQUEST_METHOD.as_str(),
-            hyper::Method::GET.as_str(),
+            ::http::Method::GET.as_str(),
         );
         let request_headers = Header::new(ACCESS_CONTROL_REQUEST_HEADERS.as_str(), "Authorization");
 
@@ -2202,7 +2200,7 @@ mod tests {
         let origin_header = Header::new(ORIGIN.as_str(), "https://www.example.com");
         let method_header = Header::new(
             ACCESS_CONTROL_REQUEST_METHOD.as_str(),
-            hyper::Method::GET.as_str(),
+            ::http::Method::GET.as_str(),
         );
         let request_headers = Header::new(ACCESS_CONTROL_REQUEST_HEADERS.as_str(), "Authorization");
 
@@ -2230,7 +2228,7 @@ mod tests {
         let origin_header = Header::new(ORIGIN.as_str(), "https://www.example.com");
         let method_header = Header::new(
             ACCESS_CONTROL_REQUEST_METHOD.as_str(),
-            hyper::Method::GET.as_str(),
+            ::http::Method::GET.as_str(),
         );
         let request_headers = Header::new(ACCESS_CONTROL_REQUEST_HEADERS.as_str(), "Authorization");
 
@@ -2269,7 +2267,7 @@ mod tests {
         let origin_header = Header::new(ORIGIN.as_str(), "https://www.acme.com");
         let method_header = Header::new(
             ACCESS_CONTROL_REQUEST_METHOD.as_str(),
-            hyper::Method::POST.as_str(),
+            ::http::Method::POST.as_str(),
         );
         let request_headers = Header::new(ACCESS_CONTROL_REQUEST_HEADERS.as_str(), "Authorization");
 
@@ -2291,7 +2289,7 @@ mod tests {
         let origin_header = Header::new(ORIGIN.as_str(), "https://www.acme.com");
         let method_header = Header::new(
             ACCESS_CONTROL_REQUEST_METHOD.as_str(),
-            hyper::Method::GET.as_str(),
+            ::http::Method::GET.as_str(),
         );
         let request_headers = Header::new(
             ACCESS_CONTROL_REQUEST_HEADERS.as_str(),
@@ -2373,7 +2371,7 @@ mod tests {
         let origin_header = Header::new(ORIGIN.as_str(), "https://www.acme.com");
         let method_header = Header::new(
             ACCESS_CONTROL_REQUEST_METHOD.as_str(),
-            hyper::Method::GET.as_str(),
+            ::http::Method::GET.as_str(),
         );
         let request_headers = Header::new(ACCESS_CONTROL_REQUEST_HEADERS.as_str(), "Authorization");
 
@@ -2409,7 +2407,7 @@ mod tests {
         let origin_header = Header::new(ORIGIN.as_str(), "https://www.acme.com");
         let method_header = Header::new(
             ACCESS_CONTROL_REQUEST_METHOD.as_str(),
-            hyper::Method::GET.as_str(),
+            ::http::Method::GET.as_str(),
         );
         let request_headers = Header::new(ACCESS_CONTROL_REQUEST_HEADERS.as_str(), "Authorization");
 
@@ -2445,7 +2443,7 @@ mod tests {
         let origin_header = Header::new(ORIGIN.as_str(), "https://www.acme.com");
         let method_header = Header::new(
             ACCESS_CONTROL_REQUEST_METHOD.as_str(),
-            hyper::Method::GET.as_str(),
+            ::http::Method::GET.as_str(),
         );
         let request_headers = Header::new(ACCESS_CONTROL_REQUEST_HEADERS.as_str(), "Authorization");
 

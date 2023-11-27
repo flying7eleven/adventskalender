@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import { AccessToken } from '../../api';
+import { decodeJwt } from 'jose';
 
 interface AuthContextType {
     token: AccessToken;
@@ -12,4 +13,9 @@ export const AuthenticationContext = createContext<AuthContextType>(null!);
 
 export const useAuthentication = () => {
     return useContext(AuthenticationContext);
+};
+
+export const getUsernameFromToken = (token: string): string => {
+    let decodedToken = decodeJwt(token);
+    return decodedToken.sub ? decodedToken.sub : 'unknown';
 };
