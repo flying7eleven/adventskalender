@@ -11,7 +11,7 @@ fn main() {
         .all_build()
         .all_cargo()
         .all_rustc()
-        .all_git()
+        .git_describe(false, true, None)
         .emit()
     {
         panic!(
