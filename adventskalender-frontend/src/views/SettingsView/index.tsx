@@ -5,11 +5,8 @@ import { ChangeEvent, useContext, useState } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationProvider';
 import { API_BACKEND_URL } from '../../api';
 import { getUsernameFromToken, useAuthentication } from '../../hooks/useAuthentication';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
+import { PasswordChangedDialog } from '../../dialogs/PasswordChangedDialog';
+import { PasswordNotChangedDialog } from '../../dialogs/PasswordNotChangedDialog';
 
 export const SettingsView = () => {
     const localizationContext = useContext(LocalizationContext);
@@ -74,51 +71,10 @@ export const SettingsView = () => {
             });
     };
 
-    const handlePasswordChangeDialogClose = () => {
-        setIsPasswordChangedDialogOpen(false);
-    };
-
-    const handlePasswordChangeFailedDialogClose = () => {
-        setIsPasswordChangeFailedDialogOpen(false);
-    };
-
     return (
         <>
-            <Dialog open={isPasswordChangedDialogOpen} onClose={handlePasswordChangeDialogClose} aria-labelledby="alert-dialog-title-successful" aria-describedby="alert-dialog-description-successful">
-                <DialogTitle id="alert-dialog-title-successful">
-                    <LocalizedText translationKey={'settings.dialogs.password_change_successful.title'} />
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="alert-dialog-description-successful">
-                        <LocalizedText translationKey={'settings.dialogs.password_change_successful.text'} />
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handlePasswordChangeDialogClose} autoFocus>
-                        <LocalizedText translationKey={'settings.dialogs.password_change_successful.accept_button'} />
-                    </Button>
-                </DialogActions>
-            </Dialog>
-            <Dialog
-                open={isPasswordChangeFailedDialogOpen}
-                onClose={handlePasswordChangeFailedDialogClose}
-                aria-labelledby="alert-dialog-title-failed"
-                aria-describedby="alert-dialog-description-failed"
-            >
-                <DialogTitle id="alert-dialog-title-failed">
-                    <LocalizedText translationKey={'settings.dialogs.password_change_failed.title'} />
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="alert-dialog-description-failed">
-                        <LocalizedText translationKey={'settings.dialogs.password_change_failed.text'} />
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handlePasswordChangeFailedDialogClose} autoFocus>
-                        <LocalizedText translationKey={'settings.dialogs.password_change_failed.accept_button'} />
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            <PasswordChangedDialog isOpen={isPasswordChangedDialogOpen} setDialogOpenStateFunction={setIsPasswordChangedDialogOpen} />
+            <PasswordNotChangedDialog isOpen={isPasswordChangeFailedDialogOpen} setDialogOpenStateFunction={setIsPasswordChangeFailedDialogOpen} />
             <form>
                 <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
                     <Grid item xs={3}>
