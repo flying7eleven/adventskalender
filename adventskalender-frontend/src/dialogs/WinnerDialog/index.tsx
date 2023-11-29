@@ -211,7 +211,7 @@ export const WinnerDialog = (props: Props) => {
                 props.winner
                     .map((winner) => {
                         let selectedPackage = packageSelections[winner.id];
-                        return `${winner.firstName} ${winner.firstName} (${packageLabelText} ${winningDay}${selectedPackage})`;
+                        return `${winner.firstName} ${winner.lastName} (${packageLabelText} ${winningDay}${selectedPackage})`;
                     })
                     .join(', ')
             )
