@@ -29,9 +29,6 @@ interface Props {
     setDialogOpenStateFunction: (shouldBeOpen: boolean) => void;
 }
 
-// FIXME: if the user already draw N-1 participants for the day and tries to select the Nth user in another run, then selects
-// a non-selected sub package and then selects a already selected package, the dialogs gets into an error state where the user
-// cannot exit from
 export const WinnerDialog = (props: Props) => {
     const auth = useAuthentication();
     const navigate = useNavigate();
@@ -41,6 +38,9 @@ export const WinnerDialog = (props: Props) => {
     const [winnerText, setWinnerText] = useState<string>('');
     const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<BooleanMap>({});
     const stepLabels = [localizationContext.translate('dashboard.dialogs.new_winners.steps.selection_step'), localizationContext.translate('dashboard.dialogs.new_winners.steps.finish_step')];
+    const USABLE_PACKAGE_ALPHABET = Array.from(Array(MAX_WINNERS_PER_DAY))
+        .map((_, i) => i + 65)
+        .map((x) => String.fromCharCode(x));
 
     const allSubPackagesAreSelected = () => {
         // ensure we have selected a package for each winner
@@ -48,8 +48,23 @@ export const WinnerDialog = (props: Props) => {
             return false;
         }
 
-        // be sure that all error states are negative
-        return Object.values(packageSelectionErrorStates).filter((item) => item).length == 0;
+        // if all error states are negative, we can assume that we can proceed to the next step
+        if (Object.values(packageSelectionErrorStates).filter((item) => item).length == 0) {
+            return true;
+        }
+
+        // if there are error states, there might be reasons to proceed anyway, now we have to check for them
+        // one of the reasons can be that a user re-picked a winner and selected a free package for him or her and then
+        // proceeded to select an already an invalid package. The control gets into an error state where the user cannot
+        // recover from. If this happens, we can ignore the error state since a package was selected for the user
+        let deepCheckErrorValues = Object.keys(packageSelectionErrorStates).map((key) => {
+            let isErrorState = packageSelectionErrorStates[key];
+            if (isErrorState) {
+                return packageSelections[key].length == 1 && USABLE_PACKAGE_ALPHABET.includes(packageSelections[key]);
+            }
+            return false;
+        });
+        return Object.values(deepCheckErrorValues).filter((item) => !item).length == 0;
     };
 
     const markPackagesNotSelectedAsError = () => {
@@ -85,10 +100,10 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const getPossiblePackageMenuItems = (userId: number, maxPackageCount: number) => {
+        let items: ReactNode[] = [];
         const alphabet = Array.from(Array(maxPackageCount))
             .map((_, i) => i + 65)
             .map((x) => String.fromCharCode(x));
-        let items: ReactNode[] = [];
 
         items.push(
             <MenuItem key={`menu-item-not-selected-for-user-${userId}`} value={''}>
@@ -109,15 +124,12 @@ export const WinnerDialog = (props: Props) => {
 
     const handleFillPackageSelectionAutomatically = () => {
         if (import.meta.env.DEV) {
-            const alphabet = Array.from(Array(26))
-                .map((_, i) => i + 65)
-                .map((x) => String.fromCharCode(x));
             let selectedPackages: StringMap = {};
             let currentAlphabetIdx = 0;
             props.winner
                 .map((currentWinner) => currentWinner.id)
                 .forEach((id) => {
-                    selectedPackages[id.toString()] = alphabet[currentAlphabetIdx++];
+                    selectedPackages[id.toString()] = USABLE_PACKAGE_ALPHABET[currentAlphabetIdx++];
                     selectPackageForUser(id, selectedPackages[id.toString()], false);
                 });
             setPackageSelections(selectedPackages);
