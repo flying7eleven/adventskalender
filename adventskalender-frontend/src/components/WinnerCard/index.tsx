@@ -365,9 +365,11 @@ export const WinnerCard = (props: Props) => {
                             <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'center' }}>
                                 {getFormattedDate(props.winningDate)}
                             </Typography>
-                            <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} onClick={handleEditClick}>
-                                <EditNoteIcon />
-                            </Button>
+                            {import.meta.env.DEV && (
+                                <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} onClick={handleEditClick}>
+                                    <EditNoteIcon />
+                                </Button>
+                            )}
                         </Box>
                         {getWinningEntries()}
                     </Stack>
