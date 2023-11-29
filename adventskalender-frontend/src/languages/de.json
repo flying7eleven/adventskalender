@@ -127,7 +127,6 @@
             "new_winners": {
                 "title": "Neue Gewinner:innen",
                 "text": "Die folgenden Personen haben an dem ausgewählten Datum gewonnen. Bitte wähle die entsprechenden Pakete für die Personen aus und klicke auf 'weiter':",
-                "package_label": "Paket",
                 "winner_paragraph_template": "Die Gewinner:innen für den {0} sind {1} 🎄.",
                 "date_format": "dddd [den] DD. MMMM YYYY",
                 "table": {

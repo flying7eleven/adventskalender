@@ -224,7 +224,6 @@ export const WinnerDialog = (props: Props) => {
         // FIXME: if a re-draw of some participants happens, the second step of the dialog does only contain the
         // text for the newly picked people. We should show the text for all winners (also the old ones) for
         // that day
-        let packageLabelText = localizationContext.translate('dashboard.dialogs.new_winners.package_label');
         let winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
         let winningDate = moment(props.date).format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
         let winningDay = moment(props.date).format('D');
@@ -241,7 +240,7 @@ export const WinnerDialog = (props: Props) => {
                     })
                     .map((winner) => {
                         let selectedPackage = packageSelections[winner.id];
-                        return `${winner.firstName} ${winner.lastName} (${packageLabelText} ${winningDay}${selectedPackage})`;
+                        return `<b>${winner.firstName} ${winner.lastName}</b> (${winningDay}${selectedPackage})`;
                     })
                     .join(', ')
             )
@@ -327,7 +326,7 @@ export const WinnerDialog = (props: Props) => {
                     </TableContainer>
                 ) : (
                     <>
-                        <DialogContentText id="alert-dialog-description">{getWinnerText()}</DialogContentText>
+                        <DialogContentText id="alert-dialog-description" dangerouslySetInnerHTML={{ __html: getWinnerText() }} />
                     </>
                 )}
             </DialogContent>
