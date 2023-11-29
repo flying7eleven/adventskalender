@@ -478,6 +478,32 @@ pub async fn update_participant_values(
     return Status::NoContent;
 }
 
+#[get("/participants/won/<date_as_str>")]
+pub async fn get_won_participants_on_day_route(
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
+    _authenticated_user: AuthenticatedUser,
+    date_as_str: &str,
+) -> Result<Json<Vec<Participant>>, Status> {
+    use std::str::FromStr;
+
+    // if we cannot parse the input date, we received a bad parameter and we have to react to it
+    let maybe_date = NaiveDate::from_str(date_as_str);
+    if maybe_date.is_err() {
+        return Err(Status::BadRequest);
+    }
+
+    // try to fetch the information and construct the corresponding data structure we want to return
+    let maybe_result = get_won_participants_on_day(db_connection_pool, maybe_date.unwrap()).await;
+
+    // if we got a result, count the participants and return the amount
+    if maybe_result.is_ok() {
+        return Ok(Json(maybe_result.unwrap()));
+    }
+
+    // it seems that we could not gather the requested information
+    Err(Status::InternalServerError)
+}
+
 #[get("/participants/won/<date_as_str>/count")]
 pub async fn count_won_participants_on_day(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,

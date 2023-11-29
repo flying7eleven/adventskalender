@@ -14,7 +14,7 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
-import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
+import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, WinnerInformation } from '../../api.ts';
 import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
@@ -42,6 +42,7 @@ export const WinnerDialog = (props: Props) => {
     const localizationContext = useContext(LocalizationContext);
     const [activeStep, setActiveStep] = useState(0);
     const [packageSelections, setPackageSelections] = useState<StringMap>({});
+    const [winnerText, setWinnerText] = useState<string>('');
     const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<BooleanMap>({});
     const stepLabels = [localizationContext.translate('dashboard.dialogs.new_winners.steps.selection_step'), localizationContext.translate('dashboard.dialogs.new_winners.steps.finish_step')];
 
@@ -79,6 +80,7 @@ export const WinnerDialog = (props: Props) => {
             markPackagesNotSelectedAsError();
             return;
         }
+        prepareWinnerText(props.winner.length < MAX_WINNERS_PER_DAY);
         setActiveStep(activeStep + 1);
     };
 
@@ -220,31 +222,81 @@ export const WinnerDialog = (props: Props) => {
             });
     };
 
-    const getWinnerText = () => {
-        // FIXME: if a re-draw of some participants happens, the second step of the dialog does only contain the
-        // text for the newly picked people. We should show the text for all winners (also the old ones) for
-        // that day
+    const prepareWinnerText = (refetchWinners: boolean) => {
         let winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
         let winningDate = moment(props.date).format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
         let winningDay = moment(props.date).format('D');
 
-        return winnerParagraphTemplate
-            .replace(
-                '{1}',
-                props.winner
-                    .sort((winnerA, winnerB) => {
-                        if (packageSelections[winnerA.id] > packageSelections[winnerB.id]) {
-                            return 1;
-                        }
-                        return -1;
-                    })
-                    .map((winner) => {
-                        let selectedPackage = packageSelections[winner.id];
-                        return `<b>${winner.firstName} ${winner.lastName}</b> (${winningDay}${selectedPackage})`;
-                    })
-                    .join(', ')
-            )
-            .replace('{0}', winningDate);
+        if (refetchWinners) {
+            fetch(`${API_BACKEND_URL}/participants/won/${props.date}`, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${auth.token.accessToken}`,
+                    'Content-type': 'application/json; charset=UTF-8',
+                },
+            })
+                .then((res) => {
+                    if (res.status === 200) {
+                        return res.json();
+                    }
+
+                    // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                    // the user should automatically be redirected to the login page
+                    if (res.status === 401 || res.status === 403) {
+                        logoutUser();
+                        return Promise.reject();
+                    }
+
+                    // there should never be other status codes which have to be handled, but just in case, we'll handle
+                    // them here too
+                    return Promise.reject(); // TODO: implement this correctly
+                })
+                .then((winner: WinnerInformation2[]) => {
+                    setWinnerText(
+                        winnerParagraphTemplate
+                            .replace(
+                                '{1}',
+                                winner
+                                    .sort((winnerA, winnerB) => {
+                                        let packageA = winnerA.present_identifier ? winnerA.present_identifier : '?';
+                                        let packageB = winnerB.present_identifier ? winnerB.present_identifier : '?';
+                                        if (packageA > packageB) {
+                                            return 1;
+                                        }
+                                        return -1;
+                                    })
+                                    .map((winner) => {
+                                        return `<b>${winner.first_name} ${winner.last_name}</b> (${winningDay}${winner.present_identifier})`;
+                                    })
+                                    .join(', ')
+                            )
+                            .replace('{0}', winningDate)
+                    );
+                })
+                .catch(() => {
+                    setWinnerText('ERROR'); // TODO: add better handling
+                });
+        } else {
+            setWinnerText(
+                winnerParagraphTemplate
+                    .replace(
+                        '{1}',
+                        props.winner
+                            .sort((winnerA, winnerB) => {
+                                if (packageSelections[winnerA.id] > packageSelections[winnerB.id]) {
+                                    return 1;
+                                }
+                                return -1;
+                            })
+                            .map((winner) => {
+                                let selectedPackage = packageSelections[winner.id];
+                                return `<b>${winner.firstName} ${winner.lastName}</b> (${winningDay}${selectedPackage})`;
+                            })
+                            .join(', ')
+                    )
+                    .replace('{0}', winningDate)
+            );
+        }
     };
 
     return (
@@ -326,7 +378,7 @@ export const WinnerDialog = (props: Props) => {
                     </TableContainer>
                 ) : (
                     <>
-                        <DialogContentText id="alert-dialog-description" dangerouslySetInnerHTML={{ __html: getWinnerText() }} />
+                        <DialogContentText id="alert-dialog-description" dangerouslySetInnerHTML={{ __html: winnerText }} />
                     </>
                 )}
             </DialogContent>

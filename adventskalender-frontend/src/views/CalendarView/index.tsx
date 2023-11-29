@@ -15,7 +15,7 @@ export const CalendarView = () => {
     };
 
     const getWinnersForAllDays = () => {
-        // if we do not have a access token, skip fetching the infos
+        // if we do not have an access token, skip fetching the infos
         if (auth.token.accessToken.length === 0) {
             return;
         }
