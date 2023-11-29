@@ -9,4 +9,6 @@ interface WinnerInformation2 {
     present_identifier?: string;
 }
 
+type StringMap = { [key: string]: string };
+type BooleanMap = { [key: string]: boolean };
 type WinnersOnDateMap = { [key: string]: WinnerInformation2[] };

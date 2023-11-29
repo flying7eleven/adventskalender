@@ -29,10 +29,6 @@ interface Props {
     setDialogOpenStateFunction: (shouldBeOpen: boolean) => void;
 }
 
-type StringMap = { [key: string]: string };
-type BooleanMap = { [key: string]: boolean };
-
-// TODO: un-select the winners for the day if the user closes the dialog pre-maturely
 // FIXME: if the user already draw N-1 participants for the day and tries to select the Nth user in another run, then selects
 // a non-selected sub package and then selects a already selected package, the dialogs gets into an error state where the user
 // cannot exit from
