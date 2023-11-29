@@ -144,7 +144,8 @@
                 },
                 "accept_button": "Weiter",
                 "cancel_button": "Abbrechen",
-                "finish_button": "Fertig"
+                "finish_button": "Fertig",
+                "autofill_button": "Automatisch auswählen"
             },
             "already_picked": {
                 "title": "Gewinner:innen schon gezogen",

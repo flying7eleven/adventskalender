@@ -29,6 +29,9 @@ interface Props {
     setDialogOpenStateFunction: (shouldBeOpen: boolean) => void;
 }
 
+type StringMap = { [key: string]: string };
+type BooleanMap = { [key: string]: boolean };
+
 // TODO: un-select the winners for the day if the user closes the dialog pre-maturely
 // FIXME: if the user already draw N-1 participants for the day and tries to select the Nth user in another run, then selects
 // a non-selected sub package and then selects a already selected package, the dialogs gets into an error state where the user
@@ -38,8 +41,8 @@ export const WinnerDialog = (props: Props) => {
     const navigate = useNavigate();
     const localizationContext = useContext(LocalizationContext);
     const [activeStep, setActiveStep] = useState(0);
-    const [packageSelections, setPackageSelections] = useState<{ [key: string]: string }>({});
-    const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<{ [key: string]: boolean }>({});
+    const [packageSelections, setPackageSelections] = useState<StringMap>({});
+    const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<BooleanMap>({});
     const stepLabels = [localizationContext.translate('dashboard.dialogs.new_winners.steps.selection_step'), localizationContext.translate('dashboard.dialogs.new_winners.steps.finish_step')];
 
     const allSubPackagesAreSelected = () => {
@@ -106,6 +109,23 @@ export const WinnerDialog = (props: Props) => {
         return items;
     };
 
+    const handleFillPackageSelectionAutomatically = () => {
+        if (import.meta.env.DEV) {
+            const alphabet = Array.from(Array(26))
+                .map((_, i) => i + 65)
+                .map((x) => String.fromCharCode(x));
+            let selectedPackages: StringMap = {};
+            let currentAlphabetIdx = 0;
+            props.winner
+                .map((currentWinner) => currentWinner.id)
+                .forEach((id) => {
+                    selectedPackages[id.toString()] = alphabet[currentAlphabetIdx++];
+                    selectPackageForUser(id, selectedPackages[id.toString()], false);
+                });
+            setPackageSelections(selectedPackages);
+        }
+    };
+
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
     };
@@ -145,7 +165,7 @@ export const WinnerDialog = (props: Props) => {
             });
     };
 
-    const selectPackageForUser = (userId: number, selectedPackage: string) => {
+    const selectPackageForUser = (userId: number, selectedPackage: string, doUpdateState: boolean = true) => {
         // if we do not have an access token, skip fetching the infos
         if (auth.token.accessToken.length === 0) {
             return;
@@ -179,20 +199,24 @@ export const WinnerDialog = (props: Props) => {
                 return Promise.reject(); // TODO: implement this correctly
             })
             .then(() => {
-                // update the value the user successfully set for the package
-                let previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
-                previousSelection[userId] = selectedPackage;
-                setPackageSelections(previousSelection);
+                if (doUpdateState) {
+                    // update the value the user successfully set for the package
+                    let previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
+                    previousSelection[userId] = selectedPackage;
+                    setPackageSelections(previousSelection);
 
-                // clear a previous error state, if it existed
-                let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
-                previousErrorStates[userId] = false;
-                setPackageSelectionErrorStates(previousErrorStates);
+                    // clear a previous error state, if it existed
+                    let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+                    previousErrorStates[userId] = false;
+                    setPackageSelectionErrorStates(previousErrorStates);
+                }
             })
             .catch(() => {
-                let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
-                previousErrorStates[userId] = true;
-                setPackageSelectionErrorStates(previousErrorStates);
+                if (doUpdateState) {
+                    let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+                    previousErrorStates[userId] = true;
+                    setPackageSelectionErrorStates(previousErrorStates);
+                }
             });
     };
 
@@ -308,6 +332,11 @@ export const WinnerDialog = (props: Props) => {
                 )}
             </DialogContent>
             <DialogActions>
+                {import.meta.env.DEV && (
+                    <Button onClick={handleFillPackageSelectionAutomatically} color={'warning'}>
+                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.autofill_button'} />
+                    </Button>
+                )}
                 <Button onClick={handleDialogCancelClick} color={'error'}>
                     <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
                 </Button>

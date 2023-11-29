@@ -144,7 +144,8 @@
                 },
                 "accept_button": "Continue",
                 "cancel_button": "Cancel",
-                "finish_button": "Finish"
+                "finish_button": "Finish",
+                "autofill_button": "Select automatically"
             },
             "already_picked": {
                 "title": "Already picked winners",
