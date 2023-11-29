@@ -209,6 +209,12 @@ export const WinnerDialog = (props: Props) => {
             .replace(
                 '{1}',
                 props.winner
+                    .sort((winnerA, winnerB) => {
+                        if (packageSelections[winnerA.id] > packageSelections[winnerB.id]) {
+                            return 1;
+                        }
+                        return -1;
+                    })
                     .map((winner) => {
                         let selectedPackage = packageSelections[winner.id];
                         return `${winner.firstName} ${winner.lastName} (${packageLabelText} ${winningDay}${selectedPackage})`;
