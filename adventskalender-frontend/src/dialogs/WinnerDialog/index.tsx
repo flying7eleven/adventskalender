@@ -235,10 +235,10 @@ export const WinnerDialog = (props: Props) => {
                 ) : (
                     <></>
                 )}
-                <Stepper activeStep={activeStep}>
+                <Stepper activeStep={activeStep} hidden>
                     {stepLabels.map((label, _) => {
                         return (
-                            <Step key={label}>
+                            <Step key={label} hidden>
                                 <StepLabel>{label}</StepLabel>
                             </Step>
                         );
