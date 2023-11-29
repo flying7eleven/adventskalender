@@ -82,7 +82,7 @@
         "dialogs": {
             "remove_participant": {
                 "title": "Gewinner:in entfernen",
-                "text": "Soll die/der folgende:r Gewinner:in entfernt werden? Die Person wird dann neu in den Lostopf geworfen und kann wieder gezogen werden. Die betreffende Person ist:",
+                "text": "Soll {0} als Gewinner:in entfernt werden? Die Person wird dann neu in den Lostopf geworfen und kann wieder gezogen werden.",
                 "accept_button": "Ja, Gewinner:in entfernen",
                 "cancel_button": "Nein, abbrechen"
             },

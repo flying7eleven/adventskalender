@@ -23,13 +23,14 @@ import {
 import { API_BACKEND_URL, WinnerInformation } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useContext, useEffect, useState } from 'react';
 import Paper from '@mui/material/Paper';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import EditNoteIcon from '@mui/icons-material/EditNote';
+import { LocalizationContext } from '../../provider/LocalizationProvider';
 
 interface Props {
     winningDate: string;
@@ -43,6 +44,7 @@ const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerIn
     const navigate = useNavigate();
     const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
     const [userToDelete, setUserToDelete] = useState<WinnerInformation | undefined>(undefined);
+    const localizationContext = useContext(LocalizationContext);
 
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
@@ -129,16 +131,11 @@ const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerIn
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-remove-participant-description">
-                        <Stack>
-                            <LocalizedText translationKey={'calendar.dialogs.remove_participant.text'} />
-                            <ul>
-                                <li>{`${userToDelete?.firstName} ${userToDelete?.lastName}`}</li>
-                            </ul>
-                        </Stack>
+                        {localizationContext.translate('calendar.dialogs.remove_participant.text').replace('{0}', `${userToDelete?.firstName} ${userToDelete?.lastName}`)}
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleRemoveParticipant}>
+                    <Button onClick={handleRemoveParticipant} color={'error'}>
                         <LocalizedText translationKey={'calendar.dialogs.remove_participant.accept_button'} />
                     </Button>
                     <Button onClick={handleCloseDeleteDialog} autoFocus>

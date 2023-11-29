@@ -82,7 +82,7 @@
         "dialogs": {
             "remove_participant": {
                 "title": "Remove winner",
-                "text": "Are you sure that you want to delete the following participant as a winner? The person will be added to the raffle and can be picked as a winner again. The corresponding user you are going to remove is:",
+                "text": "Are you sure that you want to remove {0} as a winner? The person will be added to the raffle and can be picked as a winner again.",
                 "accept_button": "Yes, remove the participant",
                 "cancel_button": "No, cancel removal"
             },
