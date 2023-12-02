@@ -6,7 +6,7 @@ import { DeleteWinnerDialog } from '../../dialogs/DeleteWinnerDialog';
 
 export const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerInformation; winningDay: number; numberOfMaxSubPackages: number; updateWinnerList?: () => void }) => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
-    const [userToDelete, setUserToDelete] = useState<WinnerInformation | undefined>(undefined);
+    const [userToDelete, setUserToDelete] = useState<WinnerInformation>({ firstName: '', lastName: '', id: -1, presentIdentifier: '' });
 
     const getShortenedName = (inputName: string) => {
         const splittedName = inputName.split(' ');
@@ -36,7 +36,7 @@ export const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: W
 
     return (
         <>
-            <DeleteWinnerDialog isOpen={deleteDialogOpen} userToDelete={userToDelete!} setDialogOpenStateFunction={setDeleteDialogOpen} updateWinnerList={updateWinnerList} />
+            <DeleteWinnerDialog isOpen={deleteDialogOpen} userToDelete={userToDelete} setDialogOpenStateFunction={setDeleteDialogOpen} updateWinnerList={updateWinnerList} />
             <Box sx={getPersonStyle(winner)}>
                 <div style={{ display: 'flex' }}>
                     <Typography sx={{ textAlign: 'left' }}>{getShortenedName(`${winner.firstName} ${winner.lastName}`)}</Typography>
