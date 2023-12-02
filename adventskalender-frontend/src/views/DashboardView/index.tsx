@@ -43,6 +43,7 @@ export const DashboardView = () => {
 
     const handleWinnerDialogVisibilityChange = (shouldBeOpen: boolean) => {
         updateWinnerCounter();
+        updateParticipantCounters();
         setIsLastWinnerDialogOpen(shouldBeOpen);
     };
 
