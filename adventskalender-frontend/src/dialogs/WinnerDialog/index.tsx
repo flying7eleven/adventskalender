@@ -233,8 +233,8 @@ export const WinnerDialog = (props: Props) => {
 
     const prepareWinnerText = (refetchWinners: boolean) => {
         let winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
-        let winningDate = moment(props.date).format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
-        let winningDay = moment(props.date).format('D');
+        let winningDate = moment(props.date, 'YYYY-MM-DD').format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
+        let winningDay = moment(props.date, 'YYYY-MM-DD').format('D');
 
         if (refetchWinners) {
             fetch(`${API_BACKEND_URL}/participants/won/${props.date}`, {
