@@ -18,7 +18,6 @@ export const WinnerCard = (props: Props) => {
     const [packageSelections, setPackageSelections] = useState<{ [key: string]: string }>({});
 
     useEffect(() => {
-        console.log('Occurs ONCE, AFTER the initial render.');
         props.listOfWinner.forEach((winner) => {
             let oldPackageSelections = Object.assign({}, packageSelections);
             oldPackageSelections[winner.id] = winner.presentIdentifier ? winner.presentIdentifier : '';
