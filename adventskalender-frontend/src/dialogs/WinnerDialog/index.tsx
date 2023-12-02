@@ -20,6 +20,7 @@ import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import { LocalizationContext } from '../../provider/LocalizationProvider';
 import moment from 'moment';
+import 'moment/dist/locale/de.js'; // german is besides english the only other supported language
 
 interface Props {
     winner: WinnerInformation[];
