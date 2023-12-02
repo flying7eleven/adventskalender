@@ -65,7 +65,7 @@ default-features = false
 features = ["std"]
 
 [dependencies.jsonwebtoken]
-version = "9.1.0"
+version = "9.2.0"
 default-features = false
 
 [dependencies.regex]
