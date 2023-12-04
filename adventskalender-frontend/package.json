@@ -1,6 +1,6 @@
 {
     "name": "adventskalender-frontend",
-    "version": "2023.12.2",
+    "version": "2023.12.4",
     "private": true,
     "dependencies": {
         "@emotion/babel-plugin": "^11.11.0",
