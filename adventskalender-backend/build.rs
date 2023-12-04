@@ -8,6 +8,7 @@ fn main() {
 
     // configure vergen to generate the required environment variables
     if let Err(error) = EmitBuilder::builder()
+        .fail_on_error()
         .all_build()
         .all_cargo()
         .all_rustc()
