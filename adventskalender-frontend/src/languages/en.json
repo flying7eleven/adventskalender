@@ -166,17 +166,6 @@
         "pick_winner_button": "Pick new winners",
         "day_selection": "Day of the win",
         "number_of_winners": "Number of winners",
-        "weekdays": {
-            "monday_short": "Mon",
-            "tuesday_short": "Tue",
-            "wednesday_short": "Wed",
-            "thursday_short": "Thu",
-            "friday_short": "Fri",
-            "saturday_short": "Sat",
-            "sunday_short": "Sun"
-        },
-        "months": {
-            "december": "December"
-        }
+        "date_format_dropdown": "dd, MMMM DD, YYYY"
     }
 }

@@ -4,6 +4,7 @@ import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import { ReactNode, useContext } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationProvider';
+import moment from 'moment';
 
 interface Props {
     changeHandler?: (selected: number) => void;
@@ -22,37 +23,18 @@ export const WinningDaySelector = (props: Props) => {
         }
     };
 
-    const getWeekDay = (day: number) => {
-        const dateString = new Date(`${new Date().getFullYear()}-12-${day}`);
-        switch (dateString.getDay()) {
-            case 0:
-                return localizationContext.translate('dashboard.weekdays.sunday_short');
-            case 1:
-                return localizationContext.translate('dashboard.weekdays.monday_short');
-            case 2:
-                return localizationContext.translate('dashboard.weekdays.tuesday_short');
-            case 3:
-                return localizationContext.translate('dashboard.weekdays.wednesday_short');
-            case 4:
-                return localizationContext.translate('dashboard.weekdays.thursday_short');
-            case 5:
-                return localizationContext.translate('dashboard.weekdays.friday_short');
-            case 6:
-                return localizationContext.translate('dashboard.weekdays.saturday_short');
-            default:
-                throw Error();
-        }
-    };
-
     const getListOfDays = () => {
         const menuEntries = [];
+        const translationFormat = localizationContext.translate('dashboard.date_format_dropdown');
+        moment.locale(window.navigator.language);
+        let currentDate = moment([new Date().getFullYear(), 11, 1]);
         for (let i = 1; i < 25; i++) {
-            const text = `${getWeekDay(i)}, ${i}. ${localizationContext.translate('dashboard.months.december')}`;
             menuEntries.push(
                 <MenuItem key={`menu-item-${i}`} value={i}>
-                    {text}
+                    {currentDate.format(translationFormat)}
                 </MenuItem>
             );
+            currentDate.add(1, 'days');
         }
         return menuEntries;
     };
