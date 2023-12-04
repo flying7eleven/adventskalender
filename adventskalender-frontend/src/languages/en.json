@@ -126,6 +126,7 @@
         "dialogs": {
             "new_winners": {
                 "title": "New winner 🎄🎁",
+                "title2": "New winner 🎄🎁",
                 "text": "The following participants won on the selected day. Please select the corresponding packages for the winner and click on 'continue':",
                 "winner_paragraph_template": "The winners for {0} are {1}.",
                 "date_format": "dddd, MMMM DD, YYYY",

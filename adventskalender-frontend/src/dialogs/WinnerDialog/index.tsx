@@ -311,7 +311,11 @@ export const WinnerDialog = (props: Props) => {
     return (
         <Dialog open={props.isOpen} onClose={handleDialogCancelClick} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
             <DialogTitle id="alert-dialog-title">
-                <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} />
+                {activeStep === 0 ? (
+                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} />
+                ) : (
+                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2'} variables={[moment(props.date, 'YYYY-MM-DD').format('D')]} />
+                )}
             </DialogTitle>
             <DialogContent>
                 {activeStep === 0 ? (
