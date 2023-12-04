@@ -3,12 +3,13 @@ FROM debian:bullseye AS build
 
 # ensure we have rust installed in the appropiate version
 RUN apt update && \
-    apt install -y curl build-essential libpq-dev && \
+    apt install -y curl build-essential libpq-dev git && \
     curl https://sh.rustup.rs -sSf | \
     sh -s -- --default-toolchain stable -y
 ENV PATH=/root/.cargo/bin:$PATH
 
 # copy the source files and build the backend in release-mode
+# be sure to copy the whole repository to get the version information from git
 COPY . /usr/src/app
 WORKDIR /usr/src/app/adventskalender-backend
 RUN cargo build --release
