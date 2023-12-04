@@ -42,6 +42,86 @@ describe('LocalizedText component', () => {
         expect(translatedText.toJSON()).toMatchSnapshot();
     });
 
+    test('Matches the snapshot if known translation, language and variables are passed but no variables are in the language key', () => {
+        const english = {
+            existing: {
+                key: 'Some translated Text',
+            },
+        };
+        const german = {};
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        languageGetter.mockReturnValue('en');
+        const translatedText = create(
+            <LocalizationProvider resources={{ english, german }}>
+                <div>
+                    <LocalizedText translationKey={'existing.key'} variables={['foo']} />
+                </div>
+            </LocalizationProvider>
+        );
+        expect(translatedText.toJSON()).toMatchSnapshot();
+    });
+
+    test('Matches the snapshot if known translation, language and variables are passed and there are enough variables are in the language key', () => {
+        const english = {
+            existing: {
+                key: 'Some translated Text with a variable {0}',
+            },
+        };
+        const german = {};
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        languageGetter.mockReturnValue('en');
+        const translatedText = create(
+            <LocalizationProvider resources={{ english, german }}>
+                <div>
+                    <LocalizedText translationKey={'existing.key'} variables={['foo']} />
+                </div>
+            </LocalizationProvider>
+        );
+        expect(translatedText.toJSON()).toMatchSnapshot();
+    });
+
+    test('Matches the snapshot if known translation, language and variables are passed and there not enough variables are in the language key', () => {
+        const english = {
+            existing: {
+                key: 'Some translated Text with a variable {0}',
+            },
+        };
+        const german = {};
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        languageGetter.mockReturnValue('en');
+        const translatedText = create(
+            <LocalizationProvider resources={{ english, german }}>
+                <div>
+                    <LocalizedText translationKey={'existing.key'} variables={['foo', 'bar', 'baz']} />
+                </div>
+            </LocalizationProvider>
+        );
+        expect(translatedText.toJSON()).toMatchSnapshot();
+    });
+
+    test('Matches the snapshot if known translation, language and variables are passed and there not enough variables passed for the amount in the language key', () => {
+        const english = {
+            existing: {
+                key: 'Some translated Text with a variable {0} and variable {1}',
+            },
+        };
+        const german = {};
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        languageGetter.mockReturnValue('en');
+        const translatedText = create(
+            <LocalizationProvider resources={{ english, german }}>
+                <div>
+                    <LocalizedText translationKey={'existing.key'} variables={['foo']} />
+                </div>
+            </LocalizationProvider>
+        );
+        expect(translatedText.toJSON()).toMatchSnapshot();
+    });
+
     test('Matches the snapshot if unknown translation key and valid language is supplied', () => {
         const english = {
             existing: {

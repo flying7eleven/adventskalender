@@ -6,6 +6,30 @@ exports[`LocalizedText component Matches the snapshot if known translation key a
 </div>
 `;
 
+exports[`LocalizedText component Matches the snapshot if known translation, language and variables are passed and there are enough variables are in the language key 1`] = `
+<div>
+  Some translated Text with a variable foo
+</div>
+`;
+
+exports[`LocalizedText component Matches the snapshot if known translation, language and variables are passed and there not enough variables are in the language key 1`] = `
+<div>
+  Some translated Text with a variable foo
+</div>
+`;
+
+exports[`LocalizedText component Matches the snapshot if known translation, language and variables are passed and there not enough variables passed for the amount in the language key 1`] = `
+<div>
+  Some translated Text with a variable foo and variable {1}
+</div>
+`;
+
+exports[`LocalizedText component Matches the snapshot if known translation, language and variables are passed but no variables are in the language key 1`] = `
+<div>
+  Some translated Text
+</div>
+`;
+
 exports[`LocalizedText component Matches the snapshot if unknown translation key and valid language is supplied 1`] = `
 <div>
   nonexisting.key
