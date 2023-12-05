@@ -30,6 +30,18 @@ interface Props {
     setDialogOpenStateFunction: (shouldBeOpen: boolean) => void;
 }
 
+export const SpecialTextItem = ({ date }: { date: string }) => {
+    let winningDay = moment(date, 'YYYY-MM-DD').format('D');
+    switch (winningDay) {
+        case '6':
+            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2_special1'} variables={[moment(date, 'YYYY-MM-DD').format('D')]} />;
+        case '24':
+            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2_special2'} variables={[moment(date, 'YYYY-MM-DD').format('D')]} />;
+        default:
+            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2'} variables={[moment(date, 'YYYY-MM-DD').format('D')]} />;
+    }
+};
+
 export const WinnerDialog = (props: Props) => {
     const auth = useAuthentication();
     const navigate = useNavigate();
@@ -310,13 +322,7 @@ export const WinnerDialog = (props: Props) => {
 
     return (
         <Dialog open={props.isOpen} onClose={handleDialogCancelClick} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
-            <DialogTitle id="alert-dialog-title">
-                {activeStep === 0 ? (
-                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} />
-                ) : (
-                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2'} variables={[moment(props.date, 'YYYY-MM-DD').format('D')]} />
-                )}
-            </DialogTitle>
+            <DialogTitle id="alert-dialog-title">{activeStep === 0 ? <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} /> : <SpecialTextItem date={props.date} />}</DialogTitle>
             <DialogContent>
                 {activeStep === 0 ? (
                     <>

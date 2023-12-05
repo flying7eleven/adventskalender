@@ -127,6 +127,8 @@
             "new_winners": {
                 "title": "Neue Gewinner:innen",
                 "title2": "🎄🎄🎄 Türchen Nr. {0} 🎄🎄🎄",
+                "title2_special1": "🎅🏻🧑🏼‍🎄🤶🏿 Türchen Nr. {0} (Nikolaus) 🤶🏿🧑🏼‍🎄🎅🏻",
+                "title2_special2": "🎄🎅🏻🧑🏼‍🎄🤶🏿🎁 Türchen Nr. {0} (Heiligabend) 🎁🎄🤶🏿🧑🏼‍🎄🎅🏻",
                 "text": "Die folgenden Personen haben an dem ausgewählten Datum gewonnen. Bitte wähle die entsprechenden Pakete für die Personen aus und klicke auf 'weiter':",
                 "winner_paragraph_template": "Die Gewinner:innen für {0} sind {1} 🎄.",
                 "date_format": "dddd [den] DD. MMMM YYYY",
