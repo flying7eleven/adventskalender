@@ -1,0 +1,31 @@
+name: Analyze frontend code
+
+on:
+  push:
+    branches: [ 'main' ]
+    paths:
+      - 'adventskalender-frontend/**'
+  pull_request:
+    branches: [ 'main' ]
+  schedule:
+    - cron: '21 1 * * 1'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript-typescript' ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+      - uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{matrix.language}}"

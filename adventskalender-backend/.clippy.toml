@@ -1,2 +1,2 @@
-blacklisted-names = ["toto", "foo", "bar", "baz"]
+disallowed-names = ["toto", "foo", "bar", "baz"]
 cognitive-complexity-threshold = 1

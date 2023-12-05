@@ -1,0 +1,30 @@
+name: Analyze backend code
+
+on:
+  push:
+    branches: [ 'main' ]
+    paths:
+      - 'adventskalender-backend/**'
+  pull_request:
+    branches: [ 'main' ]
+  schedule:
+    - cron: '41 1 * * 1'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update stable && rustup default stable
+      - run: cargo install clippy-sarif sarif-fmt
+      - run: cargo clippy --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+        continue-on-error: true
+        working-directory: adventskalender-backend
+      - uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: adventskalender-backend/rust-clippy-results.sarif
+          wait-for-processing: true
