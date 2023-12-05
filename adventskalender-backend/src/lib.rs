@@ -7,6 +7,8 @@ use diesel::PgConnection;
 use lazy_static::lazy_static;
 use rocket::State;
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fmt::Display;
 
 pub mod fairings;
 pub mod guards;
@@ -65,10 +67,21 @@ impl ToString for Action {
     }
 }
 
+#[derive(Debug)]
+pub struct CouldNotFindUser;
+
+impl Display for CouldNotFindUser {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Could not find user")
+    }
+}
+
+impl std::error::Error for CouldNotFindUser {}
+
 pub fn lookup_user_by_name(
     db_connection: &mut PgConnection,
     supplied_username: String,
-) -> Result<User, ()> {
+) -> Result<User, CouldNotFindUser> {
     use crate::schema::users::dsl::{username, users};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
@@ -85,7 +98,7 @@ pub fn lookup_user_by_name(
         "Could not look up the user object for the user '{}'",
         supplied_username
     );
-    return Err(());
+    Err(CouldNotFindUser)
 }
 
 pub async fn log_action_rocket(
@@ -124,7 +137,7 @@ pub async fn log_action_rocket(
 
 pub fn log_action(
     db_connection: &mut PgConnection,
-    username_performing_action: Option<String>,
+    maybe_username_performing_action: Option<String>,
     executed_action: Action,
     possible_description: Option<String>,
 ) {
@@ -136,17 +149,17 @@ pub fn log_action(
     use log::error;
 
     // if no username was supplied, we do not have to handle any user name lookup
-    let maybe_user = if username_performing_action.is_some() {
-        lookup_user_by_name(db_connection, username_performing_action.unwrap())
+    let maybe_user = if let Some(username_performing_action) = maybe_username_performing_action {
+        lookup_user_by_name(db_connection, username_performing_action)
     } else {
-        Err(())
+        Err(CouldNotFindUser)
     };
 
     // ensure we have an user id wrapped in an option (a failed login request may not have a valid user name)
-    let user_id = if maybe_user.is_err() {
-        None
+    let user_id = if let Ok(user) = maybe_user {
+        Some(user.id)
     } else {
-        Some(maybe_user.unwrap().id)
+        None
     };
 
     // create the object we want to store in the database
@@ -167,7 +180,7 @@ pub fn log_action(
     };
 }
 
-pub fn get_token_for_user(subject: &String, signature_psk: &String) -> Option<String> {
+pub fn get_token_for_user(subject: &str, signature_psk: &String) -> Option<String> {
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
     use log::error;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -192,7 +205,7 @@ pub fn get_token_for_user(subject: &String, signature_psk: &String) -> Option<St
         exp: token_expires_at,
         iat: token_issued_at,
         nbf: token_issued_at + 1,
-        sub: subject.clone(),
+        sub: subject.to_owned(),
     };
 
     // get the signing key for the token

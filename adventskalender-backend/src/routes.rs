@@ -59,27 +59,23 @@ pub async fn get_number_of_participants_who_already_won(
                         .select(count(id))
                         .first::<i64>(connection)
                     {
-                        Ok(participants_won) => {
-                            return Ok(ParticipantCount {
-                                number_of_participants: all_participants as u16,
-                                number_of_participants_won: participants_won as u16,
-                                number_of_participants_still_in_raffle: (all_participants
-                                    - participants_won)
-                                    as u16,
-                            });
-                        }
-                        Err(error) => return Err(error),
+                        Ok(participants_won) => Ok(ParticipantCount {
+                            number_of_participants: all_participants as u16,
+                            number_of_participants_won: participants_won as u16,
+                            number_of_participants_still_in_raffle: (all_participants
+                                - participants_won)
+                                as u16,
+                        }),
+                        Err(error) => Err(error),
                     }
                 }
-                Err(error) => {
-                    return Err(error);
-                }
+                Err(error) => Err(error),
             }
         });
 
     // if we could fetch a result from the database, return the requested information
-    if maybe_result.is_ok() {
-        return Ok(Json::from(maybe_result.unwrap()));
+    if let Ok(result) = maybe_result {
+        return Ok(Json::from(result));
     }
 
     // if we reach this step, we could not request the required information. Since we do not know what
@@ -142,19 +138,17 @@ pub async fn get_all_winners(
                                 present_identifier: current.present_identifier.clone(),
                             });
                     }
-                    return Ok(result_map);
+                    Ok(result_map)
                 }
-                Err(error) => {
-                    return Err(error);
-                }
+                Err(error) => Err(error),
             }
         });
 
     //
-    if maybe_result.is_ok() {
-        return Ok(maybe_result.unwrap());
+    if let Ok(result) = maybe_result {
+        return Ok(result);
     }
-    return Err(());
+    Err(())
 }
 
 pub async fn get_won_participants_on_day(
@@ -198,17 +192,15 @@ pub async fn get_won_participants_on_day(
                         })
                         .collect());
                 }
-                Err(error) => {
-                    return Err(error);
-                }
+                Err(error) => Err(error),
             }
         });
 
     //
-    if maybe_result.is_ok() {
-        return Ok(maybe_result.unwrap());
+    if let Ok(result) = maybe_result {
+        return Ok(result);
     }
-    return Err(());
+    Err(())
 }
 
 #[delete("/participants/won/<participant_id>")]
@@ -220,7 +212,7 @@ pub async fn remove_participant_from_winner_list(
     use crate::log_action_rocket;
 
     if mark_participant_as_not_won(
-        &db_connection_pool,
+        db_connection_pool,
         participant_id,
         authenticated_user.username.clone(),
     )
@@ -228,7 +220,7 @@ pub async fn remove_participant_from_winner_list(
     .is_ok()
     {
         log_action_rocket(
-            &db_connection_pool,
+            db_connection_pool,
             authenticated_user.username,
             Action::RemovedWinner,
             Some(format!(
@@ -248,8 +240,8 @@ pub async fn get_all_won_participants(
     _authenticated_user: AuthenticatedUser,
 ) -> Result<Json<HashMap<String, Vec<Participant>>>, Status> {
     let maybe_all_winners = get_all_winners(db_connection_pool).await;
-    if maybe_all_winners.is_ok() {
-        return Ok(Json(maybe_all_winners.unwrap()));
+    if let Ok(winners) = maybe_all_winners {
+        return Ok(Json(winners));
     }
     Err(Status::NotFound)
 }
@@ -320,7 +312,7 @@ pub async fn update_user_password(
                 return Ok(());
             }
             error!("Failed to update the corresponding entry");
-            return Err(diesel::result::Error::NotFound); // TODO: not the real error
+            Err(diesel::result::Error::NotFound) // TODO: not the real error
         })
     {
         error!(
@@ -332,7 +324,7 @@ pub async fn update_user_password(
 
     // log that the user changed the own password
     log_action_rocket(
-        &db_connection_pool,
+        db_connection_pool,
         current_user,
         Action::PasswordChanged,
         None,
@@ -417,7 +409,7 @@ pub async fn update_participant_values(
                 if user.id == current_participant_id {
                     old_package = user.present_identifier.clone();
                 }
-                return user.present_identifier.is_some();
+                user.present_identifier.is_some()
             })
             .map(|user| user.present_identifier.clone().unwrap())
             .collect(),
@@ -454,7 +446,7 @@ pub async fn update_participant_values(
     // if we get here we successfully selected a package
     if old_package.is_none() {
         log_action_rocket(
-            &db_connection_pool,
+            db_connection_pool,
             authenticated_user.username.clone(),
             Action::PackageSelected,
             Some(format!(
@@ -465,7 +457,7 @@ pub async fn update_participant_values(
         .await;
     } else {
         log_action_rocket(
-            &db_connection_pool,
+            db_connection_pool,
             authenticated_user.username.clone(),
             Action::PackageChanged,
             Some(format!(
@@ -475,7 +467,7 @@ pub async fn update_participant_values(
         )
             .await;
     }
-    return Status::NoContent;
+    Status::NoContent
 }
 
 #[get("/participants/won/<date_as_str>")]
@@ -496,8 +488,8 @@ pub async fn get_won_participants_on_day_route(
     let maybe_result = get_won_participants_on_day(db_connection_pool, maybe_date.unwrap()).await;
 
     // if we got a result, count the participants and return the amount
-    if maybe_result.is_ok() {
-        return Ok(Json(maybe_result.unwrap()));
+    if let Ok(result) = maybe_result {
+        return Ok(Json(result));
     }
 
     // it seems that we could not gather the requested information
@@ -523,10 +515,9 @@ pub async fn count_won_participants_on_day(
     let maybe_result = get_won_participants_on_day(db_connection_pool, maybe_date.unwrap()).await;
 
     // if we got a result, count the participants and return the amount
-    if maybe_result.is_ok() {
-        let winner_count = maybe_result.unwrap().len();
-        debug!("The user {} queried the number of winners for the {}. The answer is: {} participants won on that day so far", authenticated_user.username, date_as_str, winner_count);
-        return Ok(Json(winner_count));
+    if let Ok(winners) = maybe_result {
+        debug!("The user {} queried the number of winners for the {}. The answer is: {} participants won on that day so far", authenticated_user.username, date_as_str, winners.len());
+        return Ok(Json(winners.len()));
     }
 
     // it seems that we could not gather the requested information
@@ -576,19 +567,17 @@ pub async fn pick_random_participants_from_database(
                             present_identifier: None,
                         });
                     }
-                    return Ok(participants_vec);
+                    Ok(participants_vec)
                 }
-                Err(error) => {
-                    return Err(error);
-                }
+                Err(error) => Err(error),
             }
         });
 
     //
-    if maybe_result.is_ok() {
-        return Some(maybe_result.unwrap());
+    if let Ok(result) = maybe_result {
+        return Some(result);
     }
-    return None;
+    None
 }
 
 #[get("/participants/pick/<count>/for/<date>")]
@@ -609,12 +598,10 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
     }
 
     // try to get the number of random picks from the database (they are not marked as won after this call!!!)
-    let maybe_result = pick_random_participants_from_database(&db_connection_pool, count).await;
+    let maybe_result = pick_random_participants_from_database(db_connection_pool, count).await;
 
     // if we could fetch a result from the database, return the requested information
-    if maybe_result.is_some() {
-        let result = maybe_result.unwrap();
-
+    if let Some(result) = maybe_result {
         // ensure that we got exactly one result for this call. Otherwise something went wrong
         if result.len() != count {
             error!("Got {} participants who won from the database but we expected to receive {} winners", result.len(), count);
@@ -625,7 +612,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         // return them
         let won_participant_ids: Vec<i32> = result.iter().map(|p| p.id).collect();
         if mark_participant_as_won(
-            &db_connection_pool,
+            db_connection_pool,
             won_participant_ids.clone(),
             maybe_date.unwrap(),
             authenticated_user.username.clone(),
@@ -640,7 +627,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         // log the picked winners and return them
         for current_participant_id in won_participant_ids.clone() {
             log_action_rocket(
-                &db_connection_pool,
+                db_connection_pool,
                 authenticated_user.username.clone(),
                 Action::PickedWinner,
                 Some(format!(
@@ -731,11 +718,11 @@ pub async fn mark_participant_as_won(
                             return Ok(());
                         }
                         error!("The user {} tried to mark the users with the ids {:?} as 'won on {}' but we failed to do so", user_who_picked, participant_ids, picked_for_date);
-                        return Err(diesel::result::Error::NotFound); // TODO: not the actual error
+                        Err(diesel::result::Error::NotFound) // TODO: not the actual error
                     },
                     Err(_) => {
                         // it seems that we could not look up the user who initiated the call
-                        return Err(diesel::result::Error::NotFound); // TODO: not the actual error
+                        Err(diesel::result::Error::NotFound) // TODO: not the actual error
                     }
                 }
             });
@@ -744,7 +731,7 @@ pub async fn mark_participant_as_won(
     if maybe_result.is_err() {
         return Err(());
     }
-    return Ok(());
+    Ok(())
 }
 
 pub async fn mark_participant_as_not_won(
@@ -796,11 +783,11 @@ pub async fn mark_participant_as_not_won(
                         }
 
                         debug!("The user {} marked the user with the id {} as NOT won", user_who_unpicked, participant_id);
-                        return Ok(());
+                        Ok(())
                     }
                 Err(error) => {
                     error!("The user {} tried to mark the user with the id {} as NOT won but we failed to do so. The error was: {}", user_who_unpicked, participant_id, error);
-                    return Err(error);
+                    Err(error)
                 }
             }
         });
@@ -809,7 +796,7 @@ pub async fn mark_participant_as_not_won(
     if maybe_result.is_err() {
         return Err(());
     }
-    return Ok(());
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -872,7 +859,7 @@ pub async fn get_login_token(
             }
 
             //
-            return Err(diesel::result::Error::NotFound); // TODO: not the real error
+            Err(diesel::result::Error::NotFound) // TODO: not the real error
         });
 
     // try to get the actual user object or delay a bit and then return with the corresponding error
@@ -893,7 +880,7 @@ pub async fn get_login_token(
 
             // log the failed attempt
             log_action_rocket(
-                &db_connection_pool,
+                db_connection_pool,
                 login_information.username.clone(),
                 Action::FailedLogin,
                 Some(format!(
@@ -914,7 +901,7 @@ pub async fn get_login_token(
         Ok(is_password_correct) => {
             if !is_password_correct {
                 log_action_rocket(
-                    &db_connection_pool,
+                    db_connection_pool,
                     login_information.username.clone(),
                     Action::FailedLogin,
                     None,
@@ -935,7 +922,7 @@ pub async fn get_login_token(
         get_token_for_user(&login_information.username, &config.token_signature_psk)
     {
         log_action_rocket(
-            &db_connection_pool,
+            db_connection_pool,
             login_information.username.clone(),
             Action::SuccessfulLogin,
             None,
@@ -1015,7 +1002,7 @@ pub async fn get_audit_event_count(
         .build_transaction()
         .read_only()
         .run::<_, diesel::result::Error, _>(|connection| {
-        return match performed_actions
+        match performed_actions
             .select(count_star())
             .first::<i64>(connection)
         {
@@ -1028,16 +1015,16 @@ pub async fn get_audit_event_count(
             }
             Ok(count) => {
                 debug!("Got {} events in the audit log", count);
-                Ok(Json(AuditEventCount { count: count }))
+                Ok(Json(AuditEventCount { count }))
             }
-        };
+        }
     });
 
     // return the expected result
-    return match maybe_audit_event_count {
+    match maybe_audit_event_count {
         Ok(count) => Ok(count),
         Err(_) => Err(Status::InternalServerError),
-    };
+    }
 }
 
 #[derive(Serialize)]
@@ -1079,7 +1066,7 @@ pub async fn check_backend_health(
                 return Err(error);
             }
             debug!("Last health check was successful");
-            return Ok(());
+            Ok(())
         });
 
     // if the database is healthy, we can return the status immediately

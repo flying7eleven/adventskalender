@@ -35,7 +35,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             Some(maybe_authorization) => {
                 // split the token type from the actual token... there have to be two parts
                 let authorization_information =
-                    maybe_authorization.split(" ").collect::<Vec<&str>>();
+                    maybe_authorization.split(' ').collect::<Vec<&str>>();
                 if authorization_information.len() != 2 {
                     error!("It seems that the authorization header is malformed. There were 2 parts expected but we got {}", authorization_information.len());
                     return Outcome::Error((
