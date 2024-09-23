@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use rocket::State;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 pub mod fairings;
 pub mod guards;
@@ -51,18 +51,18 @@ pub enum Action {
     ServerTerminated,
 }
 
-impl ToString for Action {
-    fn to_string(&self) -> String {
+impl Display for Action {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            Action::SuccessfulLogin => "successful_login".to_string(),
-            Action::FailedLogin => "failed_login".to_string(),
-            Action::PickedWinner => "picked_winner".to_string(),
-            Action::PackageSelected => "package_selected".to_string(),
-            Action::PackageChanged => "package_changed".to_string(),
-            Action::RemovedWinner => "removed_winner".to_string(),
-            Action::PasswordChanged => "password_changed".to_string(),
-            Action::ServerStarted => "server_started".to_string(),
-            Action::ServerTerminated => "server_terminated".to_string(),
+            Action::SuccessfulLogin => write!(f, "successful_login"),
+            Action::FailedLogin => write!(f, "failed_login"),
+            Action::PickedWinner => write!(f, "picked_winner"),
+            Action::PackageSelected => write!(f, "package_selected"),
+            Action::PackageChanged => write!(f, "package_changed"),
+            Action::RemovedWinner => write!(f, "removed_winner"),
+            Action::PasswordChanged => write!(f, "password_changed"),
+            Action::ServerStarted => write!(f, "server_started"),
+            Action::ServerTerminated => write!(f, "server_terminated"),
         }
     }
 }
