@@ -173,9 +173,7 @@ impl From<regex::Error> for Error {
 ///
 /// This enum is serialized and deserialized
 /// ["Externally tagged"](https://serde.rs/enum-representations.html)
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub enum AllOrSome<T> {
     /// Everything is allowed. Usually equivalent to the "*" value.
     #[default]
@@ -418,7 +416,6 @@ impl AllowedOrigins {
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct Origins {
     /// Whether null origins are accepted
-    #[cfg_attr(feature = "serialization", serde(default))]
     pub allow_null: bool,
     /// Origins that must be matched exactly as provided.
     ///
@@ -438,7 +435,6 @@ pub struct Origins {
     ///
     /// Opaque Origins cannot be matched exactly. You must use Regex to match Opaque Origins. If you
     /// attempt to create [`Cors`] from [`CorsOptions`], you will get an error.
-    #[cfg_attr(feature = "serialization", serde(default))]
     pub exact: Option<HashSet<String>>,
     /// Origins that will be matched via __any__ regex in this list.
     ///
@@ -458,7 +454,6 @@ pub struct Origins {
     /// # Warning about Regex expressions
     /// By default, regex expressions are
     /// [unanchored](https://docs.rs/regex/1.1.2/regex/struct.RegexSet.html#method.is_match).
-    #[cfg_attr(feature = "serialization", serde(default))]
     pub regex: Option<HashSet<String>>,
 }
 
@@ -521,7 +516,7 @@ impl ParsedAllowedOrigins {
                     "Parsed Origin is not tuple. This is a bug. Please report"
                 );
                 // Verify by exact, then regex
-                if self.exact.get(parsed).is_some() {
+                if self.exact.contains(parsed) {
                     info_!("Origin has an exact match");
                     return true;
                 }
@@ -702,7 +697,6 @@ pub struct CorsOptions {
     /// [Resource Processing Model](https://www.w3.org/TR/cors/#resource-processing-model).
     ///
     /// Defaults to `All`.
-    #[cfg_attr(feature = "serialization", serde(default))]
     pub allowed_headers: AllowedHeaders,
     /// Allows users to make authenticated requests.
     /// If true, injects the `Access-Control-Allow-Credentials` header in responses.
@@ -713,7 +707,6 @@ pub struct CorsOptions {
     /// in an `Error::CredentialsWithWildcardOrigin` error during Rocket launch or runtime.
     ///
     /// Defaults to `false`.
-    #[cfg_attr(feature = "serialization", serde(default))]
     pub allow_credentials: bool,
     /// The list of headers which are safe to expose to the API of a CORS API specification.
     /// This corresponds to the `Access-Control-Expose-Headers` responde header.
@@ -2156,7 +2149,6 @@ mod tests {
     }
 
     #[derive(Debug, Eq, PartialEq)]
-    #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
     struct MethodTest {
         method: Method,
     }

@@ -380,7 +380,7 @@ pub async fn update_participant_values(
                 error!("Tried to fetch the participant with the id {} from the database but got {} participants as a result", current_participant_id, users.len());
                 return Status::BadRequest;
             }
-            users.get(0).unwrap().clone()
+            users.first().unwrap().clone()
         }
         Err(error) => {
             error!("Tried to fetch the participant with the id {} from the database but an error occurred. The error was: {}", current_participant_id, error);
