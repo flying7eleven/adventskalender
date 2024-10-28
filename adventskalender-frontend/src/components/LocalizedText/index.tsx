@@ -1,5 +1,5 @@
-import { LocalizationContext } from '../../provider/LocalizationProvider';
 import { useContext } from 'react';
+import { LocalizationContext } from '../../provider/LocalizationContext';
 
 interface Props {
     translationKey: string;

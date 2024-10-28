@@ -1,25 +1,10 @@
-import { createContext, ReactNode } from 'react';
-
-interface ResourceDefinitions {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    english: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    german: any;
-}
+import { ReactNode } from 'react';
+import { LocalizationContext, ResourceDefinitions } from '../LocalizationContext';
 
 interface Props {
     children: ReactNode | ReactNode[];
     resources: ResourceDefinitions;
 }
-
-interface LocalizationContextType {
-    resources: ResourceDefinitions;
-    translate: (key: string) => string;
-    translateWithPlaceholder: (key: string, placeholder: string) => string;
-}
-
- 
-export const LocalizationContext = createContext<LocalizationContextType>(null!);
 
 export const LocalizationProvider = (props: Props) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

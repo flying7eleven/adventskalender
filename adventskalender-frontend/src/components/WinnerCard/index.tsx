@@ -23,7 +23,7 @@ export const WinnerCard = (props: Props) => {
             oldPackageSelections[winner.id] = winner.presentIdentifier ? winner.presentIdentifier : '';
             setPackageSelections(oldPackageSelections);
         });
-    }, [props.listOfWinner]);
+    }, [props.listOfWinner, packageSelections]);
 
     const handleEditClick = () => {
         setEditDialogOpen(true);

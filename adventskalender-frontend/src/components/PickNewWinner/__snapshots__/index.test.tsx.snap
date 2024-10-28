@@ -2,8 +2,9 @@
 
 exports[`PickNewWinner component Matches the snapshot 1`] = `
 <button
-  className="MuiButtonBase-root MuiButton-root MuiLoadingButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-root MuiLoadingButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium css-1twrztz-MuiButtonBase-root-MuiButton-root-MuiLoadingButton-root"
+  className="MuiButtonBase-root MuiButton-root MuiLoadingButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-colorPrimary MuiButton-root MuiLoadingButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-colorPrimary css-1k6lvvi-MuiButtonBase-root-MuiButton-root-MuiLoadingButton-root"
   disabled={false}
+  id=":r0:"
   onBlur={[Function]}
   onClick={[Function]}
   onContextMenu={[Function]}
@@ -20,6 +21,10 @@ exports[`PickNewWinner component Matches the snapshot 1`] = `
   tabIndex={0}
   type="button"
 >
-  Some text
+  <span
+    className="MuiLoadingButton-label css-27yv9x-MuiLoadingButton-label"
+  >
+    Some text
+  </span>
 </button>
 `;

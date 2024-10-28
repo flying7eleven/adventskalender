@@ -1,7 +1,6 @@
 import { useState, useContext, ReactElement } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LocalizationContext } from '../../provider/LocalizationProvider';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { Box, Divider, IconButton, Stack, Toolbar, Typography } from '@mui/material';
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
@@ -19,6 +18,7 @@ import Button from '@mui/material/Button';
 import { LocalizedText } from '../../components/LocalizedText';
 import InfoIcon from '@mui/icons-material/Info';
 import SettingsIcon from '@mui/icons-material/Settings';
+import { LocalizationContext } from '../../provider/LocalizationContext';
 
 interface Props {
     content: ReactElement;

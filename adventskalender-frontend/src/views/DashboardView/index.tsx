@@ -7,7 +7,7 @@ import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, Participant, ParticipantCount, Wi
 import { useContext, useEffect, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
-import { LocalizationContext } from '../../provider/LocalizationProvider';
+import { LocalizationContext } from '../../provider/LocalizationContext';
 import { WinnerDialog } from '../../dialogs/WinnerDialog';
 import { UnknownErrorDialog } from '../../dialogs/UnknownErrorDialog';
 import { NoParticipantsErrorDialog } from '../../dialogs/NoParticipantsErrorDialog';

@@ -18,7 +18,7 @@ import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, WinnerInformation } from '../../a
 import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
-import { LocalizationContext } from '../../provider/LocalizationProvider';
+import { LocalizationContext } from '../../provider/LocalizationContext';
 import moment from 'moment';
 import 'moment/dist/locale/de.js'; // german is besides english the only other supported language
 
@@ -86,6 +86,7 @@ export const WinnerDialog = (props: Props) => {
         const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
 
         // for each not-selected package / participant, mark the field as 'error'
+        // eslint-disable-next-line no-prototype-builtins
         props.winner.filter((currentWinner) => !previouslySelectedPackages.hasOwnProperty(currentWinner.id)).map((winnerNotFound) => (previousErrorStates[winnerNotFound.id] = true));
 
         // set the new error states
@@ -336,7 +337,7 @@ export const WinnerDialog = (props: Props) => {
                     <></>
                 )}
                 <Stepper activeStep={activeStep} hidden>
-                    {stepLabels.map((label, _) => {
+                    {stepLabels.map((label) => {
                         return (
                             <Step key={label} hidden>
                                 <StepLabel>{label}</StepLabel>

@@ -8,7 +8,6 @@ interface AuthContextType {
     signout: (callback: VoidFunction) => void;
 }
 
- 
 export const AuthenticationContext = createContext<AuthContextType>(null!);
 
 export const useAuthentication = () => {

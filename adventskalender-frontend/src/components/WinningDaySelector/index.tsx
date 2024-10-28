@@ -3,7 +3,7 @@ import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import { ReactNode, useContext } from 'react';
-import { LocalizationContext } from '../../provider/LocalizationProvider';
+import { LocalizationContext } from '../../provider/LocalizationContext';
 import moment from 'moment';
 
 interface Props {

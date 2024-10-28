@@ -2,7 +2,7 @@ import { Button, Card, CardContent, Stack, TextField, Typography } from '@mui/ma
 import Grid from '@mui/material/Grid';
 import { LocalizedText } from '../../components/LocalizedText';
 import { ChangeEvent, useContext, useState } from 'react';
-import { LocalizationContext } from '../../provider/LocalizationProvider';
+import { LocalizationContext } from '../../provider/LocalizationContext';
 import { API_BACKEND_URL } from '../../api';
 import { getUsernameFromToken, useAuthentication } from '../../hooks/useAuthentication';
 import { PasswordChangedDialog } from '../../dialogs/PasswordChangedDialog';
