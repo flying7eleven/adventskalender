@@ -33,7 +33,7 @@ export const EditWinnerDialog = (props: Props) => {
         const alphabet = Array.from(Array(maxPackageCount))
             .map((_, i) => i + 65)
             .map((x) => String.fromCharCode(x));
-        let items: ReactNode[] = [];
+        const items: ReactNode[] = [];
 
         items.push(
             <MenuItem key={`menu-item-not-selected-for-user-${userId}`} value={''}>
@@ -87,17 +87,17 @@ export const EditWinnerDialog = (props: Props) => {
             })
             .then(() => {
                 // update the value the user successfully set for the package
-                let previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
+                const previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
                 previousSelection[userId] = selectedPackage;
                 setPackageSelections(previousSelection);
 
                 // clear a previous error state, if it existed
-                let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+                const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
                 previousErrorStates[userId] = false;
                 setPackageSelectionErrorStates(previousErrorStates);
             })
             .catch(() => {
-                let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+                const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
                 previousErrorStates[userId] = true;
                 setPackageSelectionErrorStates(previousErrorStates);
             });

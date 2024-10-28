@@ -18,7 +18,7 @@ interface LocalizationContextType {
     translateWithPlaceholder: (key: string, placeholder: string) => string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+ 
 export const LocalizationContext = createContext<LocalizationContextType>(null!);
 
 export const LocalizationProvider = (props: Props) => {

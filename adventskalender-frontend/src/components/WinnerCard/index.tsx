@@ -19,7 +19,7 @@ export const WinnerCard = (props: Props) => {
 
     useEffect(() => {
         props.listOfWinner.forEach((winner) => {
-            let oldPackageSelections = Object.assign({}, packageSelections);
+            const oldPackageSelections = Object.assign({}, packageSelections);
             oldPackageSelections[winner.id] = winner.presentIdentifier ? winner.presentIdentifier : '';
             setPackageSelections(oldPackageSelections);
         });

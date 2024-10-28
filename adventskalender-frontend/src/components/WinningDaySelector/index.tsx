@@ -27,7 +27,7 @@ export const WinningDaySelector = (props: Props) => {
         const menuEntries = [];
         const translationFormat = localizationContext.translate('dashboard.date_format_dropdown');
         moment.locale(window.navigator.language);
-        let currentDate = moment([new Date().getFullYear(), 11, 1]);
+        const currentDate = moment([new Date().getFullYear(), 11, 1]);
         for (let i = 1; i < 25; i++) {
             menuEntries.push(
                 <MenuItem key={`menu-item-${i}`} value={i}>

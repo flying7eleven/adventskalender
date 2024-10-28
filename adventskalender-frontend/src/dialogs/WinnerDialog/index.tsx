@@ -31,7 +31,7 @@ interface Props {
 }
 
 export const SpecialTextItem = ({ date }: { date: string }) => {
-    let winningDay = moment(date, 'YYYY-MM-DD').format('D');
+    const winningDay = moment(date, 'YYYY-MM-DD').format('D');
     switch (winningDay) {
         case '6':
             return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2_special1'} variables={[moment(date, 'YYYY-MM-DD').format('D')]} />;
@@ -70,8 +70,8 @@ export const WinnerDialog = (props: Props) => {
         // one of the reasons can be that a user re-picked a winner and selected a free package for him or her and then
         // proceeded to select an already an invalid package. The control gets into an error state where the user cannot
         // recover from. If this happens, we can ignore the error state since a package was selected for the user
-        let deepCheckErrorValues = Object.keys(packageSelectionErrorStates).map((key) => {
-            let isErrorState = packageSelectionErrorStates[key];
+        const deepCheckErrorValues = Object.keys(packageSelectionErrorStates).map((key) => {
+            const isErrorState = packageSelectionErrorStates[key];
             if (isErrorState) {
                 return packageSelections[key].length == 1 && USABLE_PACKAGE_ALPHABET.includes(packageSelections[key]);
             }
@@ -82,8 +82,8 @@ export const WinnerDialog = (props: Props) => {
 
     const markPackagesNotSelectedAsError = () => {
         // get a copy of the currently selected packages and the error states
-        let previouslySelectedPackages = Object.assign({}, packageSelections); // recreate the json object so React sees a change
-        let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+        const previouslySelectedPackages = Object.assign({}, packageSelections); // recreate the json object so React sees a change
+        const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
 
         // for each not-selected package / participant, mark the field as 'error'
         props.winner.filter((currentWinner) => !previouslySelectedPackages.hasOwnProperty(currentWinner.id)).map((winnerNotFound) => (previousErrorStates[winnerNotFound.id] = true));
@@ -113,7 +113,7 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const getPossiblePackageMenuItems = (userId: number, maxPackageCount: number) => {
-        let items: ReactNode[] = [];
+        const items: ReactNode[] = [];
         const alphabet = Array.from(Array(maxPackageCount))
             .map((_, i) => i + 65)
             .map((x) => String.fromCharCode(x));
@@ -137,7 +137,7 @@ export const WinnerDialog = (props: Props) => {
 
     const handleFillPackageSelectionAutomatically = () => {
         if (import.meta.env.DEV) {
-            let selectedPackages: StringMap = {};
+            const selectedPackages: StringMap = {};
             let currentAlphabetIdx = 0;
             props.winner
                 .map((currentWinner) => currentWinner.id)
@@ -165,7 +165,7 @@ export const WinnerDialog = (props: Props) => {
         // since we have a token, we can now unselect all participants
         Promise.all(
             winnerIds.map(async (winnerId) => {
-                let res = await fetch(`${API_BACKEND_URL}/participants/won/${winnerId}`, {
+                const res = await fetch(`${API_BACKEND_URL}/participants/won/${winnerId}`, {
                     method: 'DELETE',
                     headers: {
                         Authorization: `Bearer ${auth.token.accessToken}`,
@@ -224,19 +224,19 @@ export const WinnerDialog = (props: Props) => {
             .then(() => {
                 if (doUpdateState) {
                     // update the value the user successfully set for the package
-                    let previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
+                    const previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
                     previousSelection[userId] = selectedPackage;
                     setPackageSelections(previousSelection);
 
                     // clear a previous error state, if it existed
-                    let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+                    const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
                     previousErrorStates[userId] = false;
                     setPackageSelectionErrorStates(previousErrorStates);
                 }
             })
             .catch(() => {
                 if (doUpdateState) {
-                    let previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+                    const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
                     previousErrorStates[userId] = true;
                     setPackageSelectionErrorStates(previousErrorStates);
                 }
@@ -244,9 +244,9 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const prepareWinnerText = (refetchWinners: boolean) => {
-        let winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
-        let winningDate = moment(props.date, 'YYYY-MM-DD').format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
-        let winningDay = moment(props.date, 'YYYY-MM-DD').format('D');
+        const winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
+        const winningDate = moment(props.date, 'YYYY-MM-DD').format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
+        const winningDay = moment(props.date, 'YYYY-MM-DD').format('D');
 
         if (refetchWinners) {
             fetch(`${API_BACKEND_URL}/participants/won/${props.date}`, {
@@ -279,8 +279,8 @@ export const WinnerDialog = (props: Props) => {
                                 '{1}',
                                 winner
                                     .sort((winnerA, winnerB) => {
-                                        let packageA = winnerA.present_identifier ? winnerA.present_identifier : '?';
-                                        let packageB = winnerB.present_identifier ? winnerB.present_identifier : '?';
+                                        const packageA = winnerA.present_identifier ? winnerA.present_identifier : '?';
+                                        const packageB = winnerB.present_identifier ? winnerB.present_identifier : '?';
                                         if (packageA > packageB) {
                                             return 1;
                                         }
@@ -310,7 +310,7 @@ export const WinnerDialog = (props: Props) => {
                                 return -1;
                             })
                             .map((winner) => {
-                                let selectedPackage = packageSelections[winner.id];
+                                const selectedPackage = packageSelections[winner.id];
                                 return `<b>${winner.firstName} ${winner.lastName}</b> (${winningDay}${selectedPackage})`;
                             })
                             .join(', ')
