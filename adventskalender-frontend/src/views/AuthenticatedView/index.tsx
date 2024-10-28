@@ -9,6 +9,7 @@ import MuiDrawer from '@mui/material/Drawer';
 import { styled, Theme, CSSObject } from '@mui/material/styles';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ListItemText from '@mui/material/ListItemText';
@@ -147,30 +148,38 @@ export const AuthenticatedView = (props: Props) => {
                 </DrawerHeader>
                 <Divider />
                 <List>
-                    <ListItem button key={'Dashboard'} onClick={onClickOnDashboard} selected={isSelected('/')}>
-                        <ListItemIcon>
-                            <DashboardIcon />
-                        </ListItemIcon>
-                        <ListItemText primary={localizationContext.translate('global.navigation.dashboard')} />
+                    <ListItem disablePadding>
+                        <ListItemButton key={'Dashboard'} onClick={onClickOnDashboard} selected={isSelected('/')}>
+                            <ListItemIcon>
+                                <DashboardIcon />
+                            </ListItemIcon>
+                            <ListItemText primary={localizationContext.translate('global.navigation.dashboard')} />
+                        </ListItemButton>
                     </ListItem>
-                    <ListItem button key={'Calendar'} onClick={onClickOnCalendar} selected={isSelected('/calendar')}>
-                        <ListItemIcon>
-                            <CalendarTodayIcon />
-                        </ListItemIcon>
-                        <ListItemText primary={localizationContext.translate('global.navigation.calendar')} />
+                    <ListItem disablePadding>
+                        <ListItemButton key={'Calendar'} onClick={onClickOnCalendar} selected={isSelected('/calendar')}>
+                            <ListItemIcon>
+                                <CalendarTodayIcon />
+                            </ListItemIcon>
+                            <ListItemText primary={localizationContext.translate('global.navigation.calendar')} />
+                        </ListItemButton>
                     </ListItem>
                     <Divider />
-                    <ListItem button key={'Settings'} onClick={onClickSettings} selected={isSelected('/settings')}>
-                        <ListItemIcon>
-                            <SettingsIcon />
-                        </ListItemIcon>
-                        <ListItemText primary={localizationContext.translate('global.navigation.settings')} />
+                    <ListItem disablePadding>
+                        <ListItemButton key={'Settings'} onClick={onClickSettings} selected={isSelected('/settings')}>
+                            <ListItemIcon>
+                                <SettingsIcon />
+                            </ListItemIcon>
+                            <ListItemText primary={localizationContext.translate('global.navigation.settings')} />
+                        </ListItemButton>
                     </ListItem>
-                    <ListItem button key={'Version'} onClick={onClickVersion} selected={isSelected('/version')}>
-                        <ListItemIcon>
-                            <InfoIcon />
-                        </ListItemIcon>
-                        <ListItemText primary={localizationContext.translate('global.navigation.version')} />
+                    <ListItem disablePadding>
+                        <ListItemButton key={'Version'} onClick={onClickVersion} selected={isSelected('/version')}>
+                            <ListItemIcon>
+                                <InfoIcon />
+                            </ListItemIcon>
+                            <ListItemText primary={localizationContext.translate('global.navigation.version')} />
+                        </ListItemButton>
                     </ListItem>
                 </List>
             </Drawer>
