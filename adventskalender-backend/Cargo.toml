@@ -92,3 +92,7 @@ default-features = false
 [dependencies.r2d2]
 version = "0.8.10"
 default-features = false
+
+[dependencies.healthchecks]
+version = "3.1.7"
+default-features = false
