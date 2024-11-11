@@ -131,8 +131,18 @@ async fn main() {
         error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_TOKEN_SIGNATURE_PSK is set properly");
         return;
     }
+
+    // get the project UUID for the health check
+    let healthcheck_io_project =
+        env::var("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT").unwrap_or("".to_string());
+    if healthcheck_io_project.is_empty() {
+        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT is set properly");
+        return;
+    }
+
     let backend_config = BackendConfiguration {
         token_signature_psk: token_signature_psk.to_string(),
+        healthcheck_project: healthcheck_io_project.to_string(),
     };
 
     // just wait for 10 seconds until we continue. This is just an ugly fix that we have to wait until the database server

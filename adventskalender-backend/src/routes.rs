@@ -8,6 +8,7 @@ use rocket::serde::json::Json;
 use rocket::{delete, get, post, put, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use healthchecks::ping::get_client;
 
 #[derive(Serialize)]
 pub struct ParticipantCount {
@@ -1038,6 +1039,7 @@ pub struct HealthCheck {
 #[get("/health")]
 pub async fn check_backend_health(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
+    config: &State<BackendConfiguration>,
 ) -> Result<Json<HealthCheck>, Status> {
     use crate::schema::participants::dsl::participants;
     use diesel::dsl::count_star;
@@ -1052,7 +1054,18 @@ pub async fn check_backend_health(
                 "Could not get a connection from the database connection pool. The error was: {}",
                 error
             );
-            return Err(Status::InternalServerError);
+            match get_client(&config.healthcheck_project) {
+                Ok(client) => {
+                    if !client.report_failure_with_logs("") { // TODO: data
+                        error!("Could not notify healthcheck-io about a failed health-check.");
+                    }
+                },
+                Err(error) => error!("Could not notify healthcheck-io about a failed health-check. The error was: {}", error)
+            };
+            return Ok(Json(HealthCheck {
+                database_healthy: false,
+                backend_healthy: false,
+            }));
         }
     };
 
@@ -1071,6 +1084,14 @@ pub async fn check_backend_health(
 
     // if the database is healthy, we can return the status immediately
     if database_is_healthy.is_ok() {
+        match get_client(&config.healthcheck_project) {
+            Ok(client) => {
+                if !client.report_success() {
+                    error!("Could not notify healthcheck-io about a successful health-check.");
+                }
+            },
+            Err(error) => error!("Could not notify healthcheck-io about a successful health-check. The error was: {}", error)
+        };
         return Ok(Json(HealthCheck {
             database_healthy: true,
             backend_healthy: true,
@@ -1078,5 +1099,17 @@ pub async fn check_backend_health(
     }
 
     // if seems that the health check failed, indicate that by returning a 500
-    Err(Status::InternalServerError)
+    match get_client(&config.healthcheck_project) {
+        Ok(client) => {
+            if !client.report_failure_with_logs("LOG") { // TODO: the correct messages
+                error!("Could not notify healthcheck-io about a failure during the health-check.");
+            }
+        },
+        Err(error) => error!("Could not notify healthcheck-io about failure during a health-check. The error was: {}", error)
+    };
+
+    Ok(Json(HealthCheck {
+        database_healthy: false,
+        backend_healthy: false,
+    }))
 }

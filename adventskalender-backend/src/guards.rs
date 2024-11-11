@@ -63,6 +63,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                 let backend_config = request.rocket().state::<BackendConfiguration>().map_or(
                     BackendConfiguration {
                         token_signature_psk: "".to_string(),
+                        healthcheck_project: "".to_string(),
                     },
                     |config| config.clone(),
                 );
