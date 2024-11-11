@@ -2,7 +2,7 @@ version: "3"
 services:
   adventskalender_database:
     container_name: adventskalender_database
-    image: postgres:16
+    image: postgres:17
     volumes:
       - ./.volumes/postgres_data:/var/lib/postgresql/data:rw
     environment:
