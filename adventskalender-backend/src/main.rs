@@ -1,4 +1,3 @@
-use std::time::Duration;
 use adventskalender_backend::rocket_cors::AllowedOrigins;
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
@@ -6,6 +5,7 @@ use diesel::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 use log::LevelFilter;
 use rocket::config::{Shutdown, Sig};
+use std::time::Duration;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 

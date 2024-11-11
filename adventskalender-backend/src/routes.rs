@@ -4,11 +4,10 @@ use crate::models::User;
 use crate::Action;
 use chrono::{DateTime, NaiveDate};
 use rocket::http::Status;
-use rocket::serde::json::Json;
+use rocket::serde::json::{json, Json};
 use rocket::{delete, get, post, put, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use healthchecks::ping::get_client;
 
 #[derive(Serialize)]
 pub struct ParticipantCount {
@@ -1036,6 +1035,40 @@ pub struct HealthCheck {
     pub backend_healthy: bool,
 }
 
+pub fn notify_service_up(project_uuid: &str) {
+    use healthchecks::ping::get_client;
+    use log::error;
+
+    match get_client(project_uuid) {
+        Ok(client) => {
+            if !client.report_success() {
+                error!("Could not notify healthcheck-io about a successful health-check.");
+            }
+        }
+        Err(error) => error!(
+            "Could not notify healthcheck-io about a successful health-check. The error was: {}",
+            error
+        ),
+    };
+}
+
+pub fn notify_service_down(project_uuid: &str, error_data: &String) {
+    use healthchecks::ping::get_client;
+    use log::error;
+
+    match get_client(project_uuid) {
+        Ok(client) => {
+            if !client.report_failure_with_logs(error_data) {
+                error!("Could not notify healthcheck-io about a failed health-check.");
+            }
+        }
+        Err(error) => error!(
+            "Could not notify healthcheck-io about a failed health-check. The error was: {}",
+            error
+        ),
+    };
+}
+
 #[get("/health")]
 pub async fn check_backend_health(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
@@ -1054,18 +1087,15 @@ pub async fn check_backend_health(
                 "Could not get a connection from the database connection pool. The error was: {}",
                 error
             );
-            match get_client(&config.healthcheck_project) {
-                Ok(client) => {
-                    if !client.report_failure_with_logs("") { // TODO: data
-                        error!("Could not notify healthcheck-io about a failed health-check.");
-                    }
-                },
-                Err(error) => error!("Could not notify healthcheck-io about a failed health-check. The error was: {}", error)
-            };
-            return Ok(Json(HealthCheck {
+            let response_json = HealthCheck {
                 database_healthy: false,
                 backend_healthy: false,
-            }));
+            };
+            notify_service_down(
+                &config.healthcheck_project,
+                &json!(response_json).to_string(),
+            );
+            return Ok(Json(response_json));
         }
     };
 
@@ -1084,14 +1114,7 @@ pub async fn check_backend_health(
 
     // if the database is healthy, we can return the status immediately
     if database_is_healthy.is_ok() {
-        match get_client(&config.healthcheck_project) {
-            Ok(client) => {
-                if !client.report_success() {
-                    error!("Could not notify healthcheck-io about a successful health-check.");
-                }
-            },
-            Err(error) => error!("Could not notify healthcheck-io about a successful health-check. The error was: {}", error)
-        };
+        notify_service_up(&config.healthcheck_project);
         return Ok(Json(HealthCheck {
             database_healthy: true,
             backend_healthy: true,
@@ -1099,17 +1122,13 @@ pub async fn check_backend_health(
     }
 
     // if seems that the health check failed, indicate that by returning a 500
-    match get_client(&config.healthcheck_project) {
-        Ok(client) => {
-            if !client.report_failure_with_logs("LOG") { // TODO: the correct messages
-                error!("Could not notify healthcheck-io about a failure during the health-check.");
-            }
-        },
-        Err(error) => error!("Could not notify healthcheck-io about failure during a health-check. The error was: {}", error)
-    };
-
-    Ok(Json(HealthCheck {
+    let response_json = HealthCheck {
         database_healthy: false,
         backend_healthy: false,
-    }))
+    };
+    notify_service_down(
+        &config.healthcheck_project,
+        &json!(response_json).to_string(),
+    );
+    Ok(Json(response_json))
 }
