@@ -1,3 +1,4 @@
+use std::time::Duration;
 use adventskalender_backend::rocket_cors::AllowedOrigins;
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
@@ -158,6 +159,7 @@ async fn main() {
         diesel::r2d2::ConnectionManager::new(database_connection_url.clone());
     let db_connection_pool = r2d2::Pool::builder()
         .max_size(15)
+        .connection_timeout(Duration::from_secs(5))
         .build(db_connection_pool_manager)
         .unwrap();
     debug!("Successfully connected to the database server");
