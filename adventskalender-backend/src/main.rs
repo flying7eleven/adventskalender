@@ -64,6 +64,9 @@ fn setup_logging(logging_level: LevelFilter) {
     base_config
         .chain(file_config)
         .level_for("reqwest", LevelFilter::Off)
+        .level_for("ureq", LevelFilter::Off)
+        .level_for("r2d2", LevelFilter::Off)
+        .level_for("rustls", LevelFilter::Off)
         .level_for("want", LevelFilter::Off)
         .level_for("mio", LevelFilter::Off)
         .level_for("rocket", LevelFilter::Error)
