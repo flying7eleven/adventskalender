@@ -3,12 +3,16 @@ extern crate diesel;
 
 use crate::fairings::AdventskalenderDatabaseConnection;
 use crate::models::User;
+use chrono::{DateTime, Utc};
 use diesel::PgConnection;
 use lazy_static::lazy_static;
+use log::debug;
 use rocket::State;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::sync::{LazyLock, Mutex};
+use std::time::{Duration, Instant, SystemTime};
 
 pub mod fairings;
 pub mod guards;
@@ -22,12 +26,48 @@ lazy_static! {
     static ref TOKEN_LIFETIME_IN_SECONDS: usize = 60 * 60;
 }
 
+pub static BACKOFF_HANDLER: LazyLock<Mutex<BackoffHandler>> =
+    LazyLock::new(|| Mutex::new(BackoffHandler::default()));
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     exp: usize,
     iat: usize,
     nbf: usize,
     sub: String,
+}
+
+#[derive(Clone)]
+pub struct BackoffHandler {
+    last_call: SystemTime,
+    backoff_time: Duration,
+}
+
+impl Default for BackoffHandler {
+    fn default() -> Self {
+        BackoffHandler {
+            last_call: SystemTime::now() - Duration::from_secs(120),
+            backoff_time: Duration::from_secs(60),
+        }
+    }
+}
+
+impl BackoffHandler {
+    pub fn call<F>(&mut self, method_to_call: F)
+    where
+        F: Fn(),
+    {
+        if self.last_call + self.backoff_time < SystemTime::now() {
+            let datetime: DateTime<Utc> = self.last_call.into();
+            debug!(
+                "Calling method since the last call time was {} and the back off duration was {}s",
+                datetime.to_rfc3339(),
+                self.backoff_time.as_secs()
+            );
+            method_to_call();
+            self.last_call = SystemTime::now();
+        }
+    }
 }
 
 pub enum Action {

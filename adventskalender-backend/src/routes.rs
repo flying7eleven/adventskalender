@@ -1,7 +1,7 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
 use crate::guards::AuthenticatedUser;
 use crate::models::User;
-use crate::Action;
+use crate::{Action, BACKOFF_HANDLER};
 use chrono::{DateTime, NaiveDate};
 use rocket::http::Status;
 use rocket::serde::json::{json, Json};
@@ -872,7 +872,7 @@ pub async fn get_login_token(
                 login_information.username
             );
 
-            // just slow down the process to prevent easy checking if a user name exists or not
+            // just slow down the process to prevent easy checking if a username exists or not
             let _ = verify(
                 "some_password",
                 "$2y$12$7xMzqvnHyizkumZYpIRXheGMAqDKVo8HKtpmQSn51JUfY0N2VN4ua",
@@ -1091,10 +1091,12 @@ pub async fn check_backend_health(
                 database_healthy: false,
                 backend_healthy: false,
             };
-            notify_service_down(
-                &config.healthcheck_project,
-                &json!(response_json).to_string(),
-            );
+            BACKOFF_HANDLER.lock().unwrap().call(|| {
+                notify_service_down(
+                    &config.healthcheck_project,
+                    &json!(response_json).to_string(),
+                )
+            });
             return Ok(Json(response_json));
         }
     };
@@ -1114,7 +1116,10 @@ pub async fn check_backend_health(
 
     // if the database is healthy, we can return the status immediately
     if database_is_healthy.is_ok() {
-        notify_service_up(&config.healthcheck_project);
+        BACKOFF_HANDLER
+            .lock()
+            .unwrap()
+            .call(|| notify_service_up(&config.healthcheck_project));
         return Ok(Json(HealthCheck {
             database_healthy: true,
             backend_healthy: true,
@@ -1126,9 +1131,12 @@ pub async fn check_backend_health(
         database_healthy: false,
         backend_healthy: false,
     };
-    notify_service_down(
-        &config.healthcheck_project,
-        &json!(response_json).to_string(),
-    );
+    BACKOFF_HANDLER.lock().unwrap().call(|| {
+        notify_service_down(
+            &config.healthcheck_project,
+            &json!(response_json).to_string(),
+        )
+    });
+
     Ok(Json(response_json))
 }
