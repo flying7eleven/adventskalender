@@ -1,4 +1,3 @@
-version: "3"
 services:
   adventskalender_database:
     container_name: adventskalender_database
