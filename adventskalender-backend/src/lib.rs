@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::sync::{LazyLock, Mutex};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, SystemTime};
 
 pub mod fairings;
 pub mod guards;
@@ -27,7 +27,7 @@ lazy_static! {
 }
 
 pub static BACKOFF_HANDLER: LazyLock<Mutex<BackoffHandler>> =
-    LazyLock::new(|| Mutex::new(BackoffHandler::default()));
+    LazyLock::new(|| Mutex::new(BackoffHandler::from(Duration::from_secs(600))));
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
@@ -48,6 +48,15 @@ impl Default for BackoffHandler {
         BackoffHandler {
             last_call: SystemTime::now() - Duration::from_secs(120),
             backoff_time: Duration::from_secs(60),
+        }
+    }
+}
+
+impl From<Duration> for BackoffHandler {
+    fn from(backoff_duration: Duration) -> Self {
+        BackoffHandler {
+            last_call: SystemTime::now() - (backoff_duration * 2),
+            backoff_time: backoff_duration,
         }
     }
 }
