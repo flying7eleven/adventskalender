@@ -1052,7 +1052,7 @@ pub fn notify_service_up(project_uuid: &str) {
     };
 }
 
-pub fn notify_service_down(project_uuid: &str, error_data: &String) {
+pub fn notify_service_down(project_uuid: &str, error_data: &str) {
     use healthchecks::ping::get_client;
     use log::error;
 
