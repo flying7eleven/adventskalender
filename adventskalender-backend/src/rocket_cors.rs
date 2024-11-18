@@ -2148,11 +2148,6 @@ mod tests {
             .is_none());
     }
 
-    #[derive(Debug, Eq, PartialEq)]
-    struct MethodTest {
-        method: Method,
-    }
-
     #[test]
     fn preflight_validated_correctly() {
         let cors = make_cors_options().to_cors().expect("To not fail");

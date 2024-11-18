@@ -884,7 +884,7 @@ pub async fn get_login_token(
                 login_information.username.clone(),
                 Action::FailedLogin,
                 Some(format!(
-                    "Failed login attempt for user name '{}'",
+                    "Failed login attempt since user '{}' could not be found",
                     login_information.username.clone()
                 )),
             )
@@ -904,7 +904,10 @@ pub async fn get_login_token(
                     db_connection_pool,
                     login_information.username.clone(),
                     Action::FailedLogin,
-                    None,
+                    Some(format!(
+                        "Failed login attempt for user name '{}'",
+                        login_information.username.clone()
+                    )),
                 )
                 .await;
                 return Err(Status::Unauthorized);
@@ -916,7 +919,7 @@ pub async fn get_login_token(
         }
     }
 
-    // if we get here, the we ensured that the user is known and that the supplied password
+    // if we get here, we ensured that the user is known and that the supplied password
     // was valid, we can generate a new access token and return it to the calling party
     if let Some(token) =
         get_token_for_user(&login_information.username, &config.token_signature_psk)
@@ -925,7 +928,10 @@ pub async fn get_login_token(
             db_connection_pool,
             login_information.username.clone(),
             Action::SuccessfulLogin,
-            None,
+            Some(format!(
+                "Successfully logged in user '{}' with a token",
+                login_information.username
+            )),
         )
         .await;
         return Ok(Json(TokenResponse {
