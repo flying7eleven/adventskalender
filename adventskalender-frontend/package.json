@@ -53,6 +53,11 @@
         "@eslint/js": "^9.15.0",
         "@eslint/eslintrc": "^3.2.0"
     },
+    "overrides": {
+        "vite": {
+            "rollup": "npm:@rollup/wasm-node"
+        }
+    },
     "scripts": {
         "start": "vite",
         "preview": "vite preview",
