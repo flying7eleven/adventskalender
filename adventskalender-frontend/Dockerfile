@@ -1,9 +1,20 @@
 # the container which is used to build the website
 FROM debian:bookworm AS build
 
-# ensure we have npm/node installed in the appropiate version
-RUN apt update && \
-    apt install -y npm
+# set the variables to determin which NodeJS version will be installed
+ENV NODE_VERSION=23.2.0
+ENV NVM_DIR=/root/.nvm
+ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+
+# install nvm with node and npm
+RUN mkdir -p $NVM_DIR \
+    && apt update  \
+    && apt install -y curl git \
+    && git clone https://github.com/nvm-sh/nvm.git $NVM_DIR \
+    && . $NVM_DIR/nvm.sh \
+    && nvm install $NODE_VERSION \
+    && nvm alias default $NODE_VERSION \
+    && nvm use default
 
 # copy the source files and build the website
 COPY . /usr/src/app
