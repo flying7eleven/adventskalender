@@ -64,6 +64,8 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                     BackendConfiguration {
                         token_signature_psk: "".to_string(),
                         healthcheck_project: "".to_string(),
+                        token_issuer: "".to_string(),
+                        token_audience: vec![],
                     },
                     |config| config.clone(),
                 );

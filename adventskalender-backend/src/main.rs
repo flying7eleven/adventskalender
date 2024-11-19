@@ -144,8 +144,28 @@ async fn main() {
         return;
     }
 
+    // get the issuer for the tokens
+    let token_issuer = env::var("ADVENTSKALENDER_TOKEN_ISSUER").unwrap_or("".to_string());
+    if token_issuer.is_empty() {
+        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_TOKEN_ISSUER is set properly");
+        return;
+    }
+
+    // get the audience for the token
+    let token_audience_str = env::var("ADVENTSKALENDER_TOKEN_AUDIENCE").unwrap_or("".to_string());
+    if token_issuer.is_empty() {
+        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_TOKEN_AUDIENCE is set properly");
+        return;
+    }
+    let token_audience_vector = token_audience_str
+        .split(',')
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>();
+
     let backend_config = BackendConfiguration {
         token_signature_psk: token_signature_psk.to_string(),
+        token_audience: token_audience_vector,
+        token_issuer: token_issuer.to_string(),
         healthcheck_project: healthcheck_io_project.to_string(),
     };
 

@@ -35,6 +35,8 @@ struct Claims {
     iat: usize,
     nbf: usize,
     sub: String,
+    iss: String,
+    aud: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -229,7 +231,12 @@ pub fn log_action(
     };
 }
 
-pub fn get_token_for_user(subject: &str, signature_psk: &String) -> Option<String> {
+pub fn get_token_for_user(
+    subject: &str,
+    audience: Vec<String>,
+    issuer: String,
+    signature_psk: &String,
+) -> Option<String> {
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
     use log::error;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -255,6 +262,8 @@ pub fn get_token_for_user(subject: &str, signature_psk: &String) -> Option<Strin
         iat: token_issued_at,
         nbf: token_issued_at + 1,
         sub: subject.to_owned(),
+        iss: issuer,
+        aud: audience,
     };
 
     // get the signing key for the token

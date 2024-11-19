@@ -5,8 +5,12 @@ use diesel::PgConnection;
 pub struct BackendConfiguration {
     /// The pre-shared-key which is used to sign and validate the generated token.
     pub token_signature_psk: String,
-    /// The UUID used for the health check on  healthcheck.io
+    /// The UUID used for the health check on  healthcheck.io.
     pub healthcheck_project: String,
+    /// The issuer of the token (the URL of the API).
+    pub token_issuer: String,
+    /// A list of URLs which represent the audience for this token.
+    pub token_audience: Vec<String>,
 }
 
 /// TODO

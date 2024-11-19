@@ -921,9 +921,12 @@ pub async fn get_login_token(
 
     // if we get here, we ensured that the user is known and that the supplied password
     // was valid, we can generate a new access token and return it to the calling party
-    if let Some(token) =
-        get_token_for_user(&login_information.username, &config.token_signature_psk)
-    {
+    if let Some(token) = get_token_for_user(
+        &login_information.username,
+        config.token_audience.clone(),
+        config.token_issuer.clone(),
+        &config.token_signature_psk,
+    ) {
         log_action_rocket(
             db_connection_pool,
             login_information.username.clone(),
