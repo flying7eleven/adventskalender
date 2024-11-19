@@ -16,6 +16,16 @@ number of people are randomly selected for a day as winners.
 ## Get an access token for the backend
 Just use `curl --verbose --header "Content-Type: application/json" --request POST --data '{"username":"demouser","password":"demopassword"}'  http://localhost:5479/auth/token` for getting a corresponding token
 
+## Generate the public / private key pairs for signing the tokens
+```shell
+cd key_generation
+python3 -mvenv venv
+source venv/bin/activate
+pip install -r requirements.txt
+openssl genrsa -out keypair.pem 4096
+python3 generate_key.py
+```
+
 ## Things still to do
 - [ ] _Backend_: Ensure that there can not be two parallel requests for picking winners (we have to use mutexes here)
 - [ ] _Backend_: Use the new string formatting literals as soon as rust 1.58 is stable (should be mid-January 2022)

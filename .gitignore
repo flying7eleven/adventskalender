@@ -2,9 +2,14 @@
 .idea/
 .volumes/
 target/
+venv/
 *~
+*.swp
 *.tmp
 *.log
+*.pem
+jwks.json
+private_key.json
 real_data.sql
 security.txt
 public_key.gpg
