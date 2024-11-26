@@ -9,6 +9,7 @@ use lazy_static::lazy_static;
 use log::debug;
 use rocket::State;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::sync::{LazyLock, Mutex};
@@ -36,7 +37,7 @@ struct Claims {
     nbf: usize,
     sub: String,
     iss: String,
-    aud: Vec<String>,
+    aud: HashSet<String>,
 }
 
 #[derive(Clone)]
@@ -233,7 +234,7 @@ pub fn log_action(
 
 pub fn get_token_for_user(
     subject: &str,
-    audience: Vec<String>,
+    audience: HashSet<String>,
     issuer: String,
     signature_psk: &String,
 ) -> Option<String> {

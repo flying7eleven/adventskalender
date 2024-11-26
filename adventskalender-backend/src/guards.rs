@@ -53,22 +53,24 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                     ));
                 }
 
-                // specify the parameter for the validation of the token
-                let mut validation_parameter = Validation::new(Algorithm::HS512);
-                validation_parameter.leeway = 5; // allow a time difference of max. 5 seconds
-                validation_parameter.validate_exp = true;
-                validation_parameter.validate_nbf = true;
-
                 // get the current backend configuration for the token signature psk
                 let backend_config = request.rocket().state::<BackendConfiguration>().map_or(
                     BackendConfiguration {
                         token_signature_psk: "".to_string(),
                         healthcheck_project: "".to_string(),
                         token_issuer: "".to_string(),
-                        token_audience: vec![],
+                        token_audience: [].into(),
                     },
                     |config| config.clone(),
                 );
+
+                // specify the parameter for the validation of the token
+                let mut validation_parameter = Validation::new(Algorithm::HS512);
+                validation_parameter.leeway = 5; // allow a time difference of max. 5 seconds
+                validation_parameter.validate_exp = true;
+                validation_parameter.validate_nbf = true;
+                validation_parameter.validate_aud = true;
+                validation_parameter.aud = Some(backend_config.token_audience.clone());
 
                 // get the 'validation' key for the token
                 let decoding_key =

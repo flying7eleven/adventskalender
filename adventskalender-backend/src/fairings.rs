@@ -1,5 +1,6 @@
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use diesel::PgConnection;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct BackendConfiguration {
@@ -10,7 +11,7 @@ pub struct BackendConfiguration {
     /// The issuer of the token (the URL of the API).
     pub token_issuer: String,
     /// A list of URLs which represent the audience for this token.
-    pub token_audience: Vec<String>,
+    pub token_audience: HashSet<String>,
 }
 
 /// TODO

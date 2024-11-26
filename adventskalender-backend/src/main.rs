@@ -5,6 +5,7 @@ use diesel::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 use log::LevelFilter;
 use rocket::config::{Shutdown, Sig};
+use std::collections::HashSet;
 use std::time::Duration;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
@@ -157,14 +158,14 @@ async fn main() {
         error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_TOKEN_AUDIENCE is set properly");
         return;
     }
-    let token_audience_vector = token_audience_str
+    let token_audience_hash_set = token_audience_str
         .split(',')
         .map(|s| s.to_string())
-        .collect::<Vec<String>>();
+        .collect::<HashSet<String>>();
 
     let backend_config = BackendConfiguration {
         token_signature_psk: token_signature_psk.to_string(),
-        token_audience: token_audience_vector,
+        token_audience: token_audience_hash_set,
         token_issuer: token_issuer.to_string(),
         healthcheck_project: healthcheck_io_project.to_string(),
     };
