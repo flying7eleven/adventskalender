@@ -1,11 +1,13 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
 use crate::guards::AuthenticatedUser;
 use crate::models::User;
+use crate::rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use crate::{Action, BACKOFF_HANDLER};
 use chrono::{DateTime, NaiveDate};
-use rocket::http::Status;
+use rocket::http::{Method, Status};
+use rocket::response::Responder;
 use rocket::serde::json::{json, Json};
-use rocket::{delete, get, post, put, State};
+use rocket::{delete, get, options, post, put, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -17,6 +19,28 @@ pub struct ParticipantCount {
     pub number_of_participants_won: u16,
     /// The number of participants who are still in the raffle since they didn't win so far.
     pub number_of_participants_still_in_raffle: u16,
+}
+
+pub fn cors_options() -> CorsOptions {
+    let allowed_origins = AllowedOrigins::some_exact(&["http://localhost:5173"]);
+
+    CorsOptions {
+        allowed_origins,
+        allowed_methods: vec![Method::Get].into_iter().map(From::from).collect(),
+        allowed_headers: AllowedHeaders::all(), // AllowedHeaders::some(&["Authorization", "Accept"]),
+        allow_credentials: true,
+        ..Default::default()
+    }
+}
+
+#[options("/participants/count")]
+pub async fn get_number_of_participants_who_already_won_options<'r, 'o: 'r>(
+) -> impl Responder<'r, 'o> {
+    let mut options = cors_options();
+    options.allowed_methods = vec![Method::Get].into_iter().map(From::from).collect();
+
+    let cors = options.to_cors()?;
+    cors.respond_owned(|guard| guard.responder(()))
 }
 
 #[get("/participants/count")]
@@ -201,6 +225,18 @@ pub async fn get_won_participants_on_day(
         return Ok(result);
     }
     Err(())
+}
+
+#[options("/participants/won")]
+pub async fn participants_won_options<'r, 'o: 'r>() -> impl Responder<'r, 'o> {
+    let mut options = cors_options();
+    options.allowed_methods = vec![Method::Get, Method::Delete]
+        .into_iter()
+        .map(From::from)
+        .collect();
+
+    let cors = options.to_cors()?;
+    cors.respond_owned(|guard| guard.responder(()))
 }
 
 #[delete("/participants/won/<participant_id>")]
@@ -812,6 +848,15 @@ pub struct LoginInformation {
 pub struct TokenResponse {
     /// The access token to use for API requests.
     access_token: String,
+}
+
+#[options("/auth/token")]
+pub async fn get_login_token_options<'r, 'o: 'r>() -> impl Responder<'r, 'o> {
+    let mut options = cors_options();
+    options.allowed_methods = vec![Method::Post].into_iter().map(From::from).collect();
+
+    let cors = options.to_cors()?;
+    cors.respond_owned(|guard| guard.responder(()))
 }
 
 #[post("/auth/token", data = "<login_information>")]

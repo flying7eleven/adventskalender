@@ -1,14 +1,18 @@
 use adventskalender_backend::rocket_cors::AllowedOrigins;
+use adventskalender_backend::routes::{
+    get_login_token_options, get_number_of_participants_who_already_won_options,
+    participants_won_options,
+};
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
 use diesel::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};
+use jsonwebtoken::{DecodingKey, EncodingKey};
 use log::LevelFilter;
+use ring::signature::Ed25519KeyPair;
 use rocket::config::{Shutdown, Sig};
 use std::collections::HashSet;
 use std::time::Duration;
-use jsonwebtoken::{DecodingKey, EncodingKey};
-use ring::signature::Ed25519KeyPair;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
@@ -159,10 +163,13 @@ async fn main() {
 
     // on server startup generate a new Ed25519 key pair for signing the token; this will automatically invalidate
     // all previously signed token on server restart
-    let ed25519_key_pair = match Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new())  {
+    let ed25519_key_pair = match Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new()) {
         Ok(key_pair) => key_pair,
         Err(error) => {
-            error!("Failed to generate Ed25519 key pair. The error was: {}", error);
+            error!(
+                "Failed to generate Ed25519 key pair. The error was: {}",
+                error
+            );
             return;
         }
     };
@@ -284,8 +291,11 @@ async fn main() {
             "/v1",
             routes![
                 get_login_token,
+                get_login_token_options,
                 get_number_of_participants_who_already_won,
+                get_number_of_participants_who_already_won_options,
                 pick_multiple_random_participant_from_raffle_list,
+                participants_won_options,
                 get_all_won_participants,
                 count_won_participants_on_day,
                 update_participant_values,

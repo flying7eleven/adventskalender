@@ -5,6 +5,7 @@ use crate::fairings::AdventskalenderDatabaseConnection;
 use crate::models::User;
 use chrono::{DateTime, Utc};
 use diesel::PgConnection;
+use jsonwebtoken::EncodingKey;
 use lazy_static::lazy_static;
 use log::debug;
 use rocket::State;
@@ -14,7 +15,6 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
-use jsonwebtoken::EncodingKey;
 
 pub mod fairings;
 pub mod guards;

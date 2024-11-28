@@ -1,7 +1,7 @@
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use diesel::PgConnection;
-use std::collections::HashSet;
 use jsonwebtoken::{DecodingKey, EncodingKey};
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct BackendConfiguration {
