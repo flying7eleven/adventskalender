@@ -925,7 +925,7 @@ pub async fn get_login_token(
         &login_information.username,
         config.token_audience.clone(),
         config.token_issuer.clone(),
-        &config.token_signature_psk,
+        &config.encoding_key.clone().unwrap(),
     ) {
         log_action_rocket(
             db_connection_pool,

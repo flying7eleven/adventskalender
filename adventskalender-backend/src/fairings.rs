@@ -1,11 +1,14 @@
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use diesel::PgConnection;
 use std::collections::HashSet;
+use jsonwebtoken::{DecodingKey, EncodingKey};
 
 #[derive(Clone)]
 pub struct BackendConfiguration {
-    /// The pre-shared-key which is used to sign and validate the generated token.
-    pub token_signature_psk: String,
+    /// The key which is used to encode a token signature.
+    pub encoding_key: Option<EncodingKey>,
+    /// The key which is used to decode a token signature.
+    pub decoding_key: Option<DecodingKey>,
     /// The UUID used for the health check on  healthcheck.io.
     pub healthcheck_project: String,
     /// The issuer of the token (the URL of the API).

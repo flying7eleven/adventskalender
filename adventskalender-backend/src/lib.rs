@@ -14,6 +14,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
+use jsonwebtoken::EncodingKey;
 
 pub mod fairings;
 pub mod guards;
@@ -236,9 +237,9 @@ pub fn get_token_for_user(
     subject: &str,
     audience: HashSet<String>,
     issuer: String,
-    signature_psk: &String,
+    encoding_key: &EncodingKey,
 ) -> Option<String> {
-    use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+    use jsonwebtoken::{encode, Algorithm, Header};
     use log::error;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -267,13 +268,10 @@ pub fn get_token_for_user(
         aud: audience,
     };
 
-    // get the signing key for the token
-    let encoding_key = EncodingKey::from_secret(signature_psk.as_ref());
-
     // generate a new JWT for the supplied header and token claims. if we were successful, return
     // the token
-    let header = Header::new(Algorithm::HS512);
-    if let Ok(token) = encode(&header, &token_claims, &encoding_key) {
+    let header = Header::new(Algorithm::EdDSA);
+    if let Ok(token) = encode(&header, &token_claims, encoding_key) {
         return Some(token);
     }
 

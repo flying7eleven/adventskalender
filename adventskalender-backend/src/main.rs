@@ -7,6 +7,8 @@ use log::LevelFilter;
 use rocket::config::{Shutdown, Sig};
 use std::collections::HashSet;
 use std::time::Duration;
+use jsonwebtoken::{DecodingKey, EncodingKey};
+use ring::signature::Ed25519KeyPair;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
@@ -129,14 +131,6 @@ async fn main() {
         return;
     }
 
-    // get the psk for the token signature
-    let token_signature_psk =
-        env::var("ADVENTSKALENDER_TOKEN_SIGNATURE_PSK").unwrap_or("".to_string());
-    if token_signature_psk.is_empty() {
-        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_TOKEN_SIGNATURE_PSK is set properly");
-        return;
-    }
-
     // get the project UUID for the health check
     let healthcheck_io_project =
         env::var("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT").unwrap_or("".to_string());
@@ -163,8 +157,21 @@ async fn main() {
         .map(|s| s.to_string())
         .collect::<HashSet<String>>();
 
+    // on server startup generate a new Ed25519 key pair for signing the token; this will automatically invalidate
+    // all previously signed token on server restart
+    let ed25519_key_pair = match Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new())  {
+        Ok(key_pair) => key_pair,
+        Err(error) => {
+            error!("Failed to generate Ed25519 key pair. The error was: {}", error);
+            return;
+        }
+    };
+    let decoding_key = DecodingKey::from_ed_der(ed25519_key_pair.as_ref());
+    let encoding_key = EncodingKey::from_ed_der(ed25519_key_pair.as_ref());
+
     let backend_config = BackendConfiguration {
-        token_signature_psk: token_signature_psk.to_string(),
+        encoding_key: Some(encoding_key),
+        decoding_key: Some(decoding_key),
         token_audience: token_audience_hash_set,
         token_issuer: token_issuer.to_string(),
         healthcheck_project: healthcheck_io_project.to_string(),

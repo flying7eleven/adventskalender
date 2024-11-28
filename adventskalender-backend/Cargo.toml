@@ -67,10 +67,16 @@ features = ["std"]
 [dependencies.jsonwebtoken]
 version = "9.3.0"
 default-features = false
+features = ["use_pem"]
 
 [dependencies.regex]
 version = "1.11.1"
 default-features = false
+
+[dependencies.ring]
+version = "0.17.8"
+default-features = false
+features = ["std"]
 
 [dependencies.unicase]
 version = "2.8.0"

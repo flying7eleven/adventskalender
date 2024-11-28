@@ -8,7 +8,6 @@
       <env name="ADVENTSKALENDER_LOGGING_LEVEL" value="trace" />
       <env name="ADVENTSKALENDER_TOKEN_AUDIENCE" value="http://localhost:5173,http://localhost:8080/api" />
       <env name="ADVENTSKALENDER_TOKEN_ISSUER" value="http://localhost:5479/v1" />
-      <env name="ADVENTSKALENDER_TOKEN_SIGNATURE_PSK" value="tokenpsk" />
     </envs>
     <option name="emulateTerminal" value="true" />
     <option name="channel" value="DEFAULT" />

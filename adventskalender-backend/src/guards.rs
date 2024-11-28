@@ -15,6 +15,8 @@ pub enum AuthorizationError {
     MalformedAuthorizationHeader,
     /// It seems that the supplied token is not valid (e.g. signature validation failed)
     InvalidToken,
+    /// It seems that we failed to validate the token (e.g. we do not know if the token is valid or not)
+    CannotValidateToken,
 }
 
 #[rocket::async_trait]
@@ -26,7 +28,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
     ) -> Outcome<AuthenticatedUser, AuthorizationError> {
         use crate::fairings::BackendConfiguration;
         use crate::Claims;
-        use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+        use jsonwebtoken::{decode, Algorithm, Validation};
         use log::error;
         use rocket::http::Status;
 
@@ -56,7 +58,8 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                 // get the current backend configuration for the token signature psk
                 let backend_config = request.rocket().state::<BackendConfiguration>().map_or(
                     BackendConfiguration {
-                        token_signature_psk: "".to_string(),
+                        encoding_key: None,
+                        decoding_key: None,
                         healthcheck_project: "".to_string(),
                         token_issuer: "".to_string(),
                         token_audience: [].into(),
@@ -65,21 +68,17 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                 );
 
                 // specify the parameter for the validation of the token
-                let mut validation_parameter = Validation::new(Algorithm::HS512);
+                let mut validation_parameter = Validation::new(Algorithm::EdDSA);
                 validation_parameter.leeway = 5; // allow a time difference of max. 5 seconds
                 validation_parameter.validate_exp = true;
                 validation_parameter.validate_nbf = true;
                 validation_parameter.validate_aud = true;
                 validation_parameter.aud = Some(backend_config.token_audience.clone());
 
-                // get the 'validation' key for the token
-                let decoding_key =
-                    DecodingKey::from_secret(backend_config.token_signature_psk.as_ref());
-
                 // verify the validity of the token supplied in the header
                 let decoded_token = match decode::<Claims>(
                     authorization_information[1],
-                    &decoding_key,
+                    &backend_config.decoding_key.unwrap(),
                     &validation_parameter,
                 ) {
                     Ok(token) => token,
@@ -97,9 +96,9 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
 
                 // if we reach this step, the validation was successful, and we can allow the user to
                 // call the route
-                return Outcome::Success(AuthenticatedUser {
+                Outcome::Success(AuthenticatedUser {
                     username: decoded_token.claims.sub,
-                });
+                })
             }
             _ => {
                 error!("No authorization header could be found for an authenticated route!");
