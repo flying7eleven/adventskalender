@@ -1,7 +1,7 @@
 use adventskalender_backend::rocket_cors::AllowedOrigins;
 use adventskalender_backend::routes::{
     get_login_token_options, get_number_of_participants_who_already_won_options,
-    participants_won_options,
+    get_openid_configuration, participants_won_options,
 };
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
@@ -127,6 +127,13 @@ async fn main() {
         env!("VERGEN_RUSTC_SEMVER")
     );
 
+    // get the API base host
+    let api_host = env::var("ADVENTSKALENDER_API_HOST").unwrap_or("".to_string());
+    if api_host.is_empty() {
+        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_API_HOST is set properly");
+        return;
+    }
+
     // get the configuration for the database server and terminate if something is missing
     let database_connection_url =
         env::var("ADVENTSKALENDER_DB_CONNECTION").unwrap_or("".to_string());
@@ -143,16 +150,9 @@ async fn main() {
         return;
     }
 
-    // get the issuer for the tokens
-    let token_issuer = env::var("ADVENTSKALENDER_TOKEN_ISSUER").unwrap_or("".to_string());
-    if token_issuer.is_empty() {
-        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_TOKEN_ISSUER is set properly");
-        return;
-    }
-
     // get the audience for the token
     let token_audience_str = env::var("ADVENTSKALENDER_TOKEN_AUDIENCE").unwrap_or("".to_string());
-    if token_issuer.is_empty() {
+    if token_audience_str.is_empty() {
         error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_TOKEN_AUDIENCE is set properly");
         return;
     }
@@ -177,10 +177,10 @@ async fn main() {
     let encoding_key = EncodingKey::from_ed_der(ed25519_key_pair.as_ref());
 
     let backend_config = BackendConfiguration {
+        api_host: api_host,
         encoding_key: Some(encoding_key),
         decoding_key: Some(decoding_key),
         token_audience: token_audience_hash_set,
-        token_issuer: token_issuer.to_string(),
         healthcheck_project: healthcheck_io_project.to_string(),
     };
 
@@ -287,6 +287,7 @@ async fn main() {
         .attach(cors_header)
         .manage(backend_config)
         .manage(AdventskalenderDatabaseConnection::from(db_connection_pool))
+        .mount("/.well-known", routes![get_openid_configuration])
         .mount(
             "/v1",
             routes![

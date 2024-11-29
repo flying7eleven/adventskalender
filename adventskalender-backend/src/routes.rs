@@ -10,6 +10,7 @@ use rocket::serde::json::{json, Json};
 use rocket::{delete, get, options, post, put, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use url::Url;
 
 #[derive(Serialize)]
 pub struct ParticipantCount {
@@ -19,6 +20,18 @@ pub struct ParticipantCount {
     pub number_of_participants_won: u16,
     /// The number of participants who are still in the raffle since they didn't win so far.
     pub number_of_participants_still_in_raffle: u16,
+}
+
+/// See https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata for more
+#[derive(Serialize)]
+pub struct OpenIdConfiguration {
+    pub issuer: String,
+    pub authorization_endpoint: String,
+    pub token_endpoint: String, // TODO: only if using implicit flow
+    pub jwks_uri: String,
+    pub response_types_supported: Vec<String>,
+    pub subject_types_supported: Vec<String>,
+    pub id_token_signing_alg_values_supported: Vec<String>,
 }
 
 pub fn cors_options() -> CorsOptions {
@@ -31,6 +44,33 @@ pub fn cors_options() -> CorsOptions {
         allow_credentials: true,
         ..Default::default()
     }
+}
+
+#[get("/openid-configuration")]
+pub async fn get_openid_configuration(
+    config: &State<BackendConfiguration>,
+) -> Result<Json<OpenIdConfiguration>, Status> {
+    Ok(Json(OpenIdConfiguration {
+        issuer: config.api_host.clone(),
+        authorization_endpoint: Url::parse(config.api_host.as_str())
+            .unwrap()
+            .join("/foo")
+            .unwrap()
+            .to_string(),
+        token_endpoint: Url::parse(config.api_host.as_str())
+            .unwrap()
+            .join("/foo")
+            .unwrap()
+            .to_string(), // TODO: only if using implicit flow
+        jwks_uri: Url::parse(config.api_host.as_str())
+            .unwrap()
+            .join("/.well-known/jwks.json")
+            .unwrap()
+            .to_string(),
+        response_types_supported: vec![],
+        subject_types_supported: vec![],
+        id_token_signing_alg_values_supported: vec!["RS256".to_string(), "EdDSA".to_string()],
+    }))
 }
 
 #[options("/participants/count")]
@@ -969,7 +1009,7 @@ pub async fn get_login_token(
     if let Some(token) = get_token_for_user(
         &login_information.username,
         config.token_audience.clone(),
-        config.token_issuer.clone(),
+        "".to_string(), // TODO: set the correct token issuer
         &config.encoding_key.clone().unwrap(),
     ) {
         log_action_rocket(

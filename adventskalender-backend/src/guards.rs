@@ -58,10 +58,10 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                 // get the current backend configuration for the token signature psk
                 let backend_config = request.rocket().state::<BackendConfiguration>().map_or(
                     BackendConfiguration {
+                        api_host: "".to_string(),
                         encoding_key: None,
                         decoding_key: None,
                         healthcheck_project: "".to_string(),
-                        token_issuer: "".to_string(),
                         token_audience: [].into(),
                     },
                     |config| config.clone(),
