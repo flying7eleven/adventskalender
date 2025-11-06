@@ -21,6 +21,27 @@ export default defineConfig(() => {
                 },
             }),
             viteTsconfigPaths(),
+            // Add security headers in development mode
+            {
+                name: 'security-headers',
+                configureServer(server) {
+                    server.middlewares.use((req, res, next) => {
+                        // Prevent MIME type sniffing
+                        res.setHeader('X-Content-Type-Options', 'nosniff');
+
+                        // Prevent clickjacking by disallowing embedding in frames
+                        res.setHeader('X-Frame-Options', 'DENY');
+
+                        // Enable XSS protection in older browsers (header is deprecated but still useful for legacy browsers)
+                        res.setHeader('X-XSS-Protection', '1; mode=block');
+
+                        // Control referrer information sent with requests
+                        res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+                        next();
+                    });
+                },
+            },
         ],
     };
 });
