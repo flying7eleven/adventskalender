@@ -292,6 +292,19 @@ async fn main() {
         )),
     );
 
+    // spawn background task for rate limiter cleanup
+    rocket::tokio::spawn(async {
+        use adventskalender_backend::rate_limiter::{cleanup_old_entries, RateLimitConfig};
+        use log::debug;
+
+        let config = RateLimitConfig::default();
+        loop {
+            rocket::tokio::time::sleep(std::time::Duration::from_secs(300)).await; // 5 minutes
+            debug!("Running rate limiter cleanup task");
+            cleanup_old_entries(&config);
+        }
+    });
+
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");
     let _ = rocket::custom(rocket_configuration_figment)

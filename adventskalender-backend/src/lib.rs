@@ -19,6 +19,7 @@ use std::time::{Duration, SystemTime};
 pub mod fairings;
 pub mod guards;
 pub mod models;
+pub mod rate_limiter;
 pub mod rocket_cors;
 pub mod routes;
 mod schema;

@@ -902,13 +902,34 @@ pub async fn get_login_token(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     login_information: Json<LoginInformation>,
     config: &State<BackendConfiguration>,
+    remote_addr: Option<std::net::SocketAddr>,
 ) -> Result<Json<TokenResponse>, Status> {
     use crate::get_token_for_user;
     use crate::log_action_rocket;
+    use crate::rate_limiter::{is_rate_limited, reset_rate_limit, RateLimitConfig};
     use crate::schema::users::dsl::{username, users};
     use bcrypt::verify;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-    use log::error;
+    use log::{error, warn};
+
+    let rate_limit_config = RateLimitConfig::default();
+
+    if let Some(addr) = remote_addr {
+        let ip_key = format!("ip:{}", addr.ip());
+        if is_rate_limited(&ip_key, &rate_limit_config) {
+            warn!("Rate limit exceeded for IP: {}", addr.ip());
+            return Err(Status::TooManyRequests);
+        }
+    }
+
+    let username_key = format!("user:{}", login_information.username);
+    if is_rate_limited(&username_key, &rate_limit_config) {
+        warn!(
+            "Rate limit exceeded for username: {}",
+            login_information.username
+        );
+        return Err(Status::TooManyRequests);
+    }
 
     // get a connection to the database for dealing with the request
     let db_connection = &mut match db_connection_pool.get() {
@@ -1010,6 +1031,11 @@ pub async fn get_login_token(
         config.api_host.clone(),
         &config.encoding_key.clone().unwrap(),
     ) {
+        if let Some(addr) = remote_addr {
+            reset_rate_limit(&format!("ip:{}", addr.ip()));
+        }
+        reset_rate_limit(&format!("user:{}", login_information.username));
+
         log_action_rocket(
             db_connection_pool,
             login_information.username.clone(),
