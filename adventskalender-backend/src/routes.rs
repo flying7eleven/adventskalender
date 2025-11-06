@@ -37,7 +37,11 @@ pub struct OpenIdConfiguration {
 }
 
 pub fn cors_options() -> CorsOptions {
-    let allowed_origins = AllowedOrigins::some_exact(&["http://localhost:5173"]);
+    // Use AllowedOrigins::all() for OPTIONS handlers since the actual CORS validation
+    // is performed by the global CORS fairing attached in main.rs which reads from
+    // ADVENTSKALENDER_CORS_ORIGINS environment variable. The OPTIONS handlers just need
+    // to respond to preflight requests without being overly restrictive.
+    let allowed_origins = AllowedOrigins::all();
 
     CorsOptions {
         allowed_origins,
