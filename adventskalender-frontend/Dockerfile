@@ -1,32 +1,42 @@
-# the container which is used to build the website
-FROM debian:bookworm AS build
+# Build stage using official Node.js image
+FROM node:23.2.0-bookworm-slim AS build
 
-# set the variables to determin which NodeJS version will be installed
-ENV NODE_VERSION=23.2.0
-ENV NVM_DIR=/root/.nvm
-ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-
-# install nvm with node and npm
-RUN mkdir -p $NVM_DIR \
-    && apt update  \
-    && apt install -y curl git \
-    && git clone https://github.com/nvm-sh/nvm.git $NVM_DIR \
-    && . $NVM_DIR/nvm.sh \
-    && nvm install $NODE_VERSION \
-    && nvm alias default $NODE_VERSION \
-    && nvm use default
-
-# copy the source files and build the website
-COPY . /usr/src/app
+# Set working directory
 WORKDIR /usr/src/app
+
+# Copy package files first for better layer caching
+# This allows Docker to cache npm install if dependencies haven't changed
+COPY package*.json ./
+
+# Install dependencies with clean install for reproducible builds
+# --omit=dev is not used because build requires devDependencies (TypeScript, Vite, etc.)
 RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build the application
+# Vite will output to 'build' directory (or 'dist' - adjust if needed)
 RUN npm run build
 
-# configure the acutal container for running the backend
-FROM nginx:latest
+# Runtime stage using minimal nginx alpine image
+FROM nginx:1.27-alpine
 
-# modify the configuration for the server to be able to be used with React and React Router DOM
+# Install dumb-init for proper signal handling (optional but recommended)
+RUN apk add --no-cache dumb-init
+
+# Copy custom nginx configuration
 COPY docker/default.conf /etc/nginx/conf.d/default.conf
 
-# copy the files for running the container
-COPY --from=build --chown=1001 /usr/src/app/build /usr/share/nginx/html
+# Copy built static files from build stage
+# Note: nginx master process runs as root, worker processes as nginx user
+COPY --from=build /usr/src/app/build /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+# Start nginx in foreground
+CMD ["nginx", "-g", "daemon off;"]
