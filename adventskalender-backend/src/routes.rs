@@ -406,6 +406,31 @@ pub async fn update_user_password(
         return Status::UnprocessableEntity;
     }
 
+    // validate password strength using the passwords crate
+    use passwords::analyzer;
+    use passwords::scorer;
+
+    // enforce minimum length of 8 characters
+    if new_password.first_time.len() < 8 {
+        debug!("Password rejected: too short (minimum 8 characters)");
+        return Status::UnprocessableEntity;
+    }
+
+    // analyze password strength
+    let analyzed = analyzer::analyze(&new_password.first_time);
+    let score = scorer::score(&analyzed);
+
+    // require a minimum score of ~40 (roughly equivalent to zxcvbn score of 2)
+    // the passwords crate scores 0-100, zxcvbn scores 0-4
+    // score ~40 represents "Fair" strength
+    if score < 40.0 {
+        debug!(
+            "Password rejected: too weak (score: {}, minimum required: 40)",
+            score
+        );
+        return Status::UnprocessableEntity;
+    }
+
     // create a hashed version of the password which we then can store in the database. if we fail, we
     // return an error
     let maybe_hashed_password = hash(&new_password.first_time, 10);

@@ -6,6 +6,8 @@ import { LocalizationContext } from '../../provider/LocalizationContext';
 import { API_BACKEND_URL } from '../../api';
 import { PasswordChangedDialog } from '../../dialogs/PasswordChangedDialog';
 import { PasswordNotChangedDialog } from '../../dialogs/PasswordNotChangedDialog';
+import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
+import zxcvbn from 'zxcvbn';
 
 export const SettingsView = () => {
     const localizationContext = useContext(LocalizationContext);
@@ -15,10 +17,18 @@ export const SettingsView = () => {
     const [isPasswordChangeFailedDialogOpen, setIsPasswordChangeFailedDialogOpen] = useState<boolean>(false);
     const [isPasswordNotEqualFirst, setIsPasswordNotEqualFirst] = useState<boolean>(false);
     const [isPasswordNotEqualSecond, setIsPasswordNotEqualSecond] = useState<boolean>(false);
+    const [passwordStrength, setPasswordStrength] = useState<number>(0);
 
     const handleChangeOfFirstPassword = (event: ChangeEvent<HTMLInputElement>) => {
-        setFirstPassword(event.target.value);
-        if (event.target.value.length < 8) {
+        const newPassword = event.target.value;
+        setFirstPassword(newPassword);
+
+        // Calculate password strength using zxcvbn
+        const result = zxcvbn(newPassword);
+        setPasswordStrength(result.score);
+
+        // Enforce minimum strength of 2 (Fair) or minimum length of 8
+        if (newPassword.length > 0 && (newPassword.length < 8 || result.score < 2)) {
             setIsPasswordNotEqualFirst(true);
         } else {
             setIsPasswordNotEqualFirst(false);
@@ -35,8 +45,8 @@ export const SettingsView = () => {
     };
 
     const changePassword = () => {
-        // ensure the passwords are long enough and also exactly the same
-        if (firstPassword.length < 8 || firstPassword !== secondPassword) {
+        // ensure the passwords are long enough, strong enough, and exactly the same
+        if (firstPassword.length < 8 || passwordStrength < 2 || firstPassword !== secondPassword) {
             return;
         }
 
@@ -91,6 +101,7 @@ export const SettingsView = () => {
                                         onChange={handleChangeOfFirstPassword}
                                         error={isPasswordNotEqualFirst}
                                     />
+                                    <PasswordStrengthMeter password={firstPassword} />
                                     <TextField
                                         id={'second-password-input'}
                                         label={localizationContext.translate('settings.cards.password.labels.password_repeated')}
@@ -100,7 +111,12 @@ export const SettingsView = () => {
                                         onChange={handleChangeOfSecondPassword}
                                         error={isPasswordNotEqualSecond}
                                     />
-                                    <Button variant="contained" disableElevation onClick={changePassword}>
+                                    <Button
+                                        variant="contained"
+                                        disableElevation
+                                        onClick={changePassword}
+                                        disabled={firstPassword.length < 8 || passwordStrength < 2 || firstPassword !== secondPassword}
+                                    >
                                         <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
                                     </Button>
                                 </Stack>

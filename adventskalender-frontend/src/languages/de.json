@@ -55,6 +55,14 @@
                 },
                 "buttons": {
                     "change": "Passwort ändern"
+                },
+                "strength": {
+                    "label": "Stärke:",
+                    "very_weak": "Sehr schwach",
+                    "weak": "Schwach",
+                    "fair": "Ausreichend",
+                    "good": "Gut",
+                    "strong": "Stark"
                 }
             }
         },
