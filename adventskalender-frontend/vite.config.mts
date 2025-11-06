@@ -6,7 +6,7 @@ import browserslistToEsbuild from 'browserslist-to-esbuild';
 export default defineConfig(() => {
     return {
         define: {
-            __BUILD_TIMESTAMP__: new Date().getTime(),
+            __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0]),
         },
         build: {
             outDir: 'build',

@@ -4,7 +4,6 @@ import { API_BACKEND_URL, VersionInformation, MAX_WINNERS_PER_DAY } from '../../
 import packageJson from '../../../package.json';
 import { Box, Card, CardContent, Divider, Link, Stack, Typography } from '@mui/material';
 import { LocalizedText } from '../../components/LocalizedText';
-import moment from 'moment';
 import { VersionInformationSchema, AuditEventCountSchema } from '../../schemas';
 
 export const VersionView = () => {
@@ -18,10 +17,7 @@ export const VersionView = () => {
     const [auditEventCount, setAuditEventCount] = useState<number>(0);
 
     const getFrontendBuildDateTimeString = () => {
-        return moment
-            .unix(__BUILD_TIMESTAMP__ / 1000)
-            .utc()
-            .format('YYYY-MM-DD HH:mm:ss');
+        return __BUILD_DATE__;
     };
 
     useEffect(() => {
