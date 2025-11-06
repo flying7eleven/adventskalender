@@ -53,7 +53,7 @@ fn setup_logging(logging_level: LevelFilter) {
     // set the corresponding logging level
     base_config = base_config.level(logging_level);
 
-    // define how a logging line should look like and attach the streams to which the output will be
+    // define what a logging line should look like and attach the streams to which the output will be
     // written to
     let file_config = fern::Dispatch::new()
         .format(|out, message, record| {
@@ -80,6 +80,82 @@ fn setup_logging(logging_level: LevelFilter) {
         .level_for("_", LevelFilter::Error)
         .apply()
         .unwrap();
+}
+
+/// Load Ed25519 key pair from a file, or generate and save a new one if it doesn't exist
+fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, String> {
+    use log::{info, warn};
+    use std::fs;
+    use std::io::Write;
+
+    // Try to load the existing key
+    if key_file_path.exists() {
+        info!("Loading existing Ed25519 key pair from {:?}", key_file_path);
+        match fs::read(key_file_path) {
+            Ok(key_bytes) => {
+                // Validate the key can be parsed
+                match Ed25519KeyPair::from_pkcs8(&key_bytes) {
+                    Ok(_) => {
+                        info!("Successfully loaded existing Ed25519 key pair");
+                        return Ok(key_bytes);
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Existing key file is invalid or corrupted: {}. Generating new key.",
+                            e
+                        );
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to read existing key file: {}. Generating new key.",
+                    e
+                );
+            }
+        }
+    }
+
+    // generate a new key
+    info!(
+        "Generating new Ed25519 key pair and saving to {:?}",
+        key_file_path
+    );
+    let key_pair_doc = match Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new()) {
+        Ok(doc) => doc,
+        Err(e) => return Err(format!("Failed to generate Ed25519 key pair: {}", e)),
+    };
+
+    // create a parent directory if it doesn't exist
+    if let Some(parent) = key_file_path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create key directory: {}", e))?;
+        }
+    }
+
+    // write key to file
+    let mut file =
+        fs::File::create(key_file_path).map_err(|e| format!("Failed to create key file: {}", e))?;
+    file.write_all(key_pair_doc.as_ref())
+        .map_err(|e| format!("Failed to write key to file: {}", e))?;
+
+    // set file permissions to 0600 (read/write for the owner only)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = file
+            .metadata()
+            .map_err(|e| format!("Failed to get file metadata: {}", e))?
+            .permissions();
+        perms.set_mode(0o600);
+        fs::set_permissions(key_file_path, perms)
+            .map_err(|e| format!("Failed to set file permissions: {}", e))?;
+        info!("Set key file permissions to 0600");
+    }
+
+    info!("Successfully generated and saved new Ed25519 key pair");
+    Ok(key_pair_doc.as_ref().to_vec())
 }
 
 #[rocket::main]
@@ -166,20 +242,23 @@ async fn main() {
         env::var("ADVENTSKALENDER_CORS_ORIGINS").unwrap_or("http://localhost:5173".to_string());
     info!("Allowed CORS origins: {}", allowed_cors_origins);
 
-    // on server startup generate a new Ed25519 key pair for signing the token; this will automatically invalidate
-    // all previously signed token on server restart
-    let ed25519_key_pair = match Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new()) {
-        Ok(key_pair) => key_pair,
+    // get the key file path for Ed25519 key persistence
+    let key_file_path_str = env::var("ADVENTSKALENDER_KEY_FILE_PATH")
+        .unwrap_or_else(|_| "/data/adventskalender_ed25519.key".to_string());
+    let key_file_path = std::path::Path::new(&key_file_path_str);
+
+    // load or generate Ed25519 key pair for signing tokens (persisted across restarts)
+    let ed25519_key_bytes = match load_or_generate_keypair(key_file_path) {
+        Ok(bytes) => bytes,
         Err(error) => {
-            error!(
-                "Failed to generate Ed25519 key pair. The error was: {}",
-                error
-            );
+            error!("Failed to load or generate Ed25519 key pair: {}", error);
             return;
         }
     };
-    let decoding_key = DecodingKey::from_ed_der(ed25519_key_pair.as_ref());
-    let encoding_key = EncodingKey::from_ed_der(ed25519_key_pair.as_ref());
+
+    // create encoding/decoding keys from the key bytes
+    let decoding_key = DecodingKey::from_ed_der(&ed25519_key_bytes);
+    let encoding_key = EncodingKey::from_ed_der(&ed25519_key_bytes);
 
     let backend_config = BackendConfiguration {
         api_host,
@@ -322,6 +401,7 @@ async fn main() {
     unset_environment_variable("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT");
     unset_environment_variable("ADVENTSKALENDER_TOKEN_AUDIENCE");
     unset_environment_variable("ADVENTSKALENDER_CORS_ORIGINS");
+    unset_environment_variable("ADVENTSKALENDER_KEY_FILE_PATH");
     debug!("Environment variable cleanup completed");
 
     // log the startup of the backend service

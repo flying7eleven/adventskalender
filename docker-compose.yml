@@ -21,10 +21,16 @@ services:
   adventskalender_backend:
     container_name: adventskalender_backend
     image: adventskalender-backend:local
+    volumes:
+      - ./.volumes/backend_keys:/data:rw
     environment:
       - ADVENTSKALENDER_LOGGING_LEVEL=trace
-      - ADVENTSKALENDER_TOKEN_SIGNATURE_PSK=tokenpsk
       - ADVENTSKALENDER_DB_CONNECTION=postgres://adventskalender:debugpassword@adventskalender_database/adventskalender
+      - ADVENTSKALENDER_API_HOST=http://localhost:5479
+      - ADVENTSKALENDER_TOKEN_AUDIENCE=http://localhost:5173,http://localhost:5615
+      - ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT=your-healthcheck-uuid-here
+      - ADVENTSKALENDER_CORS_ORIGINS=http://localhost:5173,http://localhost:5615
+      - ADVENTSKALENDER_KEY_FILE_PATH=/data/adventskalender_ed25519.key
     restart: "unless-stopped"
     depends_on:
       - adventskalender_database
