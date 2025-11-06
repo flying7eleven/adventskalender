@@ -343,7 +343,7 @@ pub async fn update_user_password(
 
     // check if the passwords are the same. If not, return an corresonding error
     if new_password.first_time.ne(&new_password.second_time) {
-        return Status::BadRequest;
+        return Status::UnprocessableEntity;
     }
 
     // create a hashed version of the password which we then can store in the database. if we fail, we
@@ -453,7 +453,7 @@ pub async fn update_participant_values(
         Ok(users) => {
             if users.len() != 1 {
                 error!("Tried to fetch the participant with the id {} from the database but got {} participants as a result", current_participant_id, users.len());
-                return Status::BadRequest;
+                return Status::NotFound;
             }
             users.first().unwrap().clone()
         }
@@ -466,7 +466,7 @@ pub async fn update_participant_values(
     //
     if participant_won.won_on.is_none() {
         error!("Tried to select a package for the participant with the id {} but the participant was not picked before", current_participant_id);
-        return Status::InternalServerError;
+        return Status::Conflict;
     }
     let date_of_win = participant_won.won_on.unwrap();
 
@@ -497,7 +497,7 @@ pub async fn update_participant_values(
     // check if the package was already assigned to another user
     if already_selected_packages.contains(&new_package_selection.package) {
         error!("Tried to select the package {} for the user {} but the package was already assigned to another user for the date of {}", new_package_selection.package, current_participant_id, date_of_win);
-        return Status::BadRequest;
+        return Status::Conflict;
     }
 
     // set the selected package for a user
