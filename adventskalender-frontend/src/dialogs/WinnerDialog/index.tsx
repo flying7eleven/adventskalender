@@ -21,6 +21,8 @@ import StepLabel from '@mui/material/StepLabel';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import moment from 'moment';
 import 'moment/dist/locale/de.js'; // german is besides english the only other supported language
+import { WinnerInformation2Schema } from '../../schemas';
+import { z } from 'zod';
 
 interface Props {
     winner: WinnerInformation[];
@@ -271,8 +273,10 @@ export const WinnerDialog = (props: Props) => {
                     // them here too
                     return Promise.reject();
                 })
-                .then((winners: WinnerInformation2[]) => {
-                    setFetchedWinners(winners);
+                .then((data) => {
+                    // Validate the response data using Zod schema
+                    const validated = z.array(WinnerInformation2Schema).parse(data);
+                    setFetchedWinners(validated);
                     setFetchError(false);
                 })
                 .catch(() => {

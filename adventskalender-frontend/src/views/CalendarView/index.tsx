@@ -4,6 +4,7 @@ import { API_BACKEND_URL, MAX_WINNERS_PER_DAY } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { WinnerCard } from '../../components/WinnerCard';
+import { WinnersOnDateMapSchema } from '../../schemas';
 
 export const CalendarView = () => {
     const [allWinners, setAllWinners] = useState<WinnersOnDateMap | null>(null);
@@ -46,10 +47,16 @@ export const CalendarView = () => {
                 // them here too
                 // TODO: this
             })
-            .then((parsedJson: WinnersOnDateMap) => {
-                setAllWinners(parsedJson);
+            .then((data) => {
+                // Validate the response data using Zod schema
+                const validated = WinnersOnDateMapSchema.parse(data);
+                setAllWinners(validated);
             })
-            .catch(() => {
+            .catch((error) => {
+                // Log validation errors for debugging
+                if (error?.name === 'ZodError') {
+                    console.error('API response validation failed:', error);
+                }
                 /* we do not have to anything here */
             });
     };

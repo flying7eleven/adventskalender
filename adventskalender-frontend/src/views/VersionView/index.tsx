@@ -1,10 +1,11 @@
 import Grid from '@mui/material/Grid';
 import { useEffect, useState } from 'react';
-import { API_BACKEND_URL, VersionInformation, AuditEventCount, MAX_WINNERS_PER_DAY } from '../../api';
+import { API_BACKEND_URL, VersionInformation, MAX_WINNERS_PER_DAY } from '../../api';
 import packageJson from '../../../package.json';
 import { Box, Card, CardContent, Divider, Link, Stack, Typography } from '@mui/material';
 import { LocalizedText } from '../../components/LocalizedText';
 import moment from 'moment';
+import { VersionInformationSchema, AuditEventCountSchema } from '../../schemas';
 
 export const VersionView = () => {
     const [backendVersionInformation, setBackendVersionInformation] = useState<VersionInformation>({
@@ -38,16 +39,22 @@ export const VersionView = () => {
                     return res.json();
                 }
             })
-            .then((parsedJson: VersionInformation) => {
-                setBackendVersionInformation(parsedJson);
+            .then((data) => {
+                // Validate the response data using Zod schema
+                const validated = VersionInformationSchema.parse(data);
+                setBackendVersionInformation(validated);
             })
-            .catch(() => {
+            .catch((error) => {
+                // Log validation errors for debugging
+                if (error?.name === 'ZodError') {
+                    console.error('API response validation failed:', error);
+                }
                 /* we do not have to anything here */
             });
     }, []);
 
     useEffect(() => {
-        // get the version information from the backend
+        // get the audit event count from the backend
         fetch(`${API_BACKEND_URL}/audit/count`, {
             method: 'GET',
             headers: {
@@ -61,10 +68,16 @@ export const VersionView = () => {
                     return res.json();
                 }
             })
-            .then((parsedJson: AuditEventCount) => {
-                setAuditEventCount(parsedJson.count);
+            .then((data) => {
+                // Validate the response data using Zod schema
+                const validated = AuditEventCountSchema.parse(data);
+                setAuditEventCount(validated.count);
             })
-            .catch(() => {
+            .catch((error) => {
+                // Log validation errors for debugging
+                if (error?.name === 'ZodError') {
+                    console.error('API response validation failed:', error);
+                }
                 /* we do not have to anything here */
             });
     }, []);

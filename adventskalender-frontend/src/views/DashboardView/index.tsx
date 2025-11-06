@@ -3,7 +3,7 @@ import { OutlinedCard } from '../../components/OutlinedCard';
 import { Stack } from '@mui/material';
 import { WinningDaySelector } from '../../components/WinningDaySelector';
 import { PickNewWinner } from '../../components/PickNewWinner';
-import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, Participant, ParticipantCount, WinnerInformation } from '../../api';
+import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, ParticipantCount, WinnerInformation } from '../../api';
 import { useContext, useEffect, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { LocalizationContext } from '../../provider/LocalizationContext';
 import { WinnerDialog } from '../../dialogs/WinnerDialog';
 import { UnknownErrorDialog } from '../../dialogs/UnknownErrorDialog';
 import { NoParticipantsErrorDialog } from '../../dialogs/NoParticipantsErrorDialog';
+import { CountSchema, ParticipantCountSchema, ParticipantArraySchema } from '../../schemas';
 
 export const DashboardView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
@@ -79,10 +80,16 @@ export const DashboardView = () => {
                 // them here too
                 // TODO: this
             })
-            .then((parsedJson: number) => {
-                setWinnersOnSelectedDay(parsedJson);
+            .then((data) => {
+                // Validate the response data using Zod schema
+                const validated = CountSchema.parse(data);
+                setWinnersOnSelectedDay(validated);
             })
-            .catch(() => {
+            .catch((error) => {
+                // Log validation errors for debugging
+                if (error?.name === 'ZodError') {
+                    console.error('API response validation failed:', error);
+                }
                 /* we do not have to anything here */
             });
     };
@@ -119,10 +126,16 @@ export const DashboardView = () => {
                 // them here too
                 // TODO: this
             })
-            .then((parsedJson: ParticipantCount) => {
-                setParticipantCount(parsedJson);
+            .then((data) => {
+                // Validate the response data using Zod schema
+                const validated = ParticipantCountSchema.parse(data);
+                setParticipantCount(validated);
             })
-            .catch(() => {
+            .catch((error) => {
+                // Log validation errors for debugging
+                if (error?.name === 'ZodError') {
+                    console.error('API response validation failed:', error);
+                }
                 /* we do not have to anything here */
             });
     };
@@ -190,9 +203,12 @@ export const DashboardView = () => {
                 setLoadingNewWinner(false);
                 return Promise.reject();
             })
-            .then((parsedJson: Participant[]) => {
+            .then((data) => {
+                // Validate the response data using Zod schema
+                const validated = ParticipantArraySchema.parse(data);
+
                 // setup the dialog for the picked winners and return ensure the dialog is shown to the user, ...
-                const mappedWinners = parsedJson.map((element) => {
+                const mappedWinners = validated.map((element) => {
                     return { id: element.id, firstName: element.first_name, lastName: element.last_name, presentIdentifier: element.present_identifier };
                 });
                 setLastWinners(mappedWinners);
@@ -205,7 +221,13 @@ export const DashboardView = () => {
                 updateParticipantCounters();
                 updateWinnerCounter();
             })
-            .catch(() => {
+            .catch((error) => {
+                // Log validation errors for debugging
+                if (error?.name === 'ZodError') {
+                    console.error('API response validation failed:', error);
+                    setIsUnknownErrorDialogOpen(true);
+                    setLoadingNewWinner(false);
+                }
                 /* we do not have to anything here */
             });
     };
