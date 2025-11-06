@@ -1,4 +1,93 @@
+# .dockerignore for adventskalender-backend container build
+
+# Keep .git directory - needed for version information in build.rs (vergen_git2)
+# !.git
+
+# Build artifacts
+adventskalender-backend/target/
+**/target/
+
+# Frontend (not needed for backend build)
+adventskalender-frontend/node_modules/
+adventskalender-frontend/build/
+adventskalender-frontend/coverage/
+adventskalender-frontend/.husky/
+
+# Python virtual environments
+key_generation/venv/
+key_generation/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+
+# Docker volumes and local data
+.volumes/
+**/*.key
+**/*.pem
+**/keypair.pem
+
+# IDE and editor files
+.idea/
+.vscode/
+.run/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-*
+
+# OS-specific files
 .DS_Store
-*/target/
-*/venv/
-*/node_modules/
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Environment files (contain secrets)
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Git files (keep .git directory itself, but ignore these)
+.gitignore
+.gitattributes
+.github/
+.git/hooks/
+
+# Documentation and non-essential files
+README.md
+LICENSE.md
+CODE_OF_CONDUCT.md
+*.md
+!adventskalender-backend/README.md
+
+# CI/CD and analysis files
+.husky/
+*.sarif
+rust-clippy-results.sarif
+
+# Test and coverage
+coverage/
+*.profraw
+*.profdata
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Docker files (not needed inside container)
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+**/.dockerignore

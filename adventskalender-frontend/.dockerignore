@@ -1,0 +1,97 @@
+# .dockerignore for adventskalender-frontend container build
+
+# Dependencies (will be installed via npm ci)
+node_modules/
+**/node_modules/
+
+# Build output (will be generated during build)
+build/
+dist/
+coverage/
+.cache/
+
+# Git files (not needed for frontend build)
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# IDE and editor files
+.idea/
+.vscode/
+.run/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-*
+.editorconfig
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+**/.env*
+
+# Testing and CI/CD
+.husky/
+**/__tests__/
+**/__mocks__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+jest.config.*
+.eslintcache
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE.md
+*.md
+!docker/README.md
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# Misc development files
+*.map
+.prettierignore
+.eslintignore
+*.sarif
+
+# React and Vite specific
+.vite/
+*.local
+vite.config.*.timestamp-*
