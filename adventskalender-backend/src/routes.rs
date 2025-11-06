@@ -982,14 +982,16 @@ pub async fn get_login_token(
                 "$2y$12$7xMzqvnHyizkumZYpIRXheGMAqDKVo8HKtpmQSn51JUfY0N2VN4ua",
             );
 
-            // log the failed attempt
+            // log the failed attempt (use anonymous to avoid username enumeration)
             log_action_rocket(
                 db_connection_pool,
-                login_information.username.clone(),
+                "anonymous".to_string(),
                 Action::FailedLogin,
                 Some(format!(
-                    "Failed login attempt since user '{}' could not be found",
-                    login_information.username.clone()
+                    "Failed login attempt - invalid credentials from IP: {}",
+                    remote_addr
+                        .map(|addr| addr.ip().to_string())
+                        .unwrap_or("unknown".to_string())
                 )),
             )
             .await;
@@ -1006,11 +1008,13 @@ pub async fn get_login_token(
             if !is_password_correct {
                 log_action_rocket(
                     db_connection_pool,
-                    login_information.username.clone(),
+                    user.username.clone(),
                     Action::FailedLogin,
                     Some(format!(
-                        "Failed login attempt for user name '{}'",
-                        login_information.username.clone()
+                        "Failed login attempt - invalid credentials from IP: {}",
+                        remote_addr
+                            .map(|addr| addr.ip().to_string())
+                            .unwrap_or("unknown".to_string())
                     )),
                 )
                 .await;

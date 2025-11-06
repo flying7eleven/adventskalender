@@ -203,8 +203,13 @@ pub fn log_action(
     use log::error;
 
     // if no username was supplied, we do not have to handle any user name lookup
+    // also handle "anonymous" user (used for failed logins to prevent username enumeration)
     let maybe_user = if let Some(username_performing_action) = maybe_username_performing_action {
-        lookup_user_by_name(db_connection, username_performing_action)
+        if username_performing_action == "anonymous" {
+            Err(CouldNotFindUser)
+        } else {
+            lookup_user_by_name(db_connection, username_performing_action)
+        }
     } else {
         Err(CouldNotFindUser)
     };
