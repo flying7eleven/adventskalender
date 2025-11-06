@@ -4,7 +4,8 @@ import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import { ReactNode, useContext } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
-import moment from 'moment';
+import { format, addDays } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 interface Props {
     changeHandler?: (selected: number) => void;
@@ -26,15 +27,16 @@ export const WinningDaySelector = (props: Props) => {
     const getListOfDays = () => {
         const menuEntries = [];
         const translationFormat = localizationContext.translate('dashboard.date_format_dropdown');
-        moment.locale(window.navigator.language);
-        const currentDate = moment([new Date().getFullYear(), 11, 1]);
+        // Determine locale based on browser language (German or English)
+        const locale = window.navigator.language.startsWith('de') ? de : undefined;
+        let currentDate = new Date(new Date().getFullYear(), 11, 1); // December 1st
         for (let i = 1; i < 25; i++) {
             menuEntries.push(
                 <MenuItem key={`menu-item-${i}`} value={i}>
-                    {currentDate.format(translationFormat)}
+                    {format(currentDate, translationFormat, { locale })}
                 </MenuItem>
             );
-            currentDate.add(1, 'days');
+            currentDate = addDays(currentDate, 1);
         }
         return menuEntries;
     };

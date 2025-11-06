@@ -19,8 +19,8 @@ import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import { LocalizationContext } from '../../provider/LocalizationContext';
-import moment from 'moment';
-import 'moment/dist/locale/de.js'; // german is besides english the only other supported language
+import { format, parse } from 'date-fns';
+import { de } from 'date-fns/locale';
 import { WinnerInformation2Schema } from '../../schemas';
 import { z } from 'zod';
 
@@ -33,14 +33,15 @@ interface Props {
 }
 
 export const SpecialTextItem = ({ date }: { date: string }) => {
-    const winningDay = moment(date, 'YYYY-MM-DD').format('D');
+    const parsedDate = parse(date, 'yyyy-MM-dd', new Date());
+    const winningDay = format(parsedDate, 'd');
     switch (winningDay) {
         case '6':
-            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2_special1'} variables={[moment(date, 'YYYY-MM-DD').format('D')]} />;
+            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2_special1'} variables={[winningDay]} />;
         case '24':
-            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2_special2'} variables={[moment(date, 'YYYY-MM-DD').format('D')]} />;
+            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2_special2'} variables={[winningDay]} />;
         default:
-            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2'} variables={[moment(date, 'YYYY-MM-DD').format('D')]} />;
+            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2'} variables={[winningDay]} />;
     }
 };
 
@@ -290,8 +291,11 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const renderWinnerText = () => {
-        const winningDate = moment(props.date, 'YYYY-MM-DD').format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
-        const winningDay = moment(props.date, 'YYYY-MM-DD').format('D');
+        const parsedDate = parse(props.date, 'yyyy-MM-dd', new Date());
+        // Determine locale based on browser language (German or English)
+        const locale = window.navigator.language.startsWith('de') ? de : undefined;
+        const winningDate = format(parsedDate, localizationContext.translate('dashboard.dialogs.new_winners.date_format'), { locale });
+        const winningDay = format(parsedDate, 'd');
 
         // Check if we have an error
         if (fetchError) {
