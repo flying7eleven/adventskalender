@@ -161,7 +161,7 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
 #[rocket::main]
 async fn main() {
     use adventskalender_backend::fairings::{
-        AdventskalenderDatabaseConnection, BackendConfiguration,
+        AdventskalenderDatabaseConnection, BackendConfiguration, SecurityHeaders,
     };
     use adventskalender_backend::routes::{
         check_backend_health, count_won_participants_on_day, get_all_won_participants,
@@ -438,6 +438,7 @@ async fn main() {
     info!("Database preparations done and starting up the API endpoints now...");
     let _ = rocket::custom(rocket_configuration_figment)
         .attach(cors_header)
+        .attach(SecurityHeaders)
         .manage(backend_config)
         .manage(AdventskalenderDatabaseConnection::from(db_connection_pool))
         .mount("/.well-known", routes![get_openid_configuration])
