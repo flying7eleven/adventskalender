@@ -13,6 +13,8 @@ pub struct BackendConfiguration {
     pub encoding_key: Option<EncodingKey>,
     /// The key which is used to decode a token signature.
     pub decoding_key: Option<DecodingKey>,
+    /// The raw Ed25519 key bytes in PKCS8 format (for JWKS endpoint).
+    pub ed25519_key_bytes: Option<Vec<u8>>,
     /// The UUID used for the health check on  healthcheck.io.
     pub healthcheck_project: String,
     /// A list of URLs which represent the audience for this token.

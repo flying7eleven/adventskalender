@@ -79,6 +79,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                 api_host: "".to_string(),
                 encoding_key: None,
                 decoding_key: None,
+                ed25519_key_bytes: None,
                 healthcheck_project: "".to_string(),
                 token_audience: [].into(),
             },

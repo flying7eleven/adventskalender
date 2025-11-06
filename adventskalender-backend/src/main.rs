@@ -165,7 +165,7 @@ async fn main() {
     };
     use adventskalender_backend::routes::{
         check_backend_health, count_won_participants_on_day, get_all_won_participants,
-        get_audit_event_count, get_backend_version, get_login_token,
+        get_audit_event_count, get_backend_version, get_current_user, get_jwks, get_login_token,
         get_number_of_participants_who_already_won, get_won_participants_on_day_route, logout,
         pick_multiple_random_participant_from_raffle_list, remove_participant_from_winner_list,
         update_participant_values, update_user_password,
@@ -264,6 +264,7 @@ async fn main() {
         api_host,
         encoding_key: Some(encoding_key),
         decoding_key: Some(decoding_key),
+        ed25519_key_bytes: Some(ed25519_key_bytes.clone()),
         token_audience: token_audience_hash_set,
         healthcheck_project: healthcheck_io_project.to_string(),
     };
@@ -441,13 +442,14 @@ async fn main() {
         .attach(SecurityHeaders)
         .manage(backend_config)
         .manage(AdventskalenderDatabaseConnection::from(db_connection_pool))
-        .mount("/.well-known", routes![get_openid_configuration])
+        .mount("/.well-known", routes![get_openid_configuration, get_jwks])
         .mount(
             "/v1",
             routes![
                 get_login_token,
                 get_login_token_options,
                 logout,
+                get_current_user,
                 get_number_of_participants_who_already_won,
                 get_number_of_participants_who_already_won_options,
                 pick_multiple_random_participant_from_raffle_list,

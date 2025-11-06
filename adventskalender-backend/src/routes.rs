@@ -48,6 +48,65 @@ pub fn cors_options() -> CorsOptions {
     }
 }
 
+#[derive(Serialize)]
+pub struct JsonWebKey {
+    pub kty: String,
+    #[serde(rename = "use")]
+    pub use_: String,
+    pub kid: String,
+    pub alg: String,
+    pub crv: String,
+    pub x: String,
+}
+
+#[derive(Serialize)]
+pub struct JwksResponse {
+    pub keys: Vec<JsonWebKey>,
+}
+
+#[get("/.well-known/jwks.json")]
+pub async fn get_jwks(config: &State<BackendConfiguration>) -> Result<Json<JwksResponse>, Status> {
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use base64::Engine;
+    use log::error;
+    use ring::signature::{Ed25519KeyPair, KeyPair};
+
+    // get the Ed25519 key bytes from config
+    let key_bytes = match &config.ed25519_key_bytes {
+        Some(bytes) => bytes,
+        None => {
+            error!("Ed25519 key bytes not available in configuration");
+            return Err(Status::InternalServerError);
+        }
+    };
+
+    // parse the PKCS8 key to extract the public key
+    let key_pair = match Ed25519KeyPair::from_pkcs8(key_bytes) {
+        Ok(kp) => kp,
+        Err(e) => {
+            error!("Failed to parse Ed25519 key pair: {}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
+
+    // get the public key bytes (32 bytes for Ed25519)
+    let public_key_bytes = key_pair.public_key().as_ref();
+
+    // base64url encode the public key
+    let public_key_base64 = URL_SAFE_NO_PAD.encode(public_key_bytes);
+
+    Ok(Json(JwksResponse {
+        keys: vec![JsonWebKey {
+            kty: "OKP".to_string(),
+            use_: "sig".to_string(),
+            kid: "adventskalender-key-1".to_string(),
+            alg: "EdDSA".to_string(),
+            crv: "Ed25519".to_string(),
+            x: public_key_base64,
+        }],
+    }))
+}
+
 #[get("/openid-configuration")]
 pub async fn get_openid_configuration(
     config: &State<BackendConfiguration>,
@@ -1081,6 +1140,18 @@ pub async fn get_login_token(
 pub fn logout(cookies: &CookieJar<'_>) -> NoContent {
     cookies.remove(Cookie::from("auth_token"));
     NoContent
+}
+
+#[derive(Serialize)]
+pub struct UserInfo {
+    pub username: String,
+}
+
+#[get("/auth/me")]
+pub fn get_current_user(user: AuthenticatedUser) -> Json<UserInfo> {
+    Json(UserInfo {
+        username: user.username,
+    })
 }
 
 #[derive(Serialize)]
