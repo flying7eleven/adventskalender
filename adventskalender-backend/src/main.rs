@@ -269,11 +269,16 @@ async fn main() {
     .to_cors()
     .unwrap();
 
-    // after everything is set up, we should unset ann environment variables to prevent leaking
-    // sensitive information
+    // after everything is set up, we should unset all environment variables to prevent leaking
+    // sensitive information through process memory inspection or core dumps
+    debug!("Clearing sensitive environment variables from memory");
     unset_environment_variable("ADVENTSKALENDER_LOGGING_LEVEL");
     unset_environment_variable("ADVENTSKALENDER_DB_CONNECTION");
-    unset_environment_variable("ADVENTSKALENDER_TOKEN_SIGNATURE_PSK");
+    unset_environment_variable("ADVENTSKALENDER_API_HOST");
+    unset_environment_variable("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT");
+    unset_environment_variable("ADVENTSKALENDER_TOKEN_AUDIENCE");
+    unset_environment_variable("ADVENTSKALENDER_CORS_ORIGINS");
+    debug!("Environment variable cleanup completed");
 
     // log the startup of the backend service
     log_action(
