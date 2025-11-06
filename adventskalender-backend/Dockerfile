@@ -1,37 +1,56 @@
-# use the same platform for building as we use for running the server
-FROM debian:bullseye AS build
+# Build stage using Debian with Rust (for compatibility)
+FROM rust:1.84-bookworm AS build
 
-# ensure we have rust installed in the appropiate version
-RUN apt update && \
-    apt install -y curl build-essential libpq-dev git && \
-    curl https://sh.rustup.rs -sSf | \
-    sh -s -- --default-toolchain stable -y
-ENV PATH=/root/.cargo/bin:$PATH
+# Install only essential build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libpq-dev \
+        git \
+    && rm -rf /var/lib/apt/lists/*
 
-# copy the source files and build the backend in release-mode
-# be sure to copy the whole repository to get the version information from git
+# Copy source files and build in release mode
+# Copy the whole repository to preserve git version information
 COPY . /usr/src/app
 WORKDIR /usr/src/app/adventskalender-backend
+
+# Build with optimizations for size
+# - opt-level=z: optimize for binary size
+# - lto=true: link-time optimization
+# - codegen-units=1: better optimization (slower build)
+# - strip=true: strip debug symbols
+ENV CARGO_PROFILE_RELEASE_OPT_LEVEL=z
+ENV CARGO_PROFILE_RELEASE_LTO=true
+ENV CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
+ENV CARGO_PROFILE_RELEASE_STRIP=true
+
 RUN cargo build --release
 
-# configure the acutal container for running the backend
-FROM debian:bullseye
+# Runtime stage using minimal Debian slim image
+FROM debian:bookworm-slim
 
-# install the required dependencies
-RUN apt update && \
-    apt install -y libpq5 curl
+# Install only runtime dependencies
+# - libpq5: PostgreSQL client library (runtime only)
+# - curl: Required for Docker healthcheck
+# - ca-certificates: For HTTPS connections
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libpq5 \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -u 1001 -m -s /bin/bash adventskalender
 
-# copy the files for running the container
-COPY --from=build --chown=1001 /usr/src/app/adventskalender-backend/target/release/adventskalender-backend /usr/local/bin/adventskalender-backend
+# Copy the optimized binary from build stage
+COPY --from=build --chown=adventskalender:adventskalender \
+    /usr/src/app/adventskalender-backend/target/release/adventskalender-backend \
+    /usr/local/bin/adventskalender-backend
 
-# set the work dir for the backend
+# Set working directory and switch to non-root user
 WORKDIR /usr/local/bin
+USER adventskalender
 
-# configure the user(-id) for the running process
-USER 1001
-
-# expose the backend port
+# Expose the backend port
 EXPOSE 5479/tcp
 
-# startup the backend
-CMD exec /usr/local/bin/adventskalender-backend
+# Start the backend
+CMD ["/usr/local/bin/adventskalender-backend"]
