@@ -75,10 +75,10 @@ impl Fairing for SecurityHeaders {
         // control referrer information sent with requests
         response.set_raw_header("Referrer-Policy", "strict-origin-when-cross-origin");
 
-        // Content Security Policy - restrictive default
+        // Content Security Policy - restrictive default (fonts self-hosted)
         response.set_raw_header(
             "Content-Security-Policy",
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; media-src 'none'; worker-src 'none'",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; media-src 'none'; worker-src 'none'",
         );
 
         // prevent browser features and APIs
