@@ -22,6 +22,17 @@
             }
         }
     },
+    "session": {
+        "expiry_warning": {
+            "title": "Session Expiring Soon",
+            "message": "Your session will expire in 5 minutes due to inactivity. Would you like to stay logged in?",
+            "stay_logged_in_button": "Stay Logged In",
+            "logout_button": "Log Out"
+        },
+        "expired": {
+            "message": "Your session has expired. Please log in again."
+        }
+    },
     "version": {
         "card": {
             "headline": "Version information",

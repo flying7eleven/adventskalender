@@ -1,4 +1,4 @@
-import { useState, useContext, ReactElement } from 'react';
+import { useState, useContext, ReactElement, useEffect } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -19,6 +19,9 @@ import { LocalizedText } from '../../components/LocalizedText';
 import InfoIcon from '@mui/icons-material/Info';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { LocalizationContext } from '../../provider/LocalizationContext';
+import { sessionManager } from '../../utils/SessionManager';
+import { SessionExpiryWarningDialog } from '../../dialogs/SessionExpiryWarningDialog';
+import { API_BACKEND_URL } from '../../api';
 
 interface Props {
     content: ReactElement;
@@ -92,6 +95,7 @@ const AppBar = styled(MuiAppBar, {
 
 export const AuthenticatedView = (props: Props) => {
     const [navigationDrawerOpen, setNavigationDrawerOpen] = useState<boolean>(false);
+    const [showExpiryWarning, setShowExpiryWarning] = useState<boolean>(false);
     const auth = useAuthentication();
     const navigate = useNavigate();
     const location = useLocation();
@@ -122,71 +126,130 @@ export const AuthenticatedView = (props: Props) => {
     };
 
     const logoutUser = () => {
+        sessionManager.stopMonitoring();
         auth.signout(() => navigate('/'));
     };
 
+    const handleExtendSession = () => {
+        // Close the warning dialog
+        setShowExpiryWarning(false);
+
+        // Make a request to the backend to refresh the session cookie
+        // Any authenticated API call will refresh the httpOnly cookie
+        fetch(`${API_BACKEND_URL}/participants/count`, {
+            method: 'GET',
+            credentials: 'include',
+        })
+            .then((response) => {
+                if (response.status === 200) {
+                    // Session refreshed successfully - restart monitoring
+                    sessionManager.extendSession(
+                        () => setShowExpiryWarning(true),
+                        () => {
+                            alert(localizationContext.translate('session.expired.message'));
+                            logoutUser();
+                        }
+                    );
+                } else if (response.status === 401 || response.status === 403) {
+                    // Session already expired
+                    alert(localizationContext.translate('session.expired.message'));
+                    logoutUser();
+                }
+            })
+            .catch(() => {
+                // Error extending session - log out for safety
+                alert(localizationContext.translate('session.expired.message'));
+                logoutUser();
+            });
+    };
+
+    const handleSessionExpired = () => {
+        alert(localizationContext.translate('session.expired.message'));
+        logoutUser();
+    };
+
+    // Start session monitoring when component mounts (user is authenticated)
+    useEffect(() => {
+        if (auth.isAuthenticated) {
+            // Start monitoring the session
+            sessionManager.startMonitoring(
+                () => setShowExpiryWarning(true), // Show warning 5 minutes before expiry
+                handleSessionExpired // Auto-logout on expiry
+            );
+        }
+
+        // Cleanup: stop monitoring when component unmounts
+        return () => {
+            sessionManager.stopMonitoring();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [auth.isAuthenticated]);
+
     return (
-        <Stack>
-            <AppBar position="fixed" open={navigationDrawerOpen}>
-                <Toolbar>
-                    <IconButton size="large" edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }} onClick={toggleDrawer}>
-                        <MenuIcon />
-                    </IconButton>
-                    <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                        <LocalizedText translationKey={'dashboard.navigation.app_title'} />
-                    </Typography>
-                    <Button color="inherit" onClick={logoutUser}>
-                        <LocalizedText translationKey={'dashboard.navigation.logout_button'} />
-                    </Button>
-                </Toolbar>
-            </AppBar>
-            <Drawer variant="permanent" open={navigationDrawerOpen}>
-                <DrawerHeader>
-                    <IconButton onClick={toggleDrawer}>
-                        <ChevronLeftIcon />
-                    </IconButton>
-                </DrawerHeader>
-                <Divider />
-                <List>
-                    <ListItem disablePadding>
-                        <ListItemButton key={'Dashboard'} onClick={onClickOnDashboard} selected={isSelected('/')}>
-                            <ListItemIcon>
-                                <DashboardIcon />
-                            </ListItemIcon>
-                            <ListItemText primary={localizationContext.translate('global.navigation.dashboard')} />
-                        </ListItemButton>
-                    </ListItem>
-                    <ListItem disablePadding>
-                        <ListItemButton key={'Calendar'} onClick={onClickOnCalendar} selected={isSelected('/calendar')}>
-                            <ListItemIcon>
-                                <CalendarTodayIcon />
-                            </ListItemIcon>
-                            <ListItemText primary={localizationContext.translate('global.navigation.calendar')} />
-                        </ListItemButton>
-                    </ListItem>
+        <>
+            <SessionExpiryWarningDialog isOpen={showExpiryWarning} onExtendSession={handleExtendSession} onLogout={logoutUser} />
+            <Stack>
+                <AppBar position="fixed" open={navigationDrawerOpen}>
+                    <Toolbar>
+                        <IconButton size="large" edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }} onClick={toggleDrawer}>
+                            <MenuIcon />
+                        </IconButton>
+                        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                            <LocalizedText translationKey={'dashboard.navigation.app_title'} />
+                        </Typography>
+                        <Button color="inherit" onClick={logoutUser}>
+                            <LocalizedText translationKey={'dashboard.navigation.logout_button'} />
+                        </Button>
+                    </Toolbar>
+                </AppBar>
+                <Drawer variant="permanent" open={navigationDrawerOpen}>
+                    <DrawerHeader>
+                        <IconButton onClick={toggleDrawer}>
+                            <ChevronLeftIcon />
+                        </IconButton>
+                    </DrawerHeader>
                     <Divider />
-                    <ListItem disablePadding>
-                        <ListItemButton key={'Settings'} onClick={onClickSettings} selected={isSelected('/settings')}>
-                            <ListItemIcon>
-                                <SettingsIcon />
-                            </ListItemIcon>
-                            <ListItemText primary={localizationContext.translate('global.navigation.settings')} />
-                        </ListItemButton>
-                    </ListItem>
-                    <ListItem disablePadding>
-                        <ListItemButton key={'Version'} onClick={onClickVersion} selected={isSelected('/version')}>
-                            <ListItemIcon>
-                                <InfoIcon />
-                            </ListItemIcon>
-                            <ListItemText primary={localizationContext.translate('global.navigation.version')} />
-                        </ListItemButton>
-                    </ListItem>
-                </List>
-            </Drawer>
-            <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                <DrawerHeader />
-                {props.content}
-            </Box>
-        </Stack>
+                    <List>
+                        <ListItem disablePadding>
+                            <ListItemButton key={'Dashboard'} onClick={onClickOnDashboard} selected={isSelected('/')}>
+                                <ListItemIcon>
+                                    <DashboardIcon />
+                                </ListItemIcon>
+                                <ListItemText primary={localizationContext.translate('global.navigation.dashboard')} />
+                            </ListItemButton>
+                        </ListItem>
+                        <ListItem disablePadding>
+                            <ListItemButton key={'Calendar'} onClick={onClickOnCalendar} selected={isSelected('/calendar')}>
+                                <ListItemIcon>
+                                    <CalendarTodayIcon />
+                                </ListItemIcon>
+                                <ListItemText primary={localizationContext.translate('global.navigation.calendar')} />
+                            </ListItemButton>
+                        </ListItem>
+                        <Divider />
+                        <ListItem disablePadding>
+                            <ListItemButton key={'Settings'} onClick={onClickSettings} selected={isSelected('/settings')}>
+                                <ListItemIcon>
+                                    <SettingsIcon />
+                                </ListItemIcon>
+                                <ListItemText primary={localizationContext.translate('global.navigation.settings')} />
+                            </ListItemButton>
+                        </ListItem>
+                        <ListItem disablePadding>
+                            <ListItemButton key={'Version'} onClick={onClickVersion} selected={isSelected('/version')}>
+                                <ListItemIcon>
+                                    <InfoIcon />
+                                </ListItemIcon>
+                                <ListItemText primary={localizationContext.translate('global.navigation.version')} />
+                            </ListItemButton>
+                        </ListItem>
+                    </List>
+                </Drawer>
+                <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                    <DrawerHeader />
+                    {props.content}
+                </Box>
+            </Stack>
+        </>
     );
 };
