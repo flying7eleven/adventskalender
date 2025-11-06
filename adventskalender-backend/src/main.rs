@@ -161,6 +161,11 @@ async fn main() {
         .map(|s| s.to_string())
         .collect::<HashSet<String>>();
 
+    // get the allowed CORS origins (comma-separated list)
+    let allowed_cors_origins =
+        env::var("ADVENTSKALENDER_CORS_ORIGINS").unwrap_or("http://localhost:5173".to_string());
+    info!("Allowed CORS origins: {}", allowed_cors_origins);
+
     // on server startup generate a new Ed25519 key pair for signing the token; this will automatically invalidate
     // all previously signed token on server restart
     let ed25519_key_pair = match Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new()) {
@@ -244,7 +249,13 @@ async fn main() {
         ));
 
     // prepare the fairing for the CORS headers
-    let allowed_origins = AllowedOrigins::All;
+    let origins_list: Vec<String> = allowed_cors_origins
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let origins_refs: Vec<&str> = origins_list.iter().map(|s| s.as_str()).collect();
+    let allowed_origins = AllowedOrigins::some_exact(&origins_refs);
     let cors_header = adventskalender_backend::rocket_cors::CorsOptions {
         allowed_origins,
         allowed_methods: vec![Method::Get, Method::Post, Method::Put, Method::Delete]
