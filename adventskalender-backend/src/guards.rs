@@ -75,6 +75,11 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                 validation_parameter.validate_aud = true;
                 validation_parameter.aud = Some(backend_config.token_audience.clone());
 
+                // set issuer for validation
+                let mut issuer_set = std::collections::HashSet::new();
+                issuer_set.insert(backend_config.api_host.clone());
+                validation_parameter.iss = Some(issuer_set);
+
                 // verify the validity of the token supplied in the header
                 let decoded_token = match decode::<Claims>(
                     authorization_information[1],

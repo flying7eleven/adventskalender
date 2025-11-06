@@ -1007,7 +1007,7 @@ pub async fn get_login_token(
     if let Some(token) = get_token_for_user(
         &login_information.username,
         config.token_audience.clone(),
-        "".to_string(), // TODO: set the correct token issuer
+        config.api_host.clone(),
         &config.encoding_key.clone().unwrap(),
     ) {
         log_action_rocket(
