@@ -2,12 +2,24 @@ import { useState } from 'react';
 import * as React from 'react';
 import { AuthenticationContext } from '../../hooks/useAuthentication';
 import { API_BACKEND_URL } from '../../api';
+import { rateLimiter } from '../../utils/RateLimiter';
 
 export const AuthenticationProvider = ({ children }: { children: React.ReactNode }) => {
     // Remove token state - authentication is now server-side via httpOnly cookies
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-    const signin = (username: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction) => {
+    const signin = (username: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction, rateLimitCallback?: (waitTime: number) => void) => {
+        const key = `login:${username}`;
+
+        // Check if rate limit allows this attempt
+        if (!rateLimiter.canAttempt(key)) {
+            const waitTime = rateLimiter.getWaitTime(key);
+            if (rateLimitCallback) {
+                rateLimitCallback(waitTime);
+            }
+            return;
+        }
+
         const requestData = {
             username,
             password,
@@ -28,10 +40,14 @@ export const AuthenticationProvider = ({ children }: { children: React.ReactNode
                 return response;
             })
             .then(() => {
+                // Success - clear rate limit tracking
+                rateLimiter.recordAttempt(key, true);
                 setIsAuthenticated(true);
                 successCallback();
             })
             .catch(() => {
+                // Failure - record failed attempt for rate limiting
+                rateLimiter.recordAttempt(key, false);
                 setIsAuthenticated(false);
                 failCallback();
             });

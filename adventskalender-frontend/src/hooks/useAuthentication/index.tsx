@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 
 interface AuthContextType {
     isAuthenticated: boolean;
-    signin: (user: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction) => void;
+    signin: (user: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction, rateLimitCallback?: (waitTime: number) => void) => void;
     signout: (callback: VoidFunction) => void;
 }
 

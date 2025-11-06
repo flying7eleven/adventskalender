@@ -28,17 +28,24 @@ export const LoginView = (props: Props) => {
     const passwordField = useRef<HTMLInputElement>(null);
 
     const [isSnackbarOpen, setIsSnackbarOpen] = useState<boolean>(false);
+    const [isRateLimitSnackbarOpen, setIsRateLimitSnackbarOpen] = useState<boolean>(false);
+    const [rateLimitMessage, setRateLimitMessage] = useState<string>('');
 
     const handleSnackbarClose = () => {
         setIsSnackbarOpen(false);
+    };
+
+    const handleRateLimitSnackbarClose = () => {
+        setIsRateLimitSnackbarOpen(false);
     };
 
     const requestAuthorizationToken = (event: FormEvent) => {
         // ensure that we do not handle the actual submit event anymore
         event.preventDefault();
 
-        // ensure the error snack bar is not visible before sending the request
+        // ensure error snack bars are not visible before sending the request
         setIsSnackbarOpen(false);
+        setIsRateLimitSnackbarOpen(false);
 
         // try to authenticate against the API backend
         auth.signin(
@@ -53,7 +60,13 @@ export const LoginView = (props: Props) => {
                 // user experience.
                 navigate(from, { replace: true });
             },
-            () => setIsSnackbarOpen(true)
+            () => setIsSnackbarOpen(true),
+            (waitTime: number) => {
+                // Rate limit hit - show user how long to wait
+                const waitSeconds = Math.ceil(waitTime / 1000);
+                setRateLimitMessage(`Too many login attempts. Please wait ${waitSeconds} second${waitSeconds !== 1 ? 's' : ''} before trying again.`);
+                setIsRateLimitSnackbarOpen(true);
+            }
         );
     };
 
@@ -69,6 +82,11 @@ export const LoginView = (props: Props) => {
             <Snackbar open={isSnackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
                 <Alert onClose={handleSnackbarClose} severity="error" sx={{ width: '100%' }}>
                     <LocalizedText translationKey={'login.alerts.failed_login.message'} />
+                </Alert>
+            </Snackbar>
+            <Snackbar open={isRateLimitSnackbarOpen} autoHideDuration={10000} onClose={handleRateLimitSnackbarClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+                <Alert onClose={handleRateLimitSnackbarClose} severity="warning" sx={{ width: '100%' }}>
+                    {rateLimitMessage}
                 </Alert>
             </Snackbar>
             <Grid container component="main" sx={{ height: '100vh' }}>
