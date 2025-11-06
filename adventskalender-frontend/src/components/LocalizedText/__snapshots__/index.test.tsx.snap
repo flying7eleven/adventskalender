@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`LocalizedText component Matches the snapshot if known translation key and language is supplied 1`] = `
 <div>

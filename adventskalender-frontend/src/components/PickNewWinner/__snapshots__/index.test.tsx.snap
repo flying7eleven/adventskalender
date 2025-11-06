@@ -1,10 +1,9 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`PickNewWinner component Matches the snapshot 1`] = `
 <button
-  className="MuiButtonBase-root MuiButton-root MuiLoadingButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-colorPrimary MuiButton-root MuiLoadingButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-colorPrimary css-1k6lvvi-MuiButtonBase-root-MuiButton-root-MuiLoadingButton-root"
+  className="MuiButtonBase-root MuiButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-colorPrimary css-74d805-MuiButtonBase-root-MuiButton-root"
   disabled={false}
-  id=":r0:"
   onBlur={[Function]}
   onClick={[Function]}
   onContextMenu={[Function]}
@@ -22,9 +21,13 @@ exports[`PickNewWinner component Matches the snapshot 1`] = `
   type="button"
 >
   <span
-    className="MuiLoadingButton-label css-27yv9x-MuiLoadingButton-label"
-  >
-    Some text
-  </span>
+    className="MuiButton-loadingWrapper"
+    style={
+      {
+        "display": "contents",
+      }
+    }
+  />
+  Some text
 </button>
 `;

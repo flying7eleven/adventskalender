@@ -81,7 +81,7 @@ export const VersionView = () => {
     return (
         <Stack spacing={2}>
             <Grid container columns={12} spacing={2} rowSpacing={2} justifyContent={'center'} alignItems={'center'} direction={'column'}>
-                <Grid item xs={3}>
+                <Grid size={{ xs: 3 }}>
                     <Card variant="outlined">
                         <CardContent>
                             <Stack direction={'column'} spacing={1}>
@@ -147,7 +147,7 @@ export const VersionView = () => {
                         </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={3}>
+                <Grid size={{ xs: 3 }}>
                     <Card variant="outlined">
                         <CardContent>
                             <Stack direction={'column'} spacing={1}>

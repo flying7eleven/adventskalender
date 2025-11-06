@@ -85,7 +85,7 @@ export const SettingsView = () => {
             <PasswordNotChangedDialog isOpen={isPasswordChangeFailedDialogOpen} setDialogOpenStateFunction={setIsPasswordChangeFailedDialogOpen} />
             <form>
                 <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
-                    <Grid item xs={3}>
+                    <Grid size={{ xs: 3 }}>
                         <Card variant="outlined">
                             <CardContent>
                                 <Stack direction={'column'} spacing={2}>

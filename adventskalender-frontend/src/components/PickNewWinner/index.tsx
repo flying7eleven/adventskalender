@@ -1,4 +1,4 @@
-import LoadingButton from '@mui/lab/LoadingButton';
+import Button from '@mui/material/Button';
 
 interface Props {
     onRequestWinner: () => void;
@@ -9,8 +9,8 @@ interface Props {
 
 export const PickNewWinner = (props: Props) => {
     return (
-        <LoadingButton disabled={!props.isEnabled} variant="contained" loading={props.isLoadingNewWinner} onClick={props.onRequestWinner}>
+        <Button disabled={!props.isEnabled} variant="contained" loading={props.isLoadingNewWinner} onClick={props.onRequestWinner}>
             {props.label}
-        </LoadingButton>
+        </Button>
     );
 };

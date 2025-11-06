@@ -88,7 +88,7 @@ export const CalendarView = () => {
                 };
             });
             elements.push(
-                <Grid item xs={3} key={`winner-card-grid-item-${sortedKeys[i]}`}>
+                <Grid size={{ xs: 3 }} key={`winner-card-grid-item-${sortedKeys[i]}`}>
                     <WinnerCard
                         key={`winner-card-${sortedKeys[i]}`}
                         numberOfMaxSubPackages={MAX_WINNERS_PER_DAY}
