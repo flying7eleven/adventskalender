@@ -257,8 +257,19 @@ async fn main() {
     };
 
     // create encoding/decoding keys from the key bytes
-    let decoding_key = DecodingKey::from_ed_der(&ed25519_key_bytes);
+    // For Ed25519: encoding needs the full keypair, decoding needs only the public key
     let encoding_key = EncodingKey::from_ed_der(&ed25519_key_bytes);
+
+    // Extract public key from the keypair for decoding
+    use ring::signature::KeyPair; // Import trait for public_key() method
+    let public_key_bytes = match Ed25519KeyPair::from_pkcs8(&ed25519_key_bytes) {
+        Ok(keypair) => keypair.public_key().as_ref().to_vec(),
+        Err(e) => {
+            error!("Failed to extract public key from Ed25519 keypair: {}", e);
+            return;
+        }
+    };
+    let decoding_key = DecodingKey::from_ed_der(&public_key_bytes);
 
     let backend_config = BackendConfiguration {
         api_host,
