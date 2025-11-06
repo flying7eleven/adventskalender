@@ -131,6 +131,7 @@
                 "title2_special2": "\uD83C\uDF84\uD83C\uDF81\uD83C\uDF85\uD83C\uDFFB\uD83C\uDF85\uD83C\uDFFD\uD83C\uDF85\uD83C\uDFFE Door No. {0} \uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFE\uD83C\uDF81\uD83C\uDF84",
                 "text": "The following participants won on the selected day. Please select the corresponding packages for the winner and click on 'continue':",
                 "winner_paragraph_template": "The winners for {0} are {1}.",
+                "winner_paragraph_prefix": "The winners for",
                 "date_format": "dddd, MMMM DD, YYYY",
                 "table": {
                     "column_winner": "Winner",

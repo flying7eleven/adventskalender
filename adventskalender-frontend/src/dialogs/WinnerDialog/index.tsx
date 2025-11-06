@@ -48,7 +48,8 @@ export const WinnerDialog = (props: Props) => {
     const localizationContext = useContext(LocalizationContext);
     const [activeStep, setActiveStep] = useState(0);
     const [packageSelections, setPackageSelections] = useState<StringMap>({});
-    const [winnerText, setWinnerText] = useState<string>('');
+    const [fetchedWinners, setFetchedWinners] = useState<WinnerInformation2[]>([]);
+    const [fetchError, setFetchError] = useState<boolean>(false);
     const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<BooleanMap>({});
     const stepLabels = [localizationContext.translate('dashboard.dialogs.new_winners.steps.selection_step'), localizationContext.translate('dashboard.dialogs.new_winners.steps.finish_step')];
     const USABLE_PACKAGE_ALPHABET = Array.from(Array(MAX_WINNERS_PER_DAY))
@@ -105,7 +106,7 @@ export const WinnerDialog = (props: Props) => {
             markPackagesNotSelectedAsError();
             return;
         }
-        prepareWinnerText(props.winner.length < MAX_WINNERS_PER_DAY);
+        prepareWinnerData(props.winner.length < MAX_WINNERS_PER_DAY);
         setActiveStep(activeStep + 1);
     };
 
@@ -244,12 +245,9 @@ export const WinnerDialog = (props: Props) => {
             });
     };
 
-    const prepareWinnerText = (refetchWinners: boolean) => {
-        const winnerParagraphTemplate = localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_template');
-        const winningDate = moment(props.date, 'YYYY-MM-DD').format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
-        const winningDay = moment(props.date, 'YYYY-MM-DD').format('D');
-
+    const prepareWinnerData = (refetchWinners: boolean) => {
         if (refetchWinners) {
+            // Fetch winners from backend to get all winners for the day
             fetch(`${API_BACKEND_URL}/participants/won/${props.date}`, {
                 method: 'GET',
                 headers: {
@@ -271,54 +269,82 @@ export const WinnerDialog = (props: Props) => {
 
                     // there should never be other status codes which have to be handled, but just in case, we'll handle
                     // them here too
-                    return Promise.reject(); // TODO: implement this correctly
+                    return Promise.reject();
                 })
-                .then((winner: WinnerInformation2[]) => {
-                    setWinnerText(
-                        winnerParagraphTemplate
-                            .replace(
-                                '{1}',
-                                winner
-                                    .sort((winnerA, winnerB) => {
-                                        const packageA = winnerA.present_identifier ? winnerA.present_identifier : '?';
-                                        const packageB = winnerB.present_identifier ? winnerB.present_identifier : '?';
-                                        if (packageA > packageB) {
-                                            return 1;
-                                        }
-                                        return -1;
-                                    })
-                                    .map((winner) => {
-                                        return `<b>${winner.first_name} ${winner.last_name}</b> (${winningDay}${winner.present_identifier})`;
-                                    })
-                                    .join(', ')
-                            )
-                            .replace('{0}', winningDate)
-                    );
+                .then((winners: WinnerInformation2[]) => {
+                    setFetchedWinners(winners);
+                    setFetchError(false);
                 })
                 .catch(() => {
-                    setWinnerText('ERROR'); // TODO: add better handling
+                    setFetchError(true);
                 });
         } else {
-            setWinnerText(
-                winnerParagraphTemplate
-                    .replace(
-                        '{1}',
-                        props.winner
-                            .sort((winnerA, winnerB) => {
-                                if (packageSelections[winnerA.id] > packageSelections[winnerB.id]) {
-                                    return 1;
-                                }
-                                return -1;
-                            })
-                            .map((winner) => {
-                                const selectedPackage = packageSelections[winner.id];
-                                return `<b>${winner.firstName} ${winner.lastName}</b> (${winningDay}${selectedPackage})`;
-                            })
-                            .join(', ')
-                    )
-                    .replace('{0}', winningDate)
-            );
+            // Clear fetched winners when not refetching
+            setFetchedWinners([]);
+            setFetchError(false);
         }
+    };
+
+    const renderWinnerText = () => {
+        const winningDate = moment(props.date, 'YYYY-MM-DD').format(
+            localizationContext.translate('dashboard.dialogs.new_winners.date_format')
+        );
+        const winningDay = moment(props.date, 'YYYY-MM-DD').format('D');
+
+        // Check if we have an error
+        if (fetchError) {
+            return <span style={{ color: 'red' }}>Error loading winners</span>;
+        }
+
+        // Determine which winners to display and sort them by package identifier
+        const sortedWinners = fetchedWinners.length > 0
+            ? [...fetchedWinners].sort((a, b) => {
+                  const packageA = a.present_identifier || '?';
+                  const packageB = b.present_identifier || '?';
+                  return packageA > packageB ? 1 : -1;
+              })
+            : [...props.winner].sort((a, b) => {
+                  const packageA = packageSelections[a.id] || '?';
+                  const packageB = packageSelections[b.id] || '?';
+                  return packageA > packageB ? 1 : -1;
+              });
+
+        return (
+            <>
+                {localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_prefix')}{' '}
+                {winningDate}:{' '}
+                {sortedWinners.map((winner, index) => {
+                    let firstName: string;
+                    let lastName: string;
+                    let presentId: string | undefined;
+
+                    if (fetchedWinners.length > 0) {
+                        // Using fetched winners (WinnerInformation2 format)
+                        const w = winner as WinnerInformation2;
+                        firstName = w.first_name;
+                        lastName = w.last_name;
+                        presentId = w.present_identifier;
+                    } else {
+                        // Using props.winner (WinnerInformation format)
+                        const w = winner as WinnerInformation;
+                        firstName = w.firstName;
+                        lastName = w.lastName;
+                        presentId = packageSelections[w.id];
+                    }
+
+                    return (
+                        <span key={index}>
+                            {index > 0 && ', '}
+                            <strong>
+                                {firstName} {lastName}
+                            </strong>{' '}
+                            ({winningDay}
+                            {presentId})
+                        </span>
+                    );
+                })}
+            </>
+        );
     };
 
     return (
@@ -398,7 +424,7 @@ export const WinnerDialog = (props: Props) => {
                     </TableContainer>
                 ) : (
                     <>
-                        <DialogContentText id="alert-dialog-description" dangerouslySetInnerHTML={{ __html: winnerText }} />
+                        <DialogContentText id="alert-dialog-description">{renderWinnerText()}</DialogContentText>
                     </>
                 )}
             </DialogContent>
