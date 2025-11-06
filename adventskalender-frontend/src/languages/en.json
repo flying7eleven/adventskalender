@@ -151,7 +151,7 @@
                 "text": "The following participants won on the selected day. Please select the corresponding packages for the winner and click on 'continue':",
                 "winner_paragraph_template": "The winners for {0} are {1}.",
                 "winner_paragraph_prefix": "The winners for",
-                "date_format": "dddd, MMMM DD, YYYY",
+                "date_format": "EEEE, MMMM dd, yyyy",
                 "table": {
                     "column_winner": "Winner",
                     "column_package": "Package",
@@ -189,6 +189,6 @@
         "pick_winner_button": "Pick new winners",
         "day_selection": "Day of the win",
         "number_of_winners": "Number of winners",
-        "date_format_dropdown": "dd, MMMM DD, YYYY"
+        "date_format_dropdown": "EEE, MMMM dd, yyyy"
     }
 }
