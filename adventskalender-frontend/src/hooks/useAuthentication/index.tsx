@@ -1,9 +1,7 @@
 import { createContext, useContext } from 'react';
-import { AccessToken } from '../../api';
-import { decodeJwt } from 'jose';
 
 interface AuthContextType {
-    token: AccessToken;
+    isAuthenticated: boolean;
     signin: (user: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction) => void;
     signout: (callback: VoidFunction) => void;
 }
@@ -14,7 +12,5 @@ export const useAuthentication = () => {
     return useContext(AuthenticationContext);
 };
 
-export const getUsernameFromToken = (token: string): string => {
-    const decodedToken = decodeJwt(token);
-    return decodedToken.sub ? decodedToken.sub : 'unknown';
-};
+// Note: getUsernameFromToken removed - token no longer accessible client-side
+// Username can be fetched from backend via /auth/me endpoint if needed

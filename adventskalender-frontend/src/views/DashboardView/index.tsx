@@ -48,18 +48,18 @@ export const DashboardView = () => {
     };
 
     const updateWinnerCounter = () => {
-        // if we do not have a access token, skip fetching the infos
-        if (auth.token.accessToken.length === 0) {
+        // if we are not authenticated, skip fetching the infos
+        if (!auth.isAuthenticated) {
             return;
         }
 
-        // since we have a token, we can query the backend for the winner count for the selected day
+        // since we are authenticated, we can query the backend for the winner count for the selected day
         fetch(`${API_BACKEND_URL}/participants/won/${getSelectedDateAsString()}/count`, {
             method: 'GET',
             headers: {
-                Authorization: `Bearer ${auth.token.accessToken}`,
                 'Content-type': 'application/json; charset=UTF-8',
             },
+            credentials: 'include',
         })
             .then((res) => {
                 // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
@@ -88,18 +88,18 @@ export const DashboardView = () => {
     };
 
     const updateParticipantCounters = () => {
-        // if we do not have an access token, skip fetching the infos
-        if (auth.token.accessToken.length === 0) {
+        // if we are not authenticated, skip fetching the infos
+        if (!auth.isAuthenticated) {
             return;
         }
 
-        // since we have a token, we can query the backend for the participant count
+        // since we are authenticated, we can query the backend for the participant count
         fetch(`${API_BACKEND_URL}/participants/count`, {
             method: 'GET',
             headers: {
-                Authorization: `Bearer ${auth.token.accessToken}`,
                 'Content-type': 'application/json; charset=UTF-8',
             },
+            credentials: 'include',
         })
             .then((res) => {
                 // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
@@ -158,9 +158,9 @@ export const DashboardView = () => {
         fetch(`${API_BACKEND_URL}/participants/pick/${winnersStillToPick}/for/${getSelectedDateAsString()}`, {
             method: 'GET',
             headers: {
-                Authorization: `Bearer ${auth.token.accessToken}`,
                 'Content-type': 'application/json; charset=UTF-8',
             },
+            credentials: 'include',
         })
             .then((res) => {
                 // if the call was successful, we expect to have received a valid JSON object. Convert it to an object

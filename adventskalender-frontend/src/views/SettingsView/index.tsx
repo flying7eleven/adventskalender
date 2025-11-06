@@ -4,13 +4,11 @@ import { LocalizedText } from '../../components/LocalizedText';
 import { ChangeEvent, useContext, useState } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { API_BACKEND_URL } from '../../api';
-import { getUsernameFromToken, useAuthentication } from '../../hooks/useAuthentication';
 import { PasswordChangedDialog } from '../../dialogs/PasswordChangedDialog';
 import { PasswordNotChangedDialog } from '../../dialogs/PasswordNotChangedDialog';
 
 export const SettingsView = () => {
     const localizationContext = useContext(LocalizationContext);
-    const auth = useAuthentication();
     const [firstPassword, setFirstPassword] = useState<string>('');
     const [secondPassword, setSecondPassword] = useState<string>('');
     const [isPasswordChangedDialogOpen, setIsPasswordChangedDialogOpen] = useState<boolean>(false);
@@ -53,9 +51,9 @@ export const SettingsView = () => {
             method: 'PUT',
             body: JSON.stringify(requestData),
             headers: {
-                Authorization: `Bearer ${auth.token.accessToken}`,
                 'Content-type': 'application/json; charset=UTF-8',
             },
+            credentials: 'include',
         })
             .then((response) => {
                 if (response.status !== 204) {
@@ -84,7 +82,6 @@ export const SettingsView = () => {
                                     <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
                                         <LocalizedText translationKey={'settings.cards.password.headline'} />
                                     </Typography>
-                                    <input type={'hidden'} id={'username'} name={'username'} value={getUsernameFromToken(auth.token.accessToken)} />
                                     <TextField
                                         id={'first-password-input'}
                                         label={localizationContext.translate('settings.cards.password.labels.password_first')}

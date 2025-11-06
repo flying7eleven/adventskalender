@@ -53,8 +53,8 @@ export const EditWinnerDialog = (props: Props) => {
     };
 
     const selectPackageForUser = (userId: number, selectedPackage: string) => {
-        // if we do not have an access token, skip fetching the infos
-        if (auth.token.accessToken.length === 0) {
+        // if we are not authenticated, skip fetching the infos
+        if (!auth.isAuthenticated) {
             return;
         }
 
@@ -62,9 +62,9 @@ export const EditWinnerDialog = (props: Props) => {
         fetch(`${API_BACKEND_URL}/participants/${userId}`, {
             method: 'PUT',
             headers: {
-                Authorization: `Bearer ${auth.token.accessToken}`,
                 'Content-type': 'application/json; charset=UTF-8',
             },
+            credentials: 'include',
             body: JSON.stringify({ package: selectedPackage }),
         })
             .then((res) => {

@@ -156,8 +156,8 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const unselectAllWinnersForDay = () => {
-        // if we do not have an access token, skip fetching the infos
-        if (auth.token.accessToken.length === 0) {
+        // if we are not authenticated, skip fetching the infos
+        if (!auth.isAuthenticated) {
             return;
         }
 
@@ -170,9 +170,9 @@ export const WinnerDialog = (props: Props) => {
                 const res = await fetch(`${API_BACKEND_URL}/participants/won/${winnerId}`, {
                     method: 'DELETE',
                     headers: {
-                        Authorization: `Bearer ${auth.token.accessToken}`,
                         'Content-type': 'application/json; charset=UTF-8',
                     },
+                    credentials: 'include',
                 });
                 if (res.status === 204) {
                     return;
@@ -191,8 +191,8 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const selectPackageForUser = (userId: number, selectedPackage: string, doUpdateState: boolean = true) => {
-        // if we do not have an access token, skip fetching the infos
-        if (auth.token.accessToken.length === 0) {
+        // if we are not authenticated, skip fetching the infos
+        if (!auth.isAuthenticated) {
             return;
         }
 
@@ -200,9 +200,9 @@ export const WinnerDialog = (props: Props) => {
         fetch(`${API_BACKEND_URL}/participants/${userId}`, {
             method: 'PUT',
             headers: {
-                Authorization: `Bearer ${auth.token.accessToken}`,
                 'Content-type': 'application/json; charset=UTF-8',
             },
+            credentials: 'include',
             body: JSON.stringify({ package: selectedPackage }),
         })
             .then((res) => {
@@ -251,9 +251,9 @@ export const WinnerDialog = (props: Props) => {
             fetch(`${API_BACKEND_URL}/participants/won/${props.date}`, {
                 method: 'GET',
                 headers: {
-                    Authorization: `Bearer ${auth.token.accessToken}`,
                     'Content-type': 'application/json; charset=UTF-8',
                 },
+                credentials: 'include',
             })
                 .then((res) => {
                     if (res.status === 200) {
@@ -286,9 +286,7 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const renderWinnerText = () => {
-        const winningDate = moment(props.date, 'YYYY-MM-DD').format(
-            localizationContext.translate('dashboard.dialogs.new_winners.date_format')
-        );
+        const winningDate = moment(props.date, 'YYYY-MM-DD').format(localizationContext.translate('dashboard.dialogs.new_winners.date_format'));
         const winningDay = moment(props.date, 'YYYY-MM-DD').format('D');
 
         // Check if we have an error
@@ -297,22 +295,22 @@ export const WinnerDialog = (props: Props) => {
         }
 
         // Determine which winners to display and sort them by package identifier
-        const sortedWinners = fetchedWinners.length > 0
-            ? [...fetchedWinners].sort((a, b) => {
-                  const packageA = a.present_identifier || '?';
-                  const packageB = b.present_identifier || '?';
-                  return packageA > packageB ? 1 : -1;
-              })
-            : [...props.winner].sort((a, b) => {
-                  const packageA = packageSelections[a.id] || '?';
-                  const packageB = packageSelections[b.id] || '?';
-                  return packageA > packageB ? 1 : -1;
-              });
+        const sortedWinners =
+            fetchedWinners.length > 0
+                ? [...fetchedWinners].sort((a, b) => {
+                      const packageA = a.present_identifier || '?';
+                      const packageB = b.present_identifier || '?';
+                      return packageA > packageB ? 1 : -1;
+                  })
+                : [...props.winner].sort((a, b) => {
+                      const packageA = packageSelections[a.id] || '?';
+                      const packageB = packageSelections[b.id] || '?';
+                      return packageA > packageB ? 1 : -1;
+                  });
 
         return (
             <>
-                {localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_prefix')}{' '}
-                {winningDate}:{' '}
+                {localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_prefix')} {winningDate}:{' '}
                 {sortedWinners.map((winner, index) => {
                     let firstName: string;
                     let lastName: string;

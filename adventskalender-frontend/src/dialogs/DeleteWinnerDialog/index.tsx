@@ -28,8 +28,8 @@ export const DeleteWinnerDialog = (props: Props) => {
     };
 
     const handleRemoveParticipant = () => {
-        // if we do not have an access token, skip fetching the infos
-        if (auth.token.accessToken.length === 0) {
+        // if we are not authenticated, skip fetching the infos
+        if (!auth.isAuthenticated) {
             return;
         }
 
@@ -37,9 +37,9 @@ export const DeleteWinnerDialog = (props: Props) => {
         fetch(`${API_BACKEND_URL}/participants/won/${props.userToDelete.id}`, {
             method: 'DELETE',
             headers: {
-                Authorization: `Bearer ${auth.token.accessToken}`,
                 'Content-type': 'application/json; charset=UTF-8',
             },
+            credentials: 'include',
         })
             .then((res) => {
                 // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON

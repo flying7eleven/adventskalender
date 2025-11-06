@@ -5,7 +5,8 @@ use crate::rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use crate::{Action, BACKOFF_HANDLER};
 use chrono::{DateTime, NaiveDate};
 use rand::prelude::IndexedRandom;
-use rocket::http::{Method, Status};
+use rocket::http::{Cookie, CookieJar, Method, SameSite, Status};
+use rocket::response::status::NoContent;
 use rocket::response::Responder;
 use rocket::serde::json::{json, Json};
 use rocket::{delete, get, options, post, put, State};
@@ -903,7 +904,8 @@ pub async fn get_login_token(
     login_information: Json<LoginInformation>,
     config: &State<BackendConfiguration>,
     remote_addr: Option<std::net::SocketAddr>,
-) -> Result<Json<TokenResponse>, Status> {
+    cookies: &CookieJar<'_>,
+) -> Result<NoContent, Status> {
     use crate::get_token_for_user;
     use crate::log_action_rocket;
     use crate::rate_limiter::{is_rate_limited, reset_rate_limit, RateLimitConfig};
@@ -1050,14 +1052,35 @@ pub async fn get_login_token(
             )),
         )
         .await;
-        return Ok(Json(TokenResponse {
-            access_token: token,
-        }));
+
+        // create httpOnly cookie with the token
+        let mut cookie = Cookie::new("auth_token", token);
+        cookie.set_http_only(true);
+        cookie.set_same_site(SameSite::Strict);
+        cookie.set_path("/");
+
+        // only set secure-flag in production (non-debug builds)
+        #[cfg(not(debug_assertions))]
+        cookie.set_secure(true);
+
+        // set expiration to match JWT expiration (1 hour)
+        let expiration = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
+        cookie.set_expires(expiration);
+
+        cookies.add(cookie);
+
+        return Ok(NoContent);
     }
 
-    // it seems that we failed to generate a valid token, this should never happen, something
-    // seems to be REALLY wrong
+    // it seems that we failed to generate a valid token. This should never happen, something
+    // seems REALLY wrong
     Err(Status::InternalServerError)
+}
+
+#[post("/auth/logout")]
+pub fn logout(cookies: &CookieJar<'_>) -> NoContent {
+    cookies.remove(Cookie::from("auth_token"));
+    NoContent
 }
 
 #[derive(Serialize)]

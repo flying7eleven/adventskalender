@@ -166,7 +166,7 @@ async fn main() {
     use adventskalender_backend::routes::{
         check_backend_health, count_won_participants_on_day, get_all_won_participants,
         get_audit_event_count, get_backend_version, get_login_token,
-        get_number_of_participants_who_already_won, get_won_participants_on_day_route,
+        get_number_of_participants_who_already_won, get_won_participants_on_day_route, logout,
         pick_multiple_random_participant_from_raffle_list, remove_participant_from_winner_list,
         update_participant_values, update_user_password,
     };
@@ -447,6 +447,7 @@ async fn main() {
             routes![
                 get_login_token,
                 get_login_token_options,
+                logout,
                 get_number_of_participants_who_already_won,
                 get_number_of_participants_who_already_won_options,
                 pick_multiple_random_participant_from_raffle_list,
