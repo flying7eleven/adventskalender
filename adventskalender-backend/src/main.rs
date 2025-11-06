@@ -189,23 +189,67 @@ async fn main() {
         healthcheck_project: healthcheck_io_project.to_string(),
     };
 
-    // just wait for 10 seconds until we continue. This is just an ugly fix that we have to wait until the database server
-    // has spun up
-    #[cfg(not(debug_assertions))]
-    {
-        info!("Waiting for 10 seconds to ensure that the database had enough time to spin up...");
-        std::thread::sleep(std::time::Duration::from_secs(10));
-    }
+    // create a db connection pool manager and the corresponding pool with retry logic
+    info!("Connecting to database with retry logic...");
+    let db_connection_pool = {
+        let max_retries = 10;
+        let mut retry_count = 0;
+        let mut backoff_duration = Duration::from_millis(500);
 
-    // create a db connection pool manager and the corresponding pool
-    let db_connection_pool_manager =
-        diesel::r2d2::ConnectionManager::new(database_connection_url.clone());
-    let db_connection_pool = r2d2::Pool::builder()
-        .max_size(15)
-        .connection_timeout(Duration::from_secs(5))
-        .build(db_connection_pool_manager)
-        .unwrap();
-    debug!("Successfully connected to the database server");
+        loop {
+            let db_connection_pool_manager =
+                diesel::r2d2::ConnectionManager::new(database_connection_url.clone());
+
+            match r2d2::Pool::builder()
+                .max_size(15)
+                .connection_timeout(Duration::from_secs(5))
+                .build(db_connection_pool_manager)
+            {
+                Ok(pool) => {
+                    // Verify we can actually get a connection
+                    match pool.get() {
+                        Ok(_) => {
+                            info!("Successfully connected to the database server");
+                            break pool;
+                        }
+                        Err(e) => {
+                            retry_count += 1;
+                            if retry_count >= max_retries {
+                                error!(
+                                    "Failed to get database connection after {} attempts. Last error: {}",
+                                    max_retries, e
+                                );
+                                std::process::exit(-1);
+                            }
+                            info!(
+                                "Database connection attempt {}/{} failed, retrying in {:?}...",
+                                retry_count, max_retries, backoff_duration
+                            );
+                            std::thread::sleep(backoff_duration);
+                            backoff_duration =
+                                std::cmp::min(backoff_duration * 2, Duration::from_secs(10));
+                        }
+                    }
+                }
+                Err(e) => {
+                    retry_count += 1;
+                    if retry_count >= max_retries {
+                        error!(
+                            "Failed to create database connection pool after {} attempts. Last error: {}",
+                            max_retries, e
+                        );
+                        std::process::exit(-1);
+                    }
+                    info!(
+                        "Database pool creation attempt {}/{} failed, retrying in {:?}...",
+                        retry_count, max_retries, backoff_duration
+                    );
+                    std::thread::sleep(backoff_duration);
+                    backoff_duration = std::cmp::min(backoff_duration * 2, Duration::from_secs(10));
+                }
+            }
+        }
+    };
 
     // ensure the database is setup correctly
     let mut db_connection = db_connection_pool.get().unwrap_or_else(|e| {
