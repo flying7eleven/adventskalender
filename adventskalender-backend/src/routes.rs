@@ -1147,9 +1147,10 @@ pub async fn get_login_token(
         cookie.set_same_site(SameSite::Strict);
         cookie.set_path("/");
 
-        // only set secure-flag in production (non-debug builds)
-        #[cfg(not(debug_assertions))]
-        cookie.set_secure(true);
+        // only set secure-flag if we're using HTTPS (check API host)
+        if config.api_host.starts_with("https://") {
+            cookie.set_secure(true);
+        }
 
         // set expiration to match JWT expiration (1 hour)
         let expiration = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
