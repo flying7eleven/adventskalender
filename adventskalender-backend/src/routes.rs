@@ -4,6 +4,7 @@ use crate::models::User;
 use crate::rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use crate::{Action, BACKOFF_HANDLER};
 use chrono::{DateTime, NaiveDate};
+use rand::prelude::IndexedRandom;
 use rocket::http::{Method, Status};
 use rocket::response::Responder;
 use rocket::serde::json::{json, Json};
@@ -245,17 +246,15 @@ pub async fn get_won_participants_on_day(
                 .filter(won_on.eq(date))
                 .load::<DatabaseParticipant>(connection)
             {
-                Ok(participants_won_on_date) => {
-                    return Ok(participants_won_on_date
-                        .iter()
-                        .map(|item| Participant {
-                            id: item.id,
-                            first_name: item.first_name.clone(),
-                            last_name: item.last_name.clone(),
-                            present_identifier: item.present_identifier.clone(),
-                        })
-                        .collect());
-                }
+                Ok(participants_won_on_date) => Ok(participants_won_on_date
+                    .iter()
+                    .map(|item| Participant {
+                        id: item.id,
+                        first_name: item.first_name.clone(),
+                        last_name: item.last_name.clone(),
+                        present_identifier: item.present_identifier.clone(),
+                    })
+                    .collect()),
                 Err(error) => Err(error),
             }
         });
@@ -608,7 +607,6 @@ pub async fn pick_random_participants_from_database(
     use crate::schema::participants::dsl::{participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
-    use rand::seq::SliceRandom;
 
     // get a connection to the database for dealing with the request
     let db_connection = &mut match db_connection_pool.get() {
@@ -634,7 +632,7 @@ pub async fn pick_random_participants_from_database(
                 Ok(participants_in_raffle) => {
                     let mut participants_vec = vec![];
                     for current_participant in
-                        participants_in_raffle.choose_multiple(&mut rand::thread_rng(), count)
+                        participants_in_raffle.choose_multiple(&mut rand::rng(), count)
                     {
                         participants_vec.push(Participant {
                             id: current_participant.id,

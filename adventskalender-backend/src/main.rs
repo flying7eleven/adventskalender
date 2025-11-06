@@ -177,7 +177,7 @@ async fn main() {
     let encoding_key = EncodingKey::from_ed_der(ed25519_key_pair.as_ref());
 
     let backend_config = BackendConfiguration {
-        api_host: api_host,
+        api_host,
         encoding_key: Some(encoding_key),
         decoding_key: Some(decoding_key),
         token_audience: token_audience_hash_set,
