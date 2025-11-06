@@ -322,7 +322,7 @@ export const WinnerDialog = (props: Props) => {
                 {sortedWinners.map((winner, index) => {
                     let firstName: string;
                     let lastName: string;
-                    let presentId: string | undefined;
+                    let presentId: string | null | undefined;
 
                     if (fetchedWinners.length > 0) {
                         // Using fetched winners (WinnerInformation2 format)

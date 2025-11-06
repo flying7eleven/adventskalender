@@ -12,7 +12,7 @@ export const ParticipantSchema = z.object({
     id: z.number().int().positive(),
     first_name: z.string().min(1).max(100),
     last_name: z.string().min(1).max(100),
-    present_identifier: z.string().max(10).optional(),
+    present_identifier: z.string().max(10).nullable().optional(),
 });
 
 // Schema for winner information
@@ -20,7 +20,7 @@ export const WinnerInformationSchema = z.object({
     id: z.number().int().positive(),
     firstName: z.string().min(1).max(100),
     lastName: z.string().min(1).max(100),
-    presentIdentifier: z.string().max(10).optional(),
+    presentIdentifier: z.string().max(10).nullable().optional(),
 });
 
 // Schema for access token (Note: with httpOnly cookies, this may not be used)
@@ -56,7 +56,7 @@ export const WinnerInformation2Schema = z.object({
     id: z.number().int().positive(),
     first_name: z.string().min(1).max(100),
     last_name: z.string().min(1).max(100),
-    present_identifier: z.string().max(10).optional(),
+    present_identifier: z.string().max(10).nullable().optional(),
 });
 
 // Schema for WinnersOnDateMap - a map of dates to arrays of winners

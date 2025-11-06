@@ -1,5 +1,5 @@
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
@@ -14,8 +14,6 @@ import { CalendarView } from '../../views/CalendarView';
 import { VersionView } from '../../views/VersionView';
 import { SettingsView } from '../../views/SettingsView';
 import { LoginView } from '../../views/LoginView';
-import { API_BACKEND_URL } from '../../api';
-import { corsValidator } from '../../utils/CORSValidator';
 
 export const App = () => {
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -28,15 +26,6 @@ export const App = () => {
             }),
         [prefersDarkMode]
     );
-
-    // Validate CORS configuration on app startup
-    useEffect(() => {
-        corsValidator.validateCORS(API_BACKEND_URL).then((valid) => {
-            if (!valid) {
-                console.error('❌ CORS configuration issue detected. API requests may fail. ' + 'Check the console for details and verify backend CORS settings.');
-            }
-        });
-    }, []);
 
     return (
         <BrowserRouter>

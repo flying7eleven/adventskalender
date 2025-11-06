@@ -6,7 +6,7 @@ interface WinnerInformation2 {
     id: number;
     first_name: string;
     last_name: string;
-    present_identifier?: string;
+    present_identifier?: string | null;
 }
 
 type StringMap = { [key: string]: string };

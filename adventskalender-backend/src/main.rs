@@ -1,7 +1,8 @@
 use adventskalender_backend::rocket_cors::AllowedOrigins;
 use adventskalender_backend::routes::{
-    get_login_token_options, get_number_of_participants_who_already_won_options,
-    get_openid_configuration, participants_won_options,
+    get_backend_version_options, get_login_token_options,
+    get_number_of_participants_who_already_won_options, get_openid_configuration,
+    participants_won_options,
 };
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
@@ -471,6 +472,7 @@ async fn main() {
                 remove_participant_from_winner_list,
                 check_backend_health,
                 get_backend_version,
+                get_backend_version_options,
                 update_user_password,
                 get_audit_event_count,
                 get_won_participants_on_day_route,

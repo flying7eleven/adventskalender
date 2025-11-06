@@ -1216,6 +1216,15 @@ pub async fn get_backend_version() -> Json<VersionInformation> {
     })
 }
 
+#[options("/version")]
+pub async fn get_backend_version_options<'r, 'o: 'r>() -> impl Responder<'r, 'o> {
+    let mut options = cors_options();
+    options.allowed_methods = vec![Method::Get].into_iter().map(From::from).collect();
+
+    let cors = options.to_cors()?;
+    cors.respond_owned(|guard| guard.responder(()))
+}
+
 #[derive(Serialize)]
 pub struct AuditEventCount {
     /// The number of audit events written.

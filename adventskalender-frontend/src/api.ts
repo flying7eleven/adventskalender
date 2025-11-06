@@ -20,14 +20,14 @@ export interface Participant {
     id: number;
     first_name: string;
     last_name: string;
-    present_identifier?: string;
+    present_identifier?: string | null;
 }
 
 export interface WinnerInformation {
     id: number;
     firstName: string;
     lastName: string;
-    presentIdentifier?: string;
+    presentIdentifier?: string | null;
 }
 
 export interface AccessToken {

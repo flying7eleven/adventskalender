@@ -23,6 +23,10 @@ export class CORSValidator {
             // Note: We use a lightweight endpoint that doesn't require authentication
             const response = await fetch(`${apiUrl}/version`, {
                 method: 'OPTIONS',
+                headers: {
+                    'Access-Control-Request-Method': 'GET',
+                    'Access-Control-Request-Headers': 'content-type',
+                },
             });
 
             // Get CORS headers
