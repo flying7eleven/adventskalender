@@ -1,8 +1,9 @@
 import { LocalizedText } from '../LocalizedText';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { WinnerInformation } from '../../api';
 import { useState } from 'react';
 import { DeleteWinnerDialog } from '../../dialogs/DeleteWinnerDialog';
+import { Button } from '@/components/ui/button';
 
 export const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerInformation; winningDay: number; numberOfMaxSubPackages: number; updateWinnerList?: () => void }) => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
@@ -43,7 +44,7 @@ export const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: W
                     &nbsp;
                     <Typography sx={{ fontWeight: 'bold' }}>{`${winningDay}${winner.presentIdentifier ? winner.presentIdentifier : ''}`}</Typography>
                 </div>
-                <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} onClick={handleDeleteClick(winner)}>
+                <Button variant={'destructive'} className="rounded-[20px] text-xs text-right" onClick={handleDeleteClick(winner)}>
                     <LocalizedText translationKey={'calendar.cards.winners.button_remove'} />
                 </Button>
             </Box>
