@@ -2,32 +2,10 @@
 
 exports[`PickNewWinner component Matches the snapshot 1`] = `
 <button
-  className="MuiButtonBase-root MuiButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-contained MuiButton-containedPrimary MuiButton-sizeMedium MuiButton-containedSizeMedium MuiButton-colorPrimary css-74d805-MuiButtonBase-root-MuiButton-root"
+  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
   disabled={false}
-  onBlur={[Function]}
   onClick={[Function]}
-  onContextMenu={[Function]}
-  onDragLeave={[Function]}
-  onFocus={[Function]}
-  onKeyDown={[Function]}
-  onKeyUp={[Function]}
-  onMouseDown={[Function]}
-  onMouseLeave={[Function]}
-  onMouseUp={[Function]}
-  onTouchEnd={[Function]}
-  onTouchMove={[Function]}
-  onTouchStart={[Function]}
-  tabIndex={0}
-  type="button"
 >
-  <span
-    className="MuiButton-loadingWrapper"
-    style={
-      {
-        "display": "contents",
-      }
-    }
-  />
   Some text
 </button>
 `;
