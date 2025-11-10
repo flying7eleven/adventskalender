@@ -4,7 +4,7 @@ import { LocalizedText } from '../../components/LocalizedText';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
+import { Button } from '@/components/ui/button';
 import { Dispatch, SetStateAction } from 'react';
 
 interface Props {
