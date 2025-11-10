@@ -20,12 +20,7 @@ export default defineConfig(() => {
             target: browserslistToEsbuild(['>0.2%', 'not dead', 'not op_mini all']),
         },
         plugins: [
-            react({
-                jsxImportSource: '@emotion/react',
-                babel: {
-                    plugins: ['@emotion/babel-plugin'],
-                },
-            }),
+            react(),
             viteTsconfigPaths(),
             // Add security headers in development mode
             {
