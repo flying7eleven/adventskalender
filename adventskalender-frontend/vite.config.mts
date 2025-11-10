@@ -38,6 +38,14 @@ export default defineConfig(() => {
                         // Control referrer information sent with requests
                         res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
+                        // Content Security Policy for development
+                        // Allows connection to backend API (localhost:5479) and Vite HMR WebSocket
+                        // 'unsafe-inline' for script-src is needed for Vite's development inline scripts
+                        res.setHeader(
+                            'Content-Security-Policy',
+                            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' http://localhost:5479 ws://localhost:*; base-uri 'self'; form-action 'self'; object-src 'none'; media-src 'none'; worker-src 'none';"
+                        );
+
                         next();
                     });
                 },

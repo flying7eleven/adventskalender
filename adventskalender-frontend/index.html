@@ -4,10 +4,7 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="initial-scale=1, width=device-width" />
         <meta name="description" content="A simple company-wide raffle as a remote form of an advent calendar" />
-        <meta
-            http-equiv="Content-Security-Policy"
-            content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; media-src 'none'; worker-src 'none';"
-        />
+        <!-- CSP is set via HTTP headers (see vite.config.mts for dev, docker/default.conf for production) -->
         <link rel="stylesheet" href="/fonts/fonts.css" />
         <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎄</text></svg>" />
         <title>Adventskalender</title>
