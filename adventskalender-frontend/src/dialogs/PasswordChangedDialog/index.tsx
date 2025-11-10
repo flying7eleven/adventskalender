@@ -1,10 +1,13 @@
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import { LocalizedText } from '../../components/LocalizedText';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { LocalizedText } from '../../components/LocalizedText';
 import { Dispatch, SetStateAction } from 'react';
 
 interface Props {
@@ -14,20 +17,22 @@ interface Props {
 
 export const PasswordChangedDialog = (props: Props) => {
     return (
-        <Dialog open={props.isOpen} onClose={() => props.setDialogOpenStateFunction(false)} aria-labelledby="alert-dialog-title-successful" aria-describedby="alert-dialog-description-successful">
-            <DialogTitle id="alert-dialog-title-successful">
-                <LocalizedText translationKey={'settings.dialogs.password_change_successful.title'} />
-            </DialogTitle>
+        <Dialog open={props.isOpen} onOpenChange={(open) => !open && props.setDialogOpenStateFunction(false)}>
             <DialogContent>
-                <DialogContentText id="alert-dialog-description-successful">
-                    <LocalizedText translationKey={'settings.dialogs.password_change_successful.text'} />
-                </DialogContentText>
+                <DialogHeader>
+                    <DialogTitle>
+                        <LocalizedText translationKey={'settings.dialogs.password_change_successful.title'} />
+                    </DialogTitle>
+                    <DialogDescription>
+                        <LocalizedText translationKey={'settings.dialogs.password_change_successful.text'} />
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button onClick={() => props.setDialogOpenStateFunction(false)}>
+                        <LocalizedText translationKey={'settings.dialogs.password_change_successful.accept_button'} />
+                    </Button>
+                </DialogFooter>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={() => props.setDialogOpenStateFunction(false)} autoFocus>
-                    <LocalizedText translationKey={'settings.dialogs.password_change_successful.accept_button'} />
-                </Button>
-            </DialogActions>
         </Dialog>
     );
 };

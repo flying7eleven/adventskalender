@@ -1,10 +1,13 @@
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import { LocalizedText } from '../../components/LocalizedText';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { LocalizedText } from '../../components/LocalizedText';
 import { Dispatch, SetStateAction } from 'react';
 
 interface Props {
@@ -18,20 +21,22 @@ export const NoParticipantsErrorDialog = (props: Props) => {
     };
 
     return (
-        <Dialog open={props.isOpen} onClose={handleDialogClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
-            <DialogTitle id="alert-dialog-title">
-                <LocalizedText translationKey={'dashboard.dialogs.no_participants_left.title'} />
-            </DialogTitle>
+        <Dialog open={props.isOpen} onOpenChange={(open) => !open && handleDialogClose()}>
             <DialogContent>
-                <DialogContentText id="alert-dialog-description">
-                    <LocalizedText translationKey={'dashboard.dialogs.no_participants_left.text'} />
-                </DialogContentText>
+                <DialogHeader>
+                    <DialogTitle>
+                        <LocalizedText translationKey={'dashboard.dialogs.no_participants_left.title'} />
+                    </DialogTitle>
+                    <DialogDescription>
+                        <LocalizedText translationKey={'dashboard.dialogs.no_participants_left.text'} />
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button onClick={handleDialogClose}>
+                        <LocalizedText translationKey={'dashboard.dialogs.no_participants_left.accept_button'} />
+                    </Button>
+                </DialogFooter>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={handleDialogClose} autoFocus>
-                    <LocalizedText translationKey={'dashboard.dialogs.no_participants_left.accept_button'} />
-                </Button>
-            </DialogActions>
         </Dialog>
     );
 };
