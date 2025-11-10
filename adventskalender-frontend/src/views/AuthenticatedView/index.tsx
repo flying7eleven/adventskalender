@@ -14,7 +14,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import ListItemText from '@mui/material/ListItemText';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import MenuIcon from '@mui/icons-material/Menu';
-import Button from '@mui/material/Button';
+import { Button } from '@/components/ui/button';
 import { LocalizedText } from '../../components/LocalizedText';
 import InfoIcon from '@mui/icons-material/Info';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -197,7 +197,7 @@ export const AuthenticatedView = (props: Props) => {
                         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                             <LocalizedText translationKey={'dashboard.navigation.app_title'} />
                         </Typography>
-                        <Button color="inherit" onClick={logoutUser}>
+                        <Button variant="ghost" onClick={logoutUser} className="text-inherit">
                             <LocalizedText translationKey={'dashboard.navigation.logout_button'} />
                         </Button>
                     </Toolbar>
