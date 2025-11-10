@@ -3,7 +3,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
+import { Button } from '@/components/ui/button';
 import { LocalizedText } from '../../components/LocalizedText';
 import { useContext } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
@@ -26,10 +26,10 @@ export const SessionExpiryWarningDialog = (props: Props) => {
                 <DialogContentText id="session-expiry-warning-dialog-description">{localizationContext.translate('session.expiry_warning.message')}</DialogContentText>
             </DialogContent>
             <DialogActions>
-                <Button onClick={props.onLogout} color="error">
+                <Button onClick={props.onLogout} variant="destructive">
                     <LocalizedText translationKey={'session.expiry_warning.logout_button'} />
                 </Button>
-                <Button onClick={props.onExtendSession} variant="contained" autoFocus>
+                <Button onClick={props.onExtendSession} variant="default" autoFocus>
                     <LocalizedText translationKey={'session.expiry_warning.stay_logged_in_button'} />
                 </Button>
             </DialogActions>
