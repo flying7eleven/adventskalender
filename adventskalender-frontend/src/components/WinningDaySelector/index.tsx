@@ -1,10 +1,4 @@
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useContext } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
@@ -47,16 +41,11 @@ export const WinningDaySelector = (props: Props) => {
     return (
         <div className="w-full space-y-2">
             <Label htmlFor="winning-day-select">{props.label}</Label>
-            <Select
-                value={props.selectedDay ? props.selectedDay.toString() : '1'}
-                onValueChange={handleChange}
-            >
+            <Select value={props.selectedDay ? props.selectedDay.toString() : '1'} onValueChange={handleChange}>
                 <SelectTrigger id="winning-day-select" className="w-full">
                     <SelectValue placeholder={props.label} />
                 </SelectTrigger>
-                <SelectContent>
-                    {getListOfDays()}
-                </SelectContent>
+                <SelectContent>{getListOfDays()}</SelectContent>
             </Select>
         </div>
     );

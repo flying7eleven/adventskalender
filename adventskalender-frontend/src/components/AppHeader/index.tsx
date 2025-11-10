@@ -26,13 +26,7 @@ export const AppHeader = ({ open, onMenuClick, onLogout, title, logoutLabel }: A
             )}
         >
             <div className="flex items-center px-4">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onMenuClick}
-                    className="text-primary-foreground hover:bg-primary-foreground/10"
-                    aria-label="Open navigation menu"
-                >
+                <Button variant="ghost" size="icon" onClick={onMenuClick} className="text-primary-foreground hover:bg-primary-foreground/10" aria-label="Open navigation menu">
                     <Menu className="h-5 w-5" />
                 </Button>
                 <h1 className="ml-4 text-lg font-semibold">{title}</h1>

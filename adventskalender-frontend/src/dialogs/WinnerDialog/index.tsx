@@ -1,27 +1,7 @@
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
 import { ReactNode, useContext, useState } from 'react';
@@ -399,23 +379,15 @@ export const WinnerDialog = (props: Props) => {
                                                     <Label htmlFor={`winner-${currentWinner.id}-package-selection`} className="sr-only">
                                                         <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.select.package_label'} />
                                                     </Label>
-                                                    <Select
-                                                        value={packageSelections[currentWinner.id] || ''}
-                                                        onValueChange={(value) => selectPackageForUser(currentWinner.id, value)}
-                                                    >
+                                                    <Select value={packageSelections[currentWinner.id] || ''} onValueChange={(value) => selectPackageForUser(currentWinner.id, value)}>
                                                         <SelectTrigger
                                                             id={`winner-${currentWinner.id}-package-selection`}
-                                                            className={cn(
-                                                                "w-full",
-                                                                packageSelectionErrorStates[currentWinner.id] && "border-destructive focus-visible:ring-destructive"
-                                                            )}
+                                                            className={cn('w-full', packageSelectionErrorStates[currentWinner.id] && 'border-destructive focus-visible:ring-destructive')}
                                                             aria-invalid={packageSelectionErrorStates[currentWinner.id]}
                                                         >
                                                             <SelectValue placeholder="-" />
                                                         </SelectTrigger>
-                                                        <SelectContent>
-                                                            {getPossiblePackageMenuItems(currentWinner.id, props.numberOfMaxSubPackages)}
-                                                        </SelectContent>
+                                                        <SelectContent>{getPossiblePackageMenuItems(currentWinner.id, props.numberOfMaxSubPackages)}</SelectContent>
                                                     </Select>
                                                     {packageSelectionErrorStates[currentWinner.id] && (
                                                         <p className="text-sm text-destructive" role="alert">
@@ -435,23 +407,14 @@ export const WinnerDialog = (props: Props) => {
                 )}
                 <DialogFooter className="flex-col sm:flex-row gap-2">
                     {import.meta.env.DEV && (
-                        <Button
-                            variant="secondary"
-                            onClick={handleFillPackageSelectionAutomatically}
-                            className="sm:mr-auto"
-                        >
+                        <Button variant="secondary" onClick={handleFillPackageSelectionAutomatically} className="sm:mr-auto">
                             <LocalizedText translationKey={'dashboard.dialogs.new_winners.autofill_button'} />
                         </Button>
                     )}
-                    <Button
-                        variant="destructive"
-                        onClick={handleDialogCancelClick}
-                    >
+                    <Button variant="destructive" onClick={handleDialogCancelClick}>
                         <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
                     </Button>
-                    <Button
-                        onClick={activeStep === 0 ? handleDialogNextPage : handleDialogClose}
-                    >
+                    <Button onClick={activeStep === 0 ? handleDialogNextPage : handleDialogClose}>
                         <LocalizedText translationKey={activeStep === 0 ? 'dashboard.dialogs.new_winners.accept_button' : 'dashboard.dialogs.new_winners.finish_button'} />
                     </Button>
                 </DialogFooter>

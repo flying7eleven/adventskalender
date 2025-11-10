@@ -1,11 +1,4 @@
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { LocalizedText } from '../../components/LocalizedText';
 import { Dispatch, SetStateAction, useContext } from 'react';
@@ -74,10 +67,7 @@ export const DeleteWinnerDialog = (props: Props) => {
     };
 
     return (
-        <Dialog
-            open={props.isOpen}
-            onOpenChange={(open) => !open && props.setDialogOpenStateFunction(false)}
-        >
+        <Dialog open={props.isOpen} onOpenChange={(open) => !open && props.setDialogOpenStateFunction(false)}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>
@@ -88,16 +78,10 @@ export const DeleteWinnerDialog = (props: Props) => {
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={() => props.setDialogOpenStateFunction(false)}
-                    >
+                    <Button variant="outline" onClick={() => props.setDialogOpenStateFunction(false)}>
                         <LocalizedText translationKey={'calendar.dialogs.remove_participant.cancel_button'} />
                     </Button>
-                    <Button
-                        variant="destructive"
-                        onClick={handleRemoveParticipant}
-                    >
+                    <Button variant="destructive" onClick={handleRemoveParticipant}>
                         <LocalizedText translationKey={'calendar.dialogs.remove_participant.accept_button'} />
                     </Button>
                 </DialogFooter>

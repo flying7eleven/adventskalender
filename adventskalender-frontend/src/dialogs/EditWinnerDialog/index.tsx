@@ -1,26 +1,7 @@
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
 import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
@@ -153,23 +134,15 @@ export const EditWinnerDialog = (props: Props) => {
                                                 <Label htmlFor={`winner-${currentWinner.id}-package-selection`} className="sr-only">
                                                     <LocalizedText translationKey={'calendar.dialogs.edit_participant.table.select.package_label'} />
                                                 </Label>
-                                                <Select
-                                                    value={packageSelections[currentWinner.id] || ''}
-                                                    onValueChange={(value) => selectPackageForUser(currentWinner.id, value)}
-                                                >
+                                                <Select value={packageSelections[currentWinner.id] || ''} onValueChange={(value) => selectPackageForUser(currentWinner.id, value)}>
                                                     <SelectTrigger
                                                         id={`winner-${currentWinner.id}-package-selection`}
-                                                        className={cn(
-                                                            "w-full",
-                                                            packageSelectionErrorStates[currentWinner.id] && "border-destructive focus-visible:ring-destructive"
-                                                        )}
+                                                        className={cn('w-full', packageSelectionErrorStates[currentWinner.id] && 'border-destructive focus-visible:ring-destructive')}
                                                         aria-invalid={packageSelectionErrorStates[currentWinner.id]}
                                                     >
                                                         <SelectValue placeholder="-" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
-                                                        {getPossiblePackageMenuItems(currentWinner.id, props.numberOfMaxSubPackages)}
-                                                    </SelectContent>
+                                                    <SelectContent>{getPossiblePackageMenuItems(currentWinner.id, props.numberOfMaxSubPackages)}</SelectContent>
                                                 </Select>
                                                 {packageSelectionErrorStates[currentWinner.id] && (
                                                     <p className="text-sm text-destructive" role="alert">

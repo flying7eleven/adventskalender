@@ -45,12 +45,7 @@ export const NavigationDrawer = ({ open, onToggle, items, settingsItems }: Navig
             {/* Navigation Items */}
             <nav className="flex flex-col gap-1 p-2">
                 {items.map((item) => (
-                    <Button
-                        key={item.key}
-                        variant={item.selected ? 'secondary' : 'ghost'}
-                        className={cn('justify-start', !open && 'justify-center px-2')}
-                        onClick={item.onClick}
-                    >
+                    <Button key={item.key} variant={item.selected ? 'secondary' : 'ghost'} className={cn('justify-start', !open && 'justify-center px-2')} onClick={item.onClick}>
                         {item.icon}
                         {open && <span className="ml-3">{item.label}</span>}
                     </Button>
@@ -62,12 +57,7 @@ export const NavigationDrawer = ({ open, onToggle, items, settingsItems }: Navig
             {/* Settings Navigation Items */}
             <nav className="flex flex-col gap-1 p-2">
                 {settingsItems.map((item) => (
-                    <Button
-                        key={item.key}
-                        variant={item.selected ? 'secondary' : 'ghost'}
-                        className={cn('justify-start', !open && 'justify-center px-2')}
-                        onClick={item.onClick}
-                    >
+                    <Button key={item.key} variant={item.selected ? 'secondary' : 'ghost'} className={cn('justify-start', !open && 'justify-center px-2')} onClick={item.onClick}>
                         {item.icon}
                         {open && <span className="ml-3">{item.label}</span>}
                     </Button>

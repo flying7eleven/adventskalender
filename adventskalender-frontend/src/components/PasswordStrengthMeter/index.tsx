@@ -73,21 +73,9 @@ export const PasswordStrengthMeter = ({ password }: Props) => {
             <p className={`text-xs ${getColorClass()}`}>
                 {localizationContext.translate('settings.cards.password.strength.label')} {getLabel()}
             </p>
-            <Progress
-                value={progress}
-                className="h-1.5"
-                indicatorClassName={getProgressIndicatorClass()}
-            />
-            {result.feedback.warning && (
-                <p className="text-xs text-destructive block mt-1">
-                    {result.feedback.warning}
-                </p>
-            )}
-            {result.feedback.suggestions.length > 0 && (
-                <p className="text-xs text-muted-foreground block mt-1">
-                    {result.feedback.suggestions[0]}
-                </p>
-            )}
+            <Progress value={progress} className="h-1.5" indicatorClassName={getProgressIndicatorClass()} />
+            {result.feedback.warning && <p className="text-xs text-destructive block mt-1">{result.feedback.warning}</p>}
+            {result.feedback.suggestions.length > 0 && <p className="text-xs text-muted-foreground block mt-1">{result.feedback.suggestions[0]}</p>}
         </div>
     );
 };

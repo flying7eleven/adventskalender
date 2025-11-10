@@ -1,10 +1,4 @@
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 
 interface Props {
@@ -40,9 +34,7 @@ export const NumberOfWinnersSelector = (props: Props) => {
                 <SelectTrigger id="number-of-winners-select" className="w-full">
                     <SelectValue placeholder={props.label} />
                 </SelectTrigger>
-                <SelectContent>
-                    {getListOfWinners()}
-                </SelectContent>
+                <SelectContent>{getListOfWinners()}</SelectContent>
             </Select>
         </div>
     );

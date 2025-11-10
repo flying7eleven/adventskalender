@@ -94,60 +94,45 @@ export const SettingsView = () => {
                                 <p className="text-sm font-medium text-left">
                                     <LocalizedText translationKey={'settings.cards.password.headline'} />
                                 </p>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="first-password-input">
-                                            {localizationContext.translate('settings.cards.password.labels.password_first')}
-                                        </Label>
-                                        <Input
-                                            id="first-password-input"
-                                            type="password"
-                                            autoComplete="new-password"
-                                            onChange={handleChangeOfFirstPassword}
-                                            className={cn(
-                                                "w-full",
-                                                isPasswordNotEqualFirst && "border-destructive focus-visible:ring-destructive"
-                                            )}
-                                            aria-invalid={isPasswordNotEqualFirst}
-                                            aria-describedby={isPasswordNotEqualFirst ? "first-password-error" : undefined}
-                                        />
-                                        {isPasswordNotEqualFirst && (
-                                            <p id="first-password-error" className="text-sm text-destructive" role="alert">
-                                                Password must be at least 8 characters and have a strength of Fair or better
-                                            </p>
-                                        )}
-                                    </div>
-                                    <PasswordStrengthMeter password={firstPassword} />
-                                    <div className="space-y-2">
-                                        <Label htmlFor="second-password-input">
-                                            {localizationContext.translate('settings.cards.password.labels.password_repeated')}
-                                        </Label>
-                                        <Input
-                                            id="second-password-input"
-                                            type="password"
-                                            autoComplete="new-password"
-                                            onChange={handleChangeOfSecondPassword}
-                                            className={cn(
-                                                "w-full",
-                                                isPasswordNotEqualSecond && "border-destructive focus-visible:ring-destructive"
-                                            )}
-                                            aria-invalid={isPasswordNotEqualSecond}
-                                            aria-describedby={isPasswordNotEqualSecond ? "second-password-error" : undefined}
-                                        />
-                                        {isPasswordNotEqualSecond && (
-                                            <p id="second-password-error" className="text-sm text-destructive" role="alert">
-                                                Passwords must match and be at least 8 characters
-                                            </p>
-                                        )}
-                                    </div>
-                                    <Button
-                                        variant="default"
-                                        onClick={changePassword}
-                                        disabled={firstPassword.length < 8 || passwordStrength < 2 || firstPassword !== secondPassword}
-                                        className="w-full"
-                                    >
-                                        <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
-                                    </Button>
+                                <div className="space-y-2">
+                                    <Label htmlFor="first-password-input">{localizationContext.translate('settings.cards.password.labels.password_first')}</Label>
+                                    <Input
+                                        id="first-password-input"
+                                        type="password"
+                                        autoComplete="new-password"
+                                        onChange={handleChangeOfFirstPassword}
+                                        className={cn('w-full', isPasswordNotEqualFirst && 'border-destructive focus-visible:ring-destructive')}
+                                        aria-invalid={isPasswordNotEqualFirst}
+                                        aria-describedby={isPasswordNotEqualFirst ? 'first-password-error' : undefined}
+                                    />
+                                    {isPasswordNotEqualFirst && (
+                                        <p id="first-password-error" className="text-sm text-destructive" role="alert">
+                                            Password must be at least 8 characters and have a strength of Fair or better
+                                        </p>
+                                    )}
                                 </div>
+                                <PasswordStrengthMeter password={firstPassword} />
+                                <div className="space-y-2">
+                                    <Label htmlFor="second-password-input">{localizationContext.translate('settings.cards.password.labels.password_repeated')}</Label>
+                                    <Input
+                                        id="second-password-input"
+                                        type="password"
+                                        autoComplete="new-password"
+                                        onChange={handleChangeOfSecondPassword}
+                                        className={cn('w-full', isPasswordNotEqualSecond && 'border-destructive focus-visible:ring-destructive')}
+                                        aria-invalid={isPasswordNotEqualSecond}
+                                        aria-describedby={isPasswordNotEqualSecond ? 'second-password-error' : undefined}
+                                    />
+                                    {isPasswordNotEqualSecond && (
+                                        <p id="second-password-error" className="text-sm text-destructive" role="alert">
+                                            Passwords must match and be at least 8 characters
+                                        </p>
+                                    )}
+                                </div>
+                                <Button variant="default" onClick={changePassword} disabled={firstPassword.length < 8 || passwordStrength < 2 || firstPassword !== secondPassword} className="w-full">
+                                    <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
