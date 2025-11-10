@@ -18,12 +18,12 @@ export const WinnerCard = (props: Props) => {
     const [packageSelections, setPackageSelections] = useState<{ [key: string]: string }>({});
 
     useEffect(() => {
+        const newPackageSelections: { [key: string]: string } = {};
         props.listOfWinner.forEach((winner) => {
-            const oldPackageSelections = Object.assign({}, packageSelections);
-            oldPackageSelections[winner.id] = winner.presentIdentifier ? winner.presentIdentifier : '';
-            setPackageSelections(oldPackageSelections);
+            newPackageSelections[winner.id] = winner.presentIdentifier ? winner.presentIdentifier : '';
         });
-    }, [props.listOfWinner, packageSelections]);
+        setPackageSelections(newPackageSelections);
+    }, [props.listOfWinner]);
 
     const handleEditClick = () => {
         setEditDialogOpen(true);
