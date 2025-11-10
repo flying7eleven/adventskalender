@@ -14,6 +14,7 @@ import { CalendarView } from '../../views/CalendarView';
 import { VersionView } from '../../views/VersionView';
 import { SettingsView } from '../../views/SettingsView';
 import { LoginView } from '../../views/LoginView';
+import { Toaster } from '@/components/ui/sonner';
 
 export const App = () => {
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -32,6 +33,7 @@ export const App = () => {
             <ThemeProvider theme={theme}>
                 <LocalizationProvider resources={{ english: English, german: German }}>
                     <CssBaseline />
+                    <Toaster position="bottom-right" />
                     <AuthenticationProvider>
                         <Routes>
                             <Route>
