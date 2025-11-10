@@ -3,7 +3,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import { LocalizedText } from '../../components/LocalizedText';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
+import { Button } from '@/components/ui/button';
 import { FormHelperText, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import Paper from '@mui/material/Paper';
 import FormControl from '@mui/material/FormControl';
