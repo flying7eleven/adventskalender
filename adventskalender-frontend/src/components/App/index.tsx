@@ -1,12 +1,9 @@
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
-import { useMemo } from 'react';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import English from '../../languages/en.json';
 import German from '../../languages/de.json';
-import CssBaseline from '@mui/material/CssBaseline';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
+import { ThemeProvider } from '../../provider/ThemeProvider';
 import { RequireAuthentication } from '../RequireAuthentication';
 import { AuthenticatedView } from '../../views/AuthenticatedView';
 import { DashboardView } from '../../views/DashboardView';
@@ -17,24 +14,12 @@ import { LoginView } from '../../views/LoginView';
 import { Toaster } from '@/components/ui/sonner';
 
 export const App = () => {
-    const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-    const theme = useMemo(
-        () =>
-            createTheme({
-                palette: {
-                    mode: prefersDarkMode ? 'dark' : 'light',
-                },
-            }),
-        [prefersDarkMode]
-    );
-
     return (
         <BrowserRouter>
-            <ThemeProvider theme={theme}>
+            <ThemeProvider defaultTheme="system" storageKey="adventskalender-ui-theme">
                 <LocalizationProvider resources={{ english: English, german: German }}>
-                    <CssBaseline />
-                    <Toaster position="bottom-right" />
                     <AuthenticationProvider>
+                        <Toaster position="bottom-right" />
                         <Routes>
                             <Route>
                                 <Route
@@ -69,7 +54,7 @@ export const App = () => {
                                         </RequireAuthentication>
                                     }
                                 />
-                                <Route path="/login" element={<LoginView isDark={prefersDarkMode} />} />
+                                <Route path="/login" element={<LoginView />} />
                             </Route>
                         </Routes>
                     </AuthenticationProvider>
