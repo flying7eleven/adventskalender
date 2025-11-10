@@ -4,16 +4,21 @@ import { LocalizedText } from '../../components/LocalizedText';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import { Button } from '@/components/ui/button';
-import { FormHelperText, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import Paper from '@mui/material/Paper';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
 import { Dispatch, ReactNode, SetStateAction, useState } from 'react';
-import MenuItem from '@mui/material/MenuItem';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 interface Props {
     listOfWinner: WinnerInformation[];
@@ -36,16 +41,16 @@ export const EditWinnerDialog = (props: Props) => {
         const items: ReactNode[] = [];
 
         items.push(
-            <MenuItem key={`menu-item-not-selected-for-user-${userId}`} value={''}>
+            <SelectItem key={`menu-item-not-selected-for-user-${userId}`} value={''}>
                 -
-            </MenuItem>
+            </SelectItem>
         );
 
         alphabet.map((character) => {
             items.push(
-                <MenuItem key={`menu-item-${character}-for-user-${userId}`} value={character}>
+                <SelectItem key={`menu-item-${character}-for-user-${userId}`} value={character}>
                     {character}
-                </MenuItem>
+                </SelectItem>
             );
         });
 
@@ -133,28 +138,34 @@ export const EditWinnerDialog = (props: Props) => {
                                             {currentWinner.firstName}&nbsp;{currentWinner.lastName}
                                         </TableCell>
                                         <TableCell>
-                                            <FormControl fullWidth>
-                                                <InputLabel id={`winner-${currentWinner.id}-package-selection-label`}>
+                                            <div className="w-full space-y-1">
+                                                <Label htmlFor={`winner-${currentWinner.id}-package-selection`} className="sr-only">
                                                     <LocalizedText translationKey={'calendar.dialogs.edit_participant.table.select.package_label'} />
-                                                </InputLabel>
+                                                </Label>
                                                 <Select
-                                                    labelId={`winner-${currentWinner.id}-package-selection-label`}
-                                                    id={`winner-${currentWinner.id}-package-selection-value`}
-                                                    value={packageSelections[currentWinner.id] ? packageSelections[currentWinner.id] : ''}
-                                                    label={<LocalizedText translationKey={'calendar.dialogs.edit_participant.table.select.package_label'} />}
-                                                    onChange={(e) => selectPackageForUser(currentWinner.id, e.target.value)}
-                                                    error={packageSelectionErrorStates[currentWinner.id] ? packageSelectionErrorStates[currentWinner.id] : false}
+                                                    value={packageSelections[currentWinner.id] || ''}
+                                                    onValueChange={(value) => selectPackageForUser(currentWinner.id, value)}
                                                 >
-                                                    {getPossiblePackageMenuItems(currentWinner.id, props.numberOfMaxSubPackages)}
+                                                    <SelectTrigger
+                                                        id={`winner-${currentWinner.id}-package-selection`}
+                                                        className={cn(
+                                                            "w-full",
+                                                            packageSelectionErrorStates[currentWinner.id] && "border-destructive focus-visible:ring-destructive"
+                                                        )}
+                                                        aria-invalid={packageSelectionErrorStates[currentWinner.id]}
+                                                    >
+                                                        <SelectValue placeholder="-" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {getPossiblePackageMenuItems(currentWinner.id, props.numberOfMaxSubPackages)}
+                                                    </SelectContent>
                                                 </Select>
-                                                <FormHelperText>
-                                                    {packageSelectionErrorStates[currentWinner.id] ? (
+                                                {packageSelectionErrorStates[currentWinner.id] && (
+                                                    <p className="text-sm text-destructive" role="alert">
                                                         <LocalizedText translationKey={'calendar.dialogs.edit_participant.table.error_package_selection'} />
-                                                    ) : (
-                                                        ''
-                                                    )}
-                                                </FormHelperText>
-                                            </FormControl>
+                                                    </p>
+                                                )}
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 );
