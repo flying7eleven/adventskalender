@@ -1,8 +1,9 @@
 import { LocalizedText } from '../LocalizedText';
-import { Box, Card, CardContent, Divider, Stack, Typography } from '@mui/material';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { WinnerInformation } from '../../api';
 import { useEffect, useState } from 'react';
-import EditNoteIcon from '@mui/icons-material/EditNote';
+import { Edit } from 'lucide-react';
 import { PersonItem } from '../PersonItem';
 import { EditWinnerDialog } from '../../dialogs/EditWinnerDialog';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,7 @@ export const WinnerCard = (props: Props) => {
                 />
             );
             if (i !== sortedWinners.length - 1) {
-                elements.push(<Divider key={`divider-${sortedWinners[i].id}`} variant={'middle'} />);
+                elements.push(<Separator key={`divider-${sortedWinners[i].id}`} className="my-2" />);
             }
         }
         return elements;
@@ -71,25 +72,23 @@ export const WinnerCard = (props: Props) => {
                 numberOfMaxSubPackages={props.numberOfMaxSubPackages}
                 packageSelections={packageSelections}
             />
-            <Card variant="outlined">
-                <CardContent>
-                    <Stack direction={'column'} spacing={1}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1.3fr 1.3fr 0.2fr' }}>
-                            <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
+            <Card>
+                <CardContent className="p-6">
+                    <div className="flex flex-col gap-2">
+                        <div className="grid grid-cols-[1.3fr_1.3fr_0.2fr] items-center">
+                            <p className="text-sm font-medium text-left">
                                 <LocalizedText translationKey={'calendar.cards.winners.headline'} />
-                            </Typography>
-                            <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'center' }}>
-                                {getFormattedDate(props.winningDate)}
-                            </Typography>
+                            </p>
+                            <p className="text-sm font-medium text-center">{getFormattedDate(props.winningDate)}</p>
                             {import.meta.env.DEV && (
-                                <Button variant={'outline'} className="rounded-[20px] text-xs text-right" onClick={handleEditClick}>
-                                    <EditNoteIcon />
+                                <Button variant={'outline'} size="icon" className="rounded-full h-8 w-8 ml-auto" onClick={handleEditClick}>
+                                    <Edit className="h-4 w-4" />
                                 </Button>
                             )}
-                        </Box>
+                        </div>
                         {getWinningEntries()}
-                    </Stack>
-                    <Divider />
+                    </div>
+                    <Separator className="mt-4" />
                 </CardContent>
             </Card>
         </>

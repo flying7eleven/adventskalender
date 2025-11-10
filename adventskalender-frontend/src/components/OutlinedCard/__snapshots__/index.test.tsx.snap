@@ -2,35 +2,26 @@
 
 exports[`OutlinedCard component Matches the snapshot 1`] = `
 <div
-  className="MuiBox-root css-12dv9jb"
+  className="rounded-lg border bg-card text-card-foreground shadow-sm min-w-[275px]"
 >
   <div
-    className="MuiPaper-root MuiPaper-outlined MuiPaper-rounded MuiCard-root css-196bwzp-MuiPaper-root-MuiCard-root"
-    style={{}}
+    className="p-6"
   >
-     
-    <div
-      className="MuiCardContent-root css-1lt5qva-MuiCardContent-root"
+    <p
+      className="text-sm text-muted-foreground mb-2"
     >
-      <p
-        className="MuiTypography-root MuiTypography-body1 MuiTypography-gutterBottom css-qeip0x-MuiTypography-root"
-        style={{}}
-      >
-        Headline
-      </p>
-      <div
-        className="MuiTypography-root MuiTypography-h3 css-13msox4-MuiTypography-root"
-        style={{}}
-      >
-        Value
-      </div>
-      <p
-        className="MuiTypography-root MuiTypography-body1 css-nsr5mc-MuiTypography-root"
-        style={{}}
-      >
-        Description
-      </p>
+      Headline
+    </p>
+    <div
+      className="text-2xl font-semibold"
+    >
+      Value
     </div>
+    <p
+      className="mt-1.5 text-foreground"
+    >
+      Description
+    </p>
   </div>
 </div>
 `;
