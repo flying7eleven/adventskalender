@@ -1,7 +1,8 @@
 import { FormEvent, useRef, useState } from 'react';
 import Avatar from '@mui/material/Avatar';
 import { Button } from '@/components/ui/button';
-import TextField from '@mui/material/TextField';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -116,33 +117,40 @@ export const LoginView = (props: Props) => {
                         <Typography component="h1" variant="h5">
                             <LocalizedText translationKey={'login.headlines.signin'} />
                         </Typography>
-                        <Box component="form" noValidate onSubmit={requestAuthorizationToken} sx={{ mt: 1 }}>
-                            <TextField
-                                margin="normal"
-                                required
-                                fullWidth
-                                id="username"
-                                label={<LocalizedText translationKey={'login.form.username_field_label'} />}
-                                name="username"
-                                autoComplete="username"
-                                autoFocus
-                                inputRef={usernameField}
-                            />
-                            <TextField
-                                margin="normal"
-                                required
-                                fullWidth
-                                name="password"
-                                label={<LocalizedText translationKey={'login.form.password_field_label'} />}
-                                type="password"
-                                id="password"
-                                autoComplete="current-password"
-                                inputRef={passwordField}
-                            />
+                        <form noValidate onSubmit={requestAuthorizationToken} className="mt-4 space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="username">
+                                    <LocalizedText translationKey={'login.form.username_field_label'} /> *
+                                </Label>
+                                <Input
+                                    id="username"
+                                    name="username"
+                                    type="text"
+                                    required
+                                    autoComplete="username"
+                                    autoFocus
+                                    ref={usernameField}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="password">
+                                    <LocalizedText translationKey={'login.form.password_field_label'} /> *
+                                </Label>
+                                <Input
+                                    id="password"
+                                    name="password"
+                                    type="password"
+                                    required
+                                    autoComplete="current-password"
+                                    ref={passwordField}
+                                    className="w-full"
+                                />
+                            </div>
                             <Button type="submit" variant="default" className="w-full mt-6 mb-4">
                                 {<LocalizedText translationKey={'login.form.sign_in_button'} />}
                             </Button>
-                        </Box>
+                        </form>
                     </Box>
                 </Grid>
             </Grid>
