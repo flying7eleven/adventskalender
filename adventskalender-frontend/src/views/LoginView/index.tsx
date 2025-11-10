@@ -1,6 +1,6 @@
 import { FormEvent, useRef, useState } from 'react';
 import Avatar from '@mui/material/Avatar';
-import Button from '@mui/material/Button';
+import { Button } from '@/components/ui/button';
 import TextField from '@mui/material/TextField';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
@@ -139,7 +139,7 @@ export const LoginView = (props: Props) => {
                                 autoComplete="current-password"
                                 inputRef={passwordField}
                             />
-                            <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>
+                            <Button type="submit" variant="default" className="w-full mt-6 mb-4">
                                 {<LocalizedText translationKey={'login.form.sign_in_button'} />}
                             </Button>
                         </Box>
