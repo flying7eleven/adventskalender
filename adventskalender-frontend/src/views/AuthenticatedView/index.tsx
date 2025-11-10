@@ -159,8 +159,8 @@ export const AuthenticatedView = (props: Props) => {
             {/* Main content area */}
             <main
                 className={cn(
-                    // Base styles
-                    'pt-16 p-6',
+                    // Base styles - pt-[88px] matches MUI's toolbar (64px) + p-3 (24px)
+                    'pt-[88px] px-6 pb-6',
                     // Transition to match drawer/header
                     'transition-all duration-300 ease-[cubic-bezier(0.4,0,0.6,1)]',
                     // Margin based on drawer state
