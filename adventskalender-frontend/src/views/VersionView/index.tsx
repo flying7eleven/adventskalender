@@ -1,8 +1,8 @@
-import Grid from '@mui/material/Grid';
 import { useEffect, useState } from 'react';
 import { API_BACKEND_URL, VersionInformation, MAX_WINNERS_PER_DAY } from '../../api';
 import packageJson from '../../../package.json';
-import { Box, Card, CardContent, Divider, Link, Stack, Typography } from '@mui/material';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { LocalizedText } from '../../components/LocalizedText';
 import { VersionInformationSchema, AuditEventCountSchema } from '../../schemas';
 
@@ -79,122 +79,100 @@ export const VersionView = () => {
     }, []);
 
     return (
-        <Stack spacing={2}>
-            <Grid container columns={12} spacing={2} rowSpacing={2} justifyContent={'center'} alignItems={'center'} direction={'column'}>
-                <Grid size={{ xs: 3 }}>
-                    <Card variant="outlined">
-                        <CardContent>
-                            <Stack direction={'column'} spacing={1}>
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'version.card.headline'} />
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'version.card.categories.frontend_version'} />
-                                    </Typography>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        {packageJson.version}
-                                    </Typography>
-                                </Box>
-                                <Divider />
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'version.card.categories.backend_version'} />
-                                    </Typography>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        {backendVersionInformation.backend_version}
-                                    </Typography>
-                                </Box>
-                                <Divider />
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'version.card.categories.backend_arch'} />
-                                    </Typography>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        {backendVersionInformation.backend_arch}
-                                    </Typography>
-                                </Box>
-                                <Divider />
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'version.card.categories.backend_rustc_version'} />
-                                    </Typography>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        {backendVersionInformation.rustc_version}
-                                    </Typography>
-                                </Box>
-                                <Divider />
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'version.card.categories.frontend_build_date_time'} />
-                                    </Typography>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        {`${getFrontendBuildDateTimeString()}`}
-                                    </Typography>
-                                </Box>
-                                <Divider />
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'version.card.categories.backend_build_date_time'} />
-                                    </Typography>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        {`${backendVersionInformation.build_date} ${backendVersionInformation.build_time}`}
-                                    </Typography>
-                                </Box>
-                            </Stack>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 3 }}>
-                    <Card variant="outlined">
-                        <CardContent>
-                            <Stack direction={'column'} spacing={1}>
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'configuration.card.headline'} />
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'configuration.card.categories.used_backend_base_url'} />
-                                    </Typography>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        {API_BACKEND_URL}
-                                    </Typography>
-                                </Box>
-                                <Divider />
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'configuration.card.categories.number_of_audit_events'} />
-                                    </Typography>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        {auditEventCount}
-                                    </Typography>
-                                </Box>
-                                <Divider />
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'configuration.card.categories.max_winners_per_day'} />
-                                    </Typography>
-                                    <Typography variant={'body1'} sx={{ textAlign: 'right' }}>
-                                        {MAX_WINNERS_PER_DAY}
-                                    </Typography>
-                                </Box>
-                            </Stack>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
-            <Typography variant={'subtitle2'} sx={{ textAlign: 'center' }}>
+        <div className="flex flex-col gap-4">
+            <div className="flex flex-col items-center gap-4 p-4">
+                <Card className="w-full max-w-2xl">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col gap-2">
+                            <div className="grid grid-cols-2">
+                                <p className="text-sm font-medium text-left">
+                                    <LocalizedText translationKey={'version.card.headline'} />
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-2">
+                                <p className="text-base text-left">
+                                    <LocalizedText translationKey={'version.card.categories.frontend_version'} />
+                                </p>
+                                <p className="text-base text-right">{packageJson.version}</p>
+                            </div>
+                            <Separator />
+                            <div className="grid grid-cols-2">
+                                <p className="text-base text-left">
+                                    <LocalizedText translationKey={'version.card.categories.backend_version'} />
+                                </p>
+                                <p className="text-base text-right">{backendVersionInformation.backend_version}</p>
+                            </div>
+                            <Separator />
+                            <div className="grid grid-cols-2">
+                                <p className="text-base text-left">
+                                    <LocalizedText translationKey={'version.card.categories.backend_arch'} />
+                                </p>
+                                <p className="text-base text-right">{backendVersionInformation.backend_arch}</p>
+                            </div>
+                            <Separator />
+                            <div className="grid grid-cols-2">
+                                <p className="text-base text-left">
+                                    <LocalizedText translationKey={'version.card.categories.backend_rustc_version'} />
+                                </p>
+                                <p className="text-base text-right">{backendVersionInformation.rustc_version}</p>
+                            </div>
+                            <Separator />
+                            <div className="grid grid-cols-2">
+                                <p className="text-base text-left">
+                                    <LocalizedText translationKey={'version.card.categories.frontend_build_date_time'} />
+                                </p>
+                                <p className="text-base text-right">{`${getFrontendBuildDateTimeString()}`}</p>
+                            </div>
+                            <Separator />
+                            <div className="grid grid-cols-2">
+                                <p className="text-base text-left">
+                                    <LocalizedText translationKey={'version.card.categories.backend_build_date_time'} />
+                                </p>
+                                <p className="text-base text-right">{`${backendVersionInformation.build_date} ${backendVersionInformation.build_time}`}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="w-full max-w-2xl">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col gap-2">
+                            <div className="grid grid-cols-2">
+                                <p className="text-sm font-medium text-left">
+                                    <LocalizedText translationKey={'configuration.card.headline'} />
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-2">
+                                <p className="text-base text-left">
+                                    <LocalizedText translationKey={'configuration.card.categories.used_backend_base_url'} />
+                                </p>
+                                <p className="text-base text-right">{API_BACKEND_URL}</p>
+                            </div>
+                            <Separator />
+                            <div className="grid grid-cols-2">
+                                <p className="text-base text-left">
+                                    <LocalizedText translationKey={'configuration.card.categories.number_of_audit_events'} />
+                                </p>
+                                <p className="text-base text-right">{auditEventCount}</p>
+                            </div>
+                            <Separator />
+                            <div className="grid grid-cols-2">
+                                <p className="text-base text-left">
+                                    <LocalizedText translationKey={'configuration.card.categories.max_winners_per_day'} />
+                                </p>
+                                <p className="text-base text-right">{MAX_WINNERS_PER_DAY}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+            <p className="text-xs font-medium text-center">
                 <span dangerouslySetInnerHTML={{ __html: 'Crafted with &#10084; in Düsseldorf.&nbsp;' }} />
                 Get the source code at{' '}
-                <Link href={'https://github.com/flying7eleven/adventskalender'} target={'_blank'}>
+                <a href={'https://github.com/flying7eleven/adventskalender'} target={'_blank'} rel="noreferrer" className="text-primary hover:underline">
                     GitHub
-                </Link>
+                </a>
                 .
-            </Typography>
-        </Stack>
+            </p>
+        </div>
     );
 };

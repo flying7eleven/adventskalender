@@ -1,6 +1,4 @@
-import Grid from '@mui/material/Grid';
 import { OutlinedCard } from '../../components/OutlinedCard';
-import { Stack } from '@mui/material';
 import { WinningDaySelector } from '../../components/WinningDaySelector';
 import { PickNewWinner } from '../../components/PickNewWinner';
 import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, ParticipantCount, WinnerInformation } from '../../api';
@@ -247,48 +245,40 @@ export const DashboardView = () => {
             />
             <UnknownErrorDialog isOpen={isUnknownErrorDialogOpen} setDialogOpenStateFunction={setIsUnknownErrorDialogOpen} />
             <NoParticipantsErrorDialog isOpen={isNoParticipantsErrorDialogOpen} setDialogOpenStateFunction={setIsNoParticipantsErrorDialogOpen} />
-            <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
-                <Grid>
-                    <OutlinedCard
-                        headline={localizationContext.translate('dashboard.cards.total.title')}
-                        value={`${participantCount.number_of_participants}`}
-                        description={localizationContext.translate('dashboard.cards.total.description')}
-                    />
-                </Grid>
-                <Grid>
-                    <OutlinedCard
-                        headline={localizationContext.translate('dashboard.cards.won.title')}
-                        value={`${participantCount.number_of_participants_won}`}
-                        description={localizationContext.translate('dashboard.cards.won.description')}
-                    />
-                </Grid>
-                <Grid>
-                    <OutlinedCard
-                        headline={localizationContext.translate('dashboard.cards.eligible.title')}
-                        value={`${participantCount.number_of_participants_still_in_raffle}`}
-                        description={localizationContext.translate('dashboard.cards.eligible.description')}
-                    />
-                </Grid>
-            </Grid>
-            <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'} sx={{ marginTop: '16px', marginBottom: '16px' }}>
-                <Grid>
-                    <OutlinedCard
-                        headline={localizationContext.translate('dashboard.cards.pick_new_winner.title')}
-                        value={
-                            <Stack spacing={2} sx={{ marginTop: '16px', marginBottom: '16px' }}>
-                                <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
-                                <PickNewWinner
-                                    isEnabled={getNumberOfWinnersToPick(winnersOnSelectedDay) > 0}
-                                    isLoadingNewWinner={loadingNewWinner}
-                                    onRequestWinner={checkPicking}
-                                    label={localizationContext.translate('dashboard.pick_winner_button')}
-                                />
-                            </Stack>
-                        }
-                        description={localizationContext.translateWithPlaceholder('dashboard.cards.pick_new_winner.description', winnersOnSelectedDay.toString())}
-                    />
-                </Grid>
-            </Grid>
+            <div className="flex flex-wrap justify-center items-center gap-4">
+                <OutlinedCard
+                    headline={localizationContext.translate('dashboard.cards.total.title')}
+                    value={`${participantCount.number_of_participants}`}
+                    description={localizationContext.translate('dashboard.cards.total.description')}
+                />
+                <OutlinedCard
+                    headline={localizationContext.translate('dashboard.cards.won.title')}
+                    value={`${participantCount.number_of_participants_won}`}
+                    description={localizationContext.translate('dashboard.cards.won.description')}
+                />
+                <OutlinedCard
+                    headline={localizationContext.translate('dashboard.cards.eligible.title')}
+                    value={`${participantCount.number_of_participants_still_in_raffle}`}
+                    description={localizationContext.translate('dashboard.cards.eligible.description')}
+                />
+            </div>
+            <div className="flex justify-center items-center my-4">
+                <OutlinedCard
+                    headline={localizationContext.translate('dashboard.cards.pick_new_winner.title')}
+                    value={
+                        <div className="flex flex-col gap-4 my-4">
+                            <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
+                            <PickNewWinner
+                                isEnabled={getNumberOfWinnersToPick(winnersOnSelectedDay) > 0}
+                                isLoadingNewWinner={loadingNewWinner}
+                                onRequestWinner={checkPicking}
+                                label={localizationContext.translate('dashboard.pick_winner_button')}
+                            />
+                        </div>
+                    }
+                    description={localizationContext.translateWithPlaceholder('dashboard.cards.pick_new_winner.description', winnersOnSelectedDay.toString())}
+                />
+            </div>
         </>
     );
 };

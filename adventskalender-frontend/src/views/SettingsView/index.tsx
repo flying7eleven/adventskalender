@@ -1,5 +1,4 @@
-import { Card, CardContent, Typography } from '@mui/material';
-import Grid from '@mui/material/Grid';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -88,14 +87,13 @@ export const SettingsView = () => {
             <PasswordChangedDialog isOpen={isPasswordChangedDialogOpen} setDialogOpenStateFunction={setIsPasswordChangedDialogOpen} />
             <PasswordNotChangedDialog isOpen={isPasswordChangeFailedDialogOpen} setDialogOpenStateFunction={setIsPasswordChangeFailedDialogOpen} />
             <form>
-                <Grid container columns={12} spacing={2} justifyContent={'center'} alignItems={'center'}>
-                    <Grid size={{ xs: 3 }}>
-                        <Card variant="outlined">
-                            <CardContent>
-                                <div className="flex flex-col gap-4">
-                                    <Typography variant={'subtitle1'} sx={{ fontWeight: 'bold', textAlign: 'left' }}>
-                                        <LocalizedText translationKey={'settings.cards.password.headline'} />
-                                    </Typography>
+                <div className="flex justify-center items-center p-4">
+                    <Card className="w-full max-w-md">
+                        <CardContent className="p-6">
+                            <div className="flex flex-col gap-4">
+                                <p className="text-sm font-medium text-left">
+                                    <LocalizedText translationKey={'settings.cards.password.headline'} />
+                                </p>
                                     <div className="space-y-2">
                                         <Label htmlFor="first-password-input">
                                             {localizationContext.translate('settings.cards.password.labels.password_first')}
@@ -150,10 +148,9 @@ export const SettingsView = () => {
                                         <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
                                     </Button>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
+                        </CardContent>
+                    </Card>
+                </div>
             </form>
         </>
     );
