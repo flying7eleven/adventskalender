@@ -1,4 +1,4 @@
-import { LinearProgress, Typography, Box } from '@mui/material';
+import { Progress } from '@/components/ui/progress';
 import zxcvbn from 'zxcvbn';
 import { useContext } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
@@ -17,19 +17,35 @@ export const PasswordStrengthMeter = ({ password }: Props) => {
     const result = zxcvbn(password);
     const score = result.score; // 0-4
 
-    const getColor = () => {
+    const getColorClass = () => {
         switch (score) {
             case 0:
             case 1:
-                return 'error';
+                return 'text-destructive';
             case 2:
-                return 'warning';
+                return 'text-orange-500';
             case 3:
-                return 'info';
+                return 'text-blue-500';
             case 4:
-                return 'success';
+                return 'text-green-500';
             default:
-                return 'error';
+                return 'text-destructive';
+        }
+    };
+
+    const getProgressIndicatorClass = () => {
+        switch (score) {
+            case 0:
+            case 1:
+                return 'bg-destructive';
+            case 2:
+                return 'bg-orange-500';
+            case 3:
+                return 'bg-blue-500';
+            case 4:
+                return 'bg-green-500';
+            default:
+                return 'bg-destructive';
         }
     };
 
@@ -53,21 +69,25 @@ export const PasswordStrengthMeter = ({ password }: Props) => {
     const progress = ((score + 1) / 5) * 100;
 
     return (
-        <Box sx={{ width: '100%', mt: 1 }}>
-            <Typography variant="caption" color={getColor()}>
+        <div className="w-full mt-2">
+            <p className={`text-xs ${getColorClass()}`}>
                 {localizationContext.translate('settings.cards.password.strength.label')} {getLabel()}
-            </Typography>
-            <LinearProgress variant="determinate" value={progress} color={getColor()} sx={{ height: 6, borderRadius: 3 }} />
+            </p>
+            <Progress
+                value={progress}
+                className="h-1.5"
+                indicatorClassName={getProgressIndicatorClass()}
+            />
             {result.feedback.warning && (
-                <Typography variant="caption" color="error" display="block">
+                <p className="text-xs text-destructive block mt-1">
                     {result.feedback.warning}
-                </Typography>
+                </p>
             )}
             {result.feedback.suggestions.length > 0 && (
-                <Typography variant="caption" color="text.secondary" display="block">
+                <p className="text-xs text-muted-foreground block mt-1">
                     {result.feedback.suggestions[0]}
-                </Typography>
+                </p>
             )}
-        </Box>
+        </div>
     );
 };
