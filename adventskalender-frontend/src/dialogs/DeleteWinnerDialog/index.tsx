@@ -4,7 +4,7 @@ import { LocalizedText } from '../../components/LocalizedText';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
+import { Button } from '@/components/ui/button';
 import { Dispatch, SetStateAction, useContext } from 'react';
 import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
 import { LocalizationContext } from '../../provider/LocalizationContext';
@@ -86,7 +86,7 @@ export const DeleteWinnerDialog = (props: Props) => {
                 </DialogContentText>
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleRemoveParticipant} color={'error'}>
+                <Button onClick={handleRemoveParticipant} variant={'destructive'}>
                     <LocalizedText translationKey={'calendar.dialogs.remove_participant.accept_button'} />
                 </Button>
                 <Button onClick={() => props.setDialogOpenStateFunction(false)} autoFocus>
