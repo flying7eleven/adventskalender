@@ -1,13 +1,20 @@
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import { LocalizedText } from '../../components/LocalizedText';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ReactNode, useContext, useState } from 'react';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
-import Paper from '@mui/material/Paper';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import {
     Select,
     SelectContent,
@@ -16,12 +23,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { LocalizedText } from '../../components/LocalizedText';
+import { ReactNode, useContext, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, WinnerInformation } from '../../api.ts';
-import Stepper from '@mui/material/Stepper';
-import Step from '@mui/material/Step';
-import StepLabel from '@mui/material/StepLabel';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { format, parse } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -59,7 +65,6 @@ export const WinnerDialog = (props: Props) => {
     const [fetchedWinners, setFetchedWinners] = useState<WinnerInformation2[]>([]);
     const [fetchError, setFetchError] = useState<boolean>(false);
     const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<BooleanMap>({});
-    const stepLabels = [localizationContext.translate('dashboard.dialogs.new_winners.steps.selection_step'), localizationContext.translate('dashboard.dialogs.new_winners.steps.finish_step')];
     const USABLE_PACKAGE_ALPHABET = Array.from(Array(MAX_WINNERS_PER_DAY))
         .map((_, i) => i + 65)
         .map((x) => String.fromCharCode(x));
@@ -304,7 +309,7 @@ export const WinnerDialog = (props: Props) => {
 
         // Check if we have an error
         if (fetchError) {
-            return <span style={{ color: 'red' }}>Error loading winners</span>;
+            return <span className="text-destructive">Error loading winners</span>;
         }
 
         // Determine which winners to display and sort them by package identifier
@@ -359,43 +364,29 @@ export const WinnerDialog = (props: Props) => {
     };
 
     return (
-        <Dialog open={props.isOpen} onClose={handleDialogCancelClick} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
-            <DialogTitle id="alert-dialog-title">{activeStep === 0 ? <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} /> : <SpecialTextItem date={props.date} />}</DialogTitle>
-            <DialogContent>
-                {activeStep === 0 ? (
-                    <>
-                        <DialogContentText id="alert-dialog-description">
+        <Dialog open={props.isOpen} onOpenChange={(open) => !open && handleDialogCancelClick()}>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>{activeStep === 0 ? <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} /> : <SpecialTextItem date={props.date} />}</DialogTitle>
+                    {activeStep === 0 && (
+                        <DialogDescription>
                             <LocalizedText translationKey={'dashboard.dialogs.new_winners.text'} />
-                            <br />
-                            <br />
-                        </DialogContentText>
-                    </>
-                ) : (
-                    <></>
-                )}
-                <Stepper activeStep={activeStep} hidden>
-                    {stepLabels.map((label) => {
-                        return (
-                            <Step key={label} hidden>
-                                <StepLabel>{label}</StepLabel>
-                            </Step>
-                        );
-                    })}
-                </Stepper>
-                <br />
+                        </DialogDescription>
+                    )}
+                </DialogHeader>
                 {activeStep === 0 ? (
-                    <TableContainer component={Paper}>
+                    <div className="rounded-md border">
                         <Table>
-                            <TableHead>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell>
+                                    <TableHead>
                                         <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.column_winner'} />
-                                    </TableCell>
-                                    <TableCell>
+                                    </TableHead>
+                                    <TableHead>
                                         <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.column_package'} />
-                                    </TableCell>
+                                    </TableHead>
                                 </TableRow>
-                            </TableHead>
+                            </TableHeader>
                             <TableBody>
                                 {props.winner.map((currentWinner) => {
                                     return (
@@ -438,26 +429,33 @@ export const WinnerDialog = (props: Props) => {
                                 })}
                             </TableBody>
                         </Table>
-                    </TableContainer>
+                    </div>
                 ) : (
-                    <>
-                        <DialogContentText id="alert-dialog-description">{renderWinnerText()}</DialogContentText>
-                    </>
+                    <div className="text-sm text-foreground">{renderWinnerText()}</div>
                 )}
-            </DialogContent>
-            <DialogActions>
-                {import.meta.env.DEV && (
-                    <Button onClick={handleFillPackageSelectionAutomatically} variant={'outline'} className="border-orange-500 text-orange-500 hover:bg-orange-50">
-                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.autofill_button'} />
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                    {import.meta.env.DEV && (
+                        <Button
+                            variant="secondary"
+                            onClick={handleFillPackageSelectionAutomatically}
+                            className="sm:mr-auto"
+                        >
+                            <LocalizedText translationKey={'dashboard.dialogs.new_winners.autofill_button'} />
+                        </Button>
+                    )}
+                    <Button
+                        variant="destructive"
+                        onClick={handleDialogCancelClick}
+                    >
+                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
                     </Button>
-                )}
-                <Button onClick={handleDialogCancelClick} variant={'destructive'}>
-                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
-                </Button>
-                <Button onClick={activeStep === 0 ? handleDialogNextPage : handleDialogClose} autoFocus>
-                    <LocalizedText translationKey={activeStep === 0 ? 'dashboard.dialogs.new_winners.accept_button' : 'dashboard.dialogs.new_winners.finish_button'} />
-                </Button>
-            </DialogActions>
+                    <Button
+                        onClick={activeStep === 0 ? handleDialogNextPage : handleDialogClose}
+                    >
+                        <LocalizedText translationKey={activeStep === 0 ? 'dashboard.dialogs.new_winners.accept_button' : 'dashboard.dialogs.new_winners.finish_button'} />
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
         </Dialog>
     );
 };

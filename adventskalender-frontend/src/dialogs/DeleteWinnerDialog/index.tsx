@@ -1,10 +1,13 @@
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import { LocalizedText } from '../../components/LocalizedText';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { LocalizedText } from '../../components/LocalizedText';
 import { Dispatch, SetStateAction, useContext } from 'react';
 import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
 import { LocalizationContext } from '../../provider/LocalizationContext';
@@ -73,26 +76,32 @@ export const DeleteWinnerDialog = (props: Props) => {
     return (
         <Dialog
             open={props.isOpen}
-            onClose={() => props.setDialogOpenStateFunction(false)}
-            aria-labelledby="alert-dialog-remove-participant-title"
-            aria-describedby="alert-dialog-remove-participant-description"
+            onOpenChange={(open) => !open && props.setDialogOpenStateFunction(false)}
         >
-            <DialogTitle id="alert-dialog-remove-participant-title">
-                <LocalizedText translationKey={'calendar.dialogs.remove_participant.title'} />
-            </DialogTitle>
             <DialogContent>
-                <DialogContentText id="alert-dialog-remove-participant-description">
-                    {localizationContext.translate('calendar.dialogs.remove_participant.text').replace('{0}', `${props.userToDelete.firstName} ${props.userToDelete.lastName}`)}
-                </DialogContentText>
+                <DialogHeader>
+                    <DialogTitle>
+                        <LocalizedText translationKey={'calendar.dialogs.remove_participant.title'} />
+                    </DialogTitle>
+                    <DialogDescription>
+                        {localizationContext.translate('calendar.dialogs.remove_participant.text').replace('{0}', `${props.userToDelete.firstName} ${props.userToDelete.lastName}`)}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={() => props.setDialogOpenStateFunction(false)}
+                    >
+                        <LocalizedText translationKey={'calendar.dialogs.remove_participant.cancel_button'} />
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        onClick={handleRemoveParticipant}
+                    >
+                        <LocalizedText translationKey={'calendar.dialogs.remove_participant.accept_button'} />
+                    </Button>
+                </DialogFooter>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={handleRemoveParticipant} variant={'destructive'}>
-                    <LocalizedText translationKey={'calendar.dialogs.remove_participant.accept_button'} />
-                </Button>
-                <Button onClick={() => props.setDialogOpenStateFunction(false)} autoFocus>
-                    <LocalizedText translationKey={'calendar.dialogs.remove_participant.cancel_button'} />
-                </Button>
-            </DialogActions>
         </Dialog>
     );
 };

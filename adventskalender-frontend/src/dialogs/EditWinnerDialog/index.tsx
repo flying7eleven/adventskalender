@@ -1,11 +1,19 @@
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import { LocalizedText } from '../../components/LocalizedText';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
-import Paper from '@mui/material/Paper';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import {
     Select,
     SelectContent,
@@ -14,6 +22,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { LocalizedText } from '../../components/LocalizedText';
 import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
 import { Dispatch, ReactNode, SetStateAction, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
@@ -113,23 +122,25 @@ export const EditWinnerDialog = (props: Props) => {
     };
 
     return (
-        <Dialog open={props.isOpen} aria-labelledby="alert-dialog-edit-participant-title" aria-describedby="alert-dialog-edit-participant-description">
-            <DialogTitle id="alert-dialog-edit-participant-title">
-                <LocalizedText translationKey={'calendar.dialogs.edit_participant.title'} />
-            </DialogTitle>
-            <DialogContent>
-                <TableContainer component={Paper}>
+        <Dialog open={props.isOpen} onOpenChange={(open) => !open && props.setDialogOpenStateFunction(false)}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>
+                        <LocalizedText translationKey={'calendar.dialogs.edit_participant.title'} />
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="rounded-md border">
                     <Table>
-                        <TableHead>
+                        <TableHeader>
                             <TableRow>
-                                <TableCell>
+                                <TableHead>
                                     <LocalizedText translationKey={'calendar.dialogs.edit_participant.table.column_winner'} />
-                                </TableCell>
-                                <TableCell>
+                                </TableHead>
+                                <TableHead>
                                     <LocalizedText translationKey={'calendar.dialogs.edit_participant.table.column_package'} />
-                                </TableCell>
+                                </TableHead>
                             </TableRow>
-                        </TableHead>
+                        </TableHeader>
                         <TableBody>
                             {props.listOfWinner.map((currentWinner) => {
                                 return (
@@ -172,13 +183,13 @@ export const EditWinnerDialog = (props: Props) => {
                             })}
                         </TableBody>
                     </Table>
-                </TableContainer>
+                </div>
+                <DialogFooter>
+                    <Button onClick={() => props.setDialogOpenStateFunction(false)}>
+                        <LocalizedText translationKey={'calendar.dialogs.edit_participant.close_button'} />
+                    </Button>
+                </DialogFooter>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={() => props.setDialogOpenStateFunction(false)} autoFocus>
-                    <LocalizedText translationKey={'calendar.dialogs.edit_participant.close_button'} />
-                </Button>
-            </DialogActions>
         </Dialog>
     );
 };
