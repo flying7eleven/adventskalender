@@ -3,11 +3,12 @@
     <option name="command" value="run --package adventskalender-backend --bin adventskalender-backend" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <envs>
+      <env name="ADVENTSKALENDER_API_HOST" value="http://localhost:5479" />
       <env name="ADVENTSKALENDER_DB_CONNECTION" value="postgres://adventskalender:debugpassword@127.0.0.1/adventskalender" />
       <env name="ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT" value="not_used_locally" />
       <env name="ADVENTSKALENDER_LOGGING_LEVEL" value="trace" />
       <env name="ADVENTSKALENDER_TOKEN_AUDIENCE" value="http://localhost:5173,http://localhost:8080/api" />
-      <env name="ADVENTSKALENDER_API_HOST" value="http://localhost:5479" />
+      <env name="ADVENTSKALENDER_KEY_FILE_PATH" value="$PROJECT_DIR$/key.pem" />
     </envs>
     <option name="emulateTerminal" value="true" />
     <option name="channel" value="DEFAULT" />
