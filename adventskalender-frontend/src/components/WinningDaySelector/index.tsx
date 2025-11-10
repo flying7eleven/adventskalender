@@ -1,8 +1,12 @@
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select, { SelectChangeEvent } from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import { ReactNode, useContext } from 'react';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { useContext } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { format, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -16,10 +20,9 @@ interface Props {
 export const WinningDaySelector = (props: Props) => {
     const localizationContext = useContext(LocalizationContext);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const handleChange = (firedEvent: SelectChangeEvent, _: ReactNode) => {
+    const handleChange = (value: string) => {
         if (props.changeHandler) {
-            const selectedNumber = parseInt(firedEvent.target.value, 10);
+            const selectedNumber = parseInt(value, 10);
             props.changeHandler(selectedNumber);
         }
     };
@@ -32,9 +35,9 @@ export const WinningDaySelector = (props: Props) => {
         let currentDate = new Date(new Date().getFullYear(), 11, 1); // December 1st
         for (let i = 1; i < 25; i++) {
             menuEntries.push(
-                <MenuItem key={`menu-item-${i}`} value={i}>
+                <SelectItem key={`menu-item-${i}`} value={i.toString()}>
                     {format(currentDate, translationFormat, { locale })}
-                </MenuItem>
+                </SelectItem>
             );
             currentDate = addDays(currentDate, 1);
         }
@@ -42,11 +45,19 @@ export const WinningDaySelector = (props: Props) => {
     };
 
     return (
-        <FormControl fullWidth>
-            <InputLabel id="winning-day-select-label">{props.label}</InputLabel>
-            <Select labelId="winning-day-select-label" id="winning-day-select" value={props.selectedDay ? props.selectedDay.toString() : '1'} label={props.label} onChange={handleChange}>
-                {getListOfDays()}
+        <div className="w-full space-y-2">
+            <Label htmlFor="winning-day-select">{props.label}</Label>
+            <Select
+                value={props.selectedDay ? props.selectedDay.toString() : '1'}
+                onValueChange={handleChange}
+            >
+                <SelectTrigger id="winning-day-select" className="w-full">
+                    <SelectValue placeholder={props.label} />
+                </SelectTrigger>
+                <SelectContent>
+                    {getListOfDays()}
+                </SelectContent>
             </Select>
-        </FormControl>
+        </div>
     );
 };

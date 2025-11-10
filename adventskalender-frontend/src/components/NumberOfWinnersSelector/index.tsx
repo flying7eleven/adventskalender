@@ -1,8 +1,11 @@
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select, { SelectChangeEvent } from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import { ReactNode } from 'react';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 interface Props {
     changeHandler?: (selected: number) => void;
@@ -11,10 +14,9 @@ interface Props {
 }
 
 export const NumberOfWinnersSelector = (props: Props) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const handleChange = (firedEvent: SelectChangeEvent, _: ReactNode) => {
+    const handleChange = (value: string) => {
         if (props.changeHandler) {
-            const selectedNumber = parseInt(firedEvent.target.value, 10);
+            const selectedNumber = parseInt(value, 10);
             props.changeHandler(selectedNumber);
         }
     };
@@ -23,20 +25,25 @@ export const NumberOfWinnersSelector = (props: Props) => {
         const menuEntries = [];
         for (let i = 1; i <= 10; i++) {
             menuEntries.push(
-                <MenuItem key={`day-selection-menu-item-${i}`} value={i}>
+                <SelectItem key={`day-selection-menu-item-${i}`} value={i.toString()}>
                     {i}
-                </MenuItem>
+                </SelectItem>
             );
         }
         return menuEntries;
     };
 
     return (
-        <FormControl fullWidth>
-            <InputLabel id="number-of-winners-select-label">{props.label}</InputLabel>
-            <Select labelId="number-of-winners-select-label" id="number-of-winners-select" value={props.value.toString()} label={props.label} onChange={handleChange}>
-                {getListOfWinners()}
+        <div className="w-full space-y-2">
+            <Label htmlFor="number-of-winners-select">{props.label}</Label>
+            <Select value={props.value.toString()} onValueChange={handleChange}>
+                <SelectTrigger id="number-of-winners-select" className="w-full">
+                    <SelectValue placeholder={props.label} />
+                </SelectTrigger>
+                <SelectContent>
+                    {getListOfWinners()}
+                </SelectContent>
             </Select>
-        </FormControl>
+        </div>
     );
 };
