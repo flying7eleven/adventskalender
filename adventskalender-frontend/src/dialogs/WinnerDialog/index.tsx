@@ -4,7 +4,7 @@ import { LocalizedText } from '../../components/LocalizedText';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
+import { Button } from '@/components/ui/button';
 import { ReactNode, useContext, useState } from 'react';
 import { FormHelperText, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import Paper from '@mui/material/Paper';
@@ -436,11 +436,11 @@ export const WinnerDialog = (props: Props) => {
             </DialogContent>
             <DialogActions>
                 {import.meta.env.DEV && (
-                    <Button onClick={handleFillPackageSelectionAutomatically} color={'warning'}>
+                    <Button onClick={handleFillPackageSelectionAutomatically} variant={'outline'} className="border-orange-500 text-orange-500 hover:bg-orange-50">
                         <LocalizedText translationKey={'dashboard.dialogs.new_winners.autofill_button'} />
                     </Button>
                 )}
-                <Button onClick={handleDialogCancelClick} color={'error'}>
+                <Button onClick={handleDialogCancelClick} variant={'destructive'}>
                     <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
                 </Button>
                 <Button onClick={activeStep === 0 ? handleDialogNextPage : handleDialogClose} autoFocus>
