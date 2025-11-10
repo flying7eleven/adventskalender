@@ -1,10 +1,11 @@
 import { LocalizedText } from '../LocalizedText';
-import { Box, Button, Card, CardContent, Divider, Stack, Typography } from '@mui/material';
+import { Box, Card, CardContent, Divider, Stack, Typography } from '@mui/material';
 import { WinnerInformation } from '../../api';
 import { useEffect, useState } from 'react';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import { PersonItem } from '../PersonItem';
 import { EditWinnerDialog } from '../../dialogs/EditWinnerDialog';
+import { Button } from '@/components/ui/button';
 
 interface Props {
     winningDate: string;
@@ -81,7 +82,7 @@ export const WinnerCard = (props: Props) => {
                                 {getFormattedDate(props.winningDate)}
                             </Typography>
                             {import.meta.env.DEV && (
-                                <Button variant={'outlined'} sx={{ borderRadius: '20px', fontSize: 'x-small', textAlign: 'right' }} onClick={handleEditClick}>
+                                <Button variant={'outline'} className="rounded-[20px] text-xs text-right" onClick={handleEditClick}>
                                     <EditNoteIcon />
                                 </Button>
                             )}
