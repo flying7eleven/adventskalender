@@ -1,9 +1,9 @@
 import { LocalizedText } from '../LocalizedText';
-import { Box, Typography } from '@mui/material';
 import { WinnerInformation } from '../../api';
 import { useState } from 'react';
 import { DeleteWinnerDialog } from '../../dialogs/DeleteWinnerDialog';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerInformation; winningDay: number; numberOfMaxSubPackages: number; updateWinnerList?: () => void }) => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
@@ -17,15 +17,8 @@ export const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: W
         return inputName;
     };
 
-    const getPersonStyle = (winner: WinnerInformation) => {
-        const baseStyle = {
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-        };
-        if (!winner.presentIdentifier) {
-            return { ...baseStyle, color: 'red' };
-        }
-        return baseStyle;
+    const hasMissingPresent = (winner: WinnerInformation) => {
+        return !winner.presentIdentifier;
     };
 
     const handleDeleteClick = (user: WinnerInformation) => {
@@ -38,16 +31,16 @@ export const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: W
     return (
         <>
             <DeleteWinnerDialog isOpen={deleteDialogOpen} userToDelete={userToDelete} setDialogOpenStateFunction={setDeleteDialogOpen} updateWinnerList={updateWinnerList} />
-            <Box sx={getPersonStyle(winner)}>
-                <div style={{ display: 'flex' }}>
-                    <Typography sx={{ textAlign: 'left' }}>{getShortenedName(`${winner.firstName} ${winner.lastName}`)}</Typography>
+            <div className={cn('grid grid-cols-2', hasMissingPresent(winner) && 'text-destructive')}>
+                <div className="flex items-center text-left">
+                    <p>{getShortenedName(`${winner.firstName} ${winner.lastName}`)}</p>
                     &nbsp;
-                    <Typography sx={{ fontWeight: 'bold' }}>{`${winningDay}${winner.presentIdentifier ? winner.presentIdentifier : ''}`}</Typography>
+                    <p className="font-bold">{`${winningDay}${winner.presentIdentifier ? winner.presentIdentifier : ''}`}</p>
                 </div>
-                <Button variant={'destructive'} className="rounded-[20px] text-xs text-right" onClick={handleDeleteClick(winner)}>
+                <Button variant={'destructive'} className="rounded-[20px] text-xs" onClick={handleDeleteClick(winner)}>
                     <LocalizedText translationKey={'calendar.cards.winners.button_remove'} />
                 </Button>
-            </Box>
+            </div>
         </>
     );
 };

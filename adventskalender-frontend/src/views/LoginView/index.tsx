@@ -1,13 +1,9 @@
 import { FormEvent, useContext, useEffect, useRef, useState } from 'react';
-import Avatar from '@mui/material/Avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import Paper from '@mui/material/Paper';
-import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import Typography from '@mui/material/Typography';
+import { Card, CardContent } from '@/components/ui/card';
+import { LockKeyhole } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { toast } from 'sonner';
@@ -55,9 +51,10 @@ export const LoginView = () => {
                 // user experience.
                 navigate(from, { replace: true });
             },
-            () => toast.error(localizationContext.translate('login.alerts.failed_login.message'), {
-                duration: 6000,
-            }),
+            () =>
+                toast.error(localizationContext.translate('login.alerts.failed_login.message'), {
+                    duration: 6000,
+                }),
             (waitTime: number) => {
                 // Rate limit hit - show user how long to wait
                 const waitSeconds = Math.ceil(waitTime / 1000);
@@ -77,69 +74,48 @@ export const LoginView = () => {
     };
 
     return (
-        <Grid container component="main" sx={{ height: '100vh' }}>
-            <Grid
-                size={{ xs: false, sm: 4, md: 7 }}
-                sx={{
+        <div className="grid grid-cols-1 md:grid-cols-12 h-screen">
+            {/* Background image section - hidden on mobile */}
+            <div
+                className="hidden md:block md:col-span-7 bg-cover bg-center bg-no-repeat"
+                style={{
                     backgroundImage: `url(${getCorrectImage()})`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundColor: (t) => (t.palette.mode === 'light' ? t.palette.grey[50] : t.palette.grey[900]),
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
+                    backgroundColor: isDark ? '#18181b' : '#f4f4f5',
                 }}
             />
-            <Grid size={{ xs: 12, sm: 8, md: 5 }} component={Paper} elevation={6} square>
-                <Box
-                    sx={{
-                        my: 8,
-                        mx: 4,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                    }}
-                >
-                    <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-                        <LockOutlinedIcon />
-                    </Avatar>
-                    <Typography component="h1" variant="h5">
-                        <LocalizedText translationKey={'login.headlines.signin'} />
-                    </Typography>
-                    <form noValidate onSubmit={requestAuthorizationToken} className="mt-4 space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="username">
-                                <LocalizedText translationKey={'login.form.username_field_label'} /> *
-                            </Label>
-                            <Input
-                                id="username"
-                                name="username"
-                                type="text"
-                                required
-                                autoComplete="username"
-                                autoFocus
-                                ref={usernameField}
-                                className="w-full"
-                            />
+
+            {/* Login form section */}
+            <div className="col-span-1 md:col-span-5 flex items-center justify-center p-4">
+                <Card className="w-full max-w-md shadow-lg">
+                    <CardContent className="p-8">
+                        <div className="flex flex-col items-center mb-6">
+                            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-secondary mb-4">
+                                <LockKeyhole className="h-6 w-6 text-secondary-foreground" />
+                            </div>
+                            <h1 className="text-2xl font-semibold">
+                                <LocalizedText translationKey={'login.headlines.signin'} />
+                            </h1>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="password">
-                                <LocalizedText translationKey={'login.form.password_field_label'} /> *
-                            </Label>
-                            <Input
-                                id="password"
-                                name="password"
-                                type="password"
-                                required
-                                autoComplete="current-password"
-                                ref={passwordField}
-                                className="w-full"
-                            />
-                        </div>
-                        <Button type="submit" variant="default" className="w-full mt-6 mb-4">
-                            {<LocalizedText translationKey={'login.form.sign_in_button'} />}
-                        </Button>
-                    </form>
-                </Box>
-            </Grid>
-        </Grid>
+                        <form noValidate onSubmit={requestAuthorizationToken} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="username">
+                                    <LocalizedText translationKey={'login.form.username_field_label'} /> *
+                                </Label>
+                                <Input id="username" name="username" type="text" required autoComplete="username" autoFocus ref={usernameField} className="w-full" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="password">
+                                    <LocalizedText translationKey={'login.form.password_field_label'} /> *
+                                </Label>
+                                <Input id="password" name="password" type="password" required autoComplete="current-password" ref={passwordField} className="w-full" />
+                            </div>
+                            <Button type="submit" variant="default" className="w-full mt-6">
+                                <LocalizedText translationKey={'login.form.sign_in_button'} />
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
     );
 };
