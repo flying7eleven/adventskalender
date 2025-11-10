@@ -165,8 +165,15 @@ export const DashboardView = () => {
             return;
         }
 
+        // Don't try to pick more winners than there are eligible participants
+        const actualWinnersToPick = Math.min(winnersStillToPick, participantCount.number_of_participants_still_in_raffle);
+        if (actualWinnersToPick <= 0) {
+            setLoadingNewWinner(false);
+            return;
+        }
+
         // try to pick a new winner from the backend
-        fetch(`${API_BACKEND_URL}/participants/pick/${winnersStillToPick}/for/${getSelectedDateAsString()}`, {
+        fetch(`${API_BACKEND_URL}/participants/pick/${actualWinnersToPick}/for/${getSelectedDateAsString()}`, {
             method: 'GET',
             headers: {
                 'Content-type': 'application/json; charset=UTF-8',

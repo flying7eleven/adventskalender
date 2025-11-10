@@ -114,7 +114,7 @@ export const WinnerDialog = (props: Props) => {
             .map((x) => String.fromCharCode(x));
 
         items.push(
-            <SelectItem key={`menu-item-not-selected-for-user-${userId}`} value={''}>
+            <SelectItem key={`menu-item-not-selected-for-user-${userId}`} value="__none__">
                 -
             </SelectItem>
         );
@@ -189,6 +189,9 @@ export const WinnerDialog = (props: Props) => {
             return;
         }
 
+        // Convert "__none__" sentinel value to empty string for the API
+        const packageValue = selectedPackage === '__none__' ? '' : selectedPackage;
+
         // since we have a token, we can update the package selection for the given user id
         fetch(`${API_BACKEND_URL}/participants/${userId}`, {
             method: 'PUT',
@@ -196,7 +199,7 @@ export const WinnerDialog = (props: Props) => {
                 'Content-type': 'application/json; charset=UTF-8',
             },
             credentials: 'include',
-            body: JSON.stringify({ package: selectedPackage }),
+            body: JSON.stringify({ package: packageValue }),
         })
             .then((res) => {
                 // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
@@ -379,7 +382,7 @@ export const WinnerDialog = (props: Props) => {
                                                     <Label htmlFor={`winner-${currentWinner.id}-package-selection`} className="sr-only">
                                                         <LocalizedText translationKey={'dashboard.dialogs.new_winners.table.select.package_label'} />
                                                     </Label>
-                                                    <Select value={packageSelections[currentWinner.id] || ''} onValueChange={(value) => selectPackageForUser(currentWinner.id, value)}>
+                                                    <Select value={packageSelections[currentWinner.id] || '__none__'} onValueChange={(value) => selectPackageForUser(currentWinner.id, value)}>
                                                         <SelectTrigger
                                                             id={`winner-${currentWinner.id}-package-selection`}
                                                             className={cn('w-full', packageSelectionErrorStates[currentWinner.id] && 'border-destructive focus-visible:ring-destructive')}
