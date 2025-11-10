@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { ReactNode } from 'react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface AppHeaderProps {
     open: boolean;
@@ -36,9 +37,12 @@ export const AppHeader = ({ open, onMenuClick, onLogout, title, logoutLabel }: A
                 </Button>
                 <h1 className="ml-4 text-lg font-semibold">{title}</h1>
             </div>
-            <Button variant="ghost" onClick={onLogout} className="mr-4 text-primary-foreground hover:bg-primary-foreground/10">
-                {logoutLabel}
-            </Button>
+            <div className="flex items-center gap-2 px-4">
+                <ThemeToggle />
+                <Button variant="ghost" onClick={onLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
+                    {logoutLabel}
+                </Button>
+            </div>
         </header>
     );
 };
