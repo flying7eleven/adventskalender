@@ -252,39 +252,43 @@ export const DashboardView = () => {
             />
             <UnknownErrorDialog isOpen={isUnknownErrorDialogOpen} setDialogOpenStateFunction={setIsUnknownErrorDialogOpen} />
             <NoParticipantsErrorDialog isOpen={isNoParticipantsErrorDialogOpen} setDialogOpenStateFunction={setIsNoParticipantsErrorDialogOpen} />
-            <div className="flex flex-wrap justify-center items-center gap-4">
-                <OutlinedCard
-                    headline={localizationContext.translate('dashboard.cards.total.title')}
-                    value={`${participantCount.number_of_participants}`}
-                    description={localizationContext.translate('dashboard.cards.total.description')}
-                />
-                <OutlinedCard
-                    headline={localizationContext.translate('dashboard.cards.won.title')}
-                    value={`${participantCount.number_of_participants_won}`}
-                    description={localizationContext.translate('dashboard.cards.won.description')}
-                />
-                <OutlinedCard
-                    headline={localizationContext.translate('dashboard.cards.eligible.title')}
-                    value={`${participantCount.number_of_participants_still_in_raffle}`}
-                    description={localizationContext.translate('dashboard.cards.eligible.description')}
-                />
-            </div>
-            <div className="flex justify-center items-center my-4">
-                <OutlinedCard
-                    headline={localizationContext.translate('dashboard.cards.pick_new_winner.title')}
-                    value={
-                        <div className="flex flex-col gap-4 my-4">
-                            <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
-                            <PickNewWinner
-                                isEnabled={getNumberOfWinnersToPick(winnersOnSelectedDay) > 0}
-                                isLoadingNewWinner={loadingNewWinner}
-                                onRequestWinner={checkPicking}
-                                label={localizationContext.translate('dashboard.pick_winner_button')}
-                            />
-                        </div>
-                    }
-                    description={localizationContext.translateWithPlaceholder('dashboard.cards.pick_new_winner.description', winnersOnSelectedDay.toString())}
-                />
+
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 p-6">
+                <div className="flex flex-wrap justify-center items-center gap-6">
+                    <OutlinedCard
+                        headline={localizationContext.translate('dashboard.cards.total.title')}
+                        value={`${participantCount.number_of_participants}`}
+                        description={localizationContext.translate('dashboard.cards.total.description')}
+                    />
+                    <OutlinedCard
+                        headline={localizationContext.translate('dashboard.cards.won.title')}
+                        value={`${participantCount.number_of_participants_won}`}
+                        description={localizationContext.translate('dashboard.cards.won.description')}
+                    />
+                    <OutlinedCard
+                        headline={localizationContext.translate('dashboard.cards.eligible.title')}
+                        value={`${participantCount.number_of_participants_still_in_raffle}`}
+                        description={localizationContext.translate('dashboard.cards.eligible.description')}
+                    />
+                </div>
+
+                <div className="flex justify-center items-center my-6">
+                    <OutlinedCard
+                        headline={localizationContext.translate('dashboard.cards.pick_new_winner.title')}
+                        value={
+                            <div className="flex flex-col gap-4 my-4">
+                                <WinningDaySelector label={localizationContext.translate('dashboard.day_selection')} selectedDay={selectedDay} changeHandler={handleDateSelectionChange} />
+                                <PickNewWinner
+                                    isEnabled={getNumberOfWinnersToPick(winnersOnSelectedDay) > 0}
+                                    isLoadingNewWinner={loadingNewWinner}
+                                    onRequestWinner={checkPicking}
+                                    label={localizationContext.translate('dashboard.pick_winner_button')}
+                                />
+                            </div>
+                        }
+                        description={localizationContext.translateWithPlaceholder('dashboard.cards.pick_new_winner.description', winnersOnSelectedDay.toString())}
+                    />
+                </div>
             </div>
         </>
     );
