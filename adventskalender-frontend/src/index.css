@@ -37,7 +37,7 @@
         --glass-bg: rgba(255, 255, 255, 0.15);
         --glass-bg-strong: rgba(255, 255, 255, 0.25);
         --glass-border: rgba(255, 255, 255, 0.25);
-        --glass-border-strong: rgba(255, 255, 255, 0.40);
+        --glass-border-strong: rgba(255, 255, 255, 0.4);
         --glass-shadow: rgba(31, 38, 135, 0.15);
         --glass-shadow-strong: rgba(31, 38, 135, 0.25);
         --glass-blur: 12px;
@@ -54,9 +54,9 @@
         --glass-info-border: rgba(59, 130, 246, 0.35);
 
         /* Background Gradients */
-        --gradient-start: #eff6ff;  /* blue-50 */
-        --gradient-mid: #f5f3ff;    /* purple-50 */
-        --gradient-end: #fce7f3;    /* pink-50 */
+        --gradient-start: #eff6ff; /* blue-50 */
+        --gradient-mid: #f5f3ff; /* purple-50 */
+        --gradient-end: #fce7f3; /* pink-50 */
     }
 
     /* CSS Variables for Dark Mode */
@@ -90,29 +90,29 @@
         --ring: 224.3 76.3% 48%;
 
         /* Glassmorphism - Dark Mode */
-        --glass-bg: rgba(20, 20, 35, 0.20);
+        --glass-bg: rgba(20, 20, 35, 0.2);
         --glass-bg-strong: rgba(20, 20, 35, 0.35);
         --glass-border: rgba(255, 255, 255, 0.18);
-        --glass-border-strong: rgba(255, 255, 255, 0.30);
-        --glass-shadow: rgba(0, 0, 0, 0.30);
-        --glass-shadow-strong: rgba(0, 0, 0, 0.50);
+        --glass-border-strong: rgba(255, 255, 255, 0.3);
+        --glass-shadow: rgba(0, 0, 0, 0.3);
+        --glass-shadow-strong: rgba(0, 0, 0, 0.5);
         --glass-blur: 12px;
         --glass-blur-strong: 20px;
 
         /* Semantic Glass Tints - Dark Mode */
-        --glass-success: rgba(34, 197, 94, 0.20);
-        --glass-success-border: rgba(34, 197, 94, 0.40);
-        --glass-warning: rgba(245, 158, 11, 0.20);
-        --glass-warning-border: rgba(245, 158, 11, 0.40);
-        --glass-error: rgba(239, 68, 68, 0.20);
-        --glass-error-border: rgba(239, 68, 68, 0.40);
-        --glass-info: rgba(59, 130, 246, 0.20);
-        --glass-info-border: rgba(59, 130, 246, 0.40);
+        --glass-success: rgba(34, 197, 94, 0.2);
+        --glass-success-border: rgba(34, 197, 94, 0.4);
+        --glass-warning: rgba(245, 158, 11, 0.2);
+        --glass-warning-border: rgba(245, 158, 11, 0.4);
+        --glass-error: rgba(239, 68, 68, 0.2);
+        --glass-error-border: rgba(239, 68, 68, 0.4);
+        --glass-info: rgba(59, 130, 246, 0.2);
+        --glass-info-border: rgba(59, 130, 246, 0.4);
 
         /* Background Gradients */
-        --gradient-start: #0f172a;  /* slate-900 */
-        --gradient-mid: #1e1b4b;    /* indigo-950 */
-        --gradient-end: #0f172a;    /* slate-900 */
+        --gradient-start: #0f172a; /* slate-900 */
+        --gradient-mid: #1e1b4b; /* indigo-950 */
+        --gradient-end: #0f172a; /* slate-900 */
     }
 }
 
@@ -242,7 +242,9 @@
 
     /* Hover Effects */
     .glass-hover {
-        transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+        transition:
+            transform 200ms ease-out,
+            box-shadow 200ms ease-out;
     }
 
     .glass-hover:hover {
