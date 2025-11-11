@@ -63,6 +63,24 @@ export const WinnerCard = (props: Props) => {
         return inputDate;
     };
 
+    // Determine card variant based on date and winner status
+    const getCardVariant = () => {
+        const today = new Date();
+        const cardDate = new Date(props.winningDate);
+
+        // Check if this is today's date
+        const isToday = today.getFullYear() === cardDate.getFullYear() && today.getMonth() === cardDate.getMonth() && today.getDate() === cardDate.getDate();
+
+        // If winners exist, use success variant; if today, use warning variant
+        if (props.listOfWinner.length > 0) {
+            return 'glass-success';
+        } else if (isToday) {
+            return 'glass-warning';
+        }
+
+        return 'glass';
+    };
+
     return (
         <>
             <EditWinnerDialog
@@ -72,7 +90,7 @@ export const WinnerCard = (props: Props) => {
                 numberOfMaxSubPackages={props.numberOfMaxSubPackages}
                 packageSelections={packageSelections}
             />
-            <Card>
+            <Card variant={getCardVariant()} className="glass-hover">
                 <CardContent className="p-6">
                     <div className="flex flex-col gap-2">
                         <div className="grid grid-cols-[1.3fr_1.3fr_0.2fr] items-center">
