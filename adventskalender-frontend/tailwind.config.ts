@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 const config: Config = {
     darkMode: ['class'],
@@ -46,11 +47,24 @@ const config: Config = {
                     DEFAULT: 'var(--color-card)',
                     foreground: 'var(--color-card-foreground)',
                 },
+                // Glass colors
+                'glass-bg': 'var(--color-glass-bg)',
+                'glass-bg-strong': 'var(--color-glass-bg-strong)',
+                'glass-border': 'var(--color-glass-border)',
+                'glass-border-strong': 'var(--color-glass-border-strong)',
             },
             borderRadius: {
                 lg: 'var(--radius)',
                 md: 'calc(var(--radius) - 2px)',
                 sm: 'calc(var(--radius) - 4px)',
+            },
+            backdropBlur: {
+                xs: '2px',
+                sm: '6px',
+                md: '10px',
+                DEFAULT: '12px',
+                lg: '15px',
+                xl: '20px',
             },
             fontSize: {
                 xs: ['0.75rem', { lineHeight: '1rem' }],
@@ -76,9 +90,26 @@ const config: Config = {
                 'accordion-down': 'accordion-down 0.2s ease-out',
                 'accordion-up': 'accordion-up 0.2s ease-out',
             },
+            backgroundImage: {
+                'gradient-glass-light': 'linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end))',
+                'gradient-glass-dark': 'linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end))',
+            },
         },
     },
-    plugins: [require('tailwindcss-animate')],
+    plugins: [
+        require('tailwindcss-animate'),
+        // Custom plugin for glass gradient utilities
+        plugin(function ({ addUtilities, theme }) {
+            addUtilities({
+                '.bg-gradient-glass': {
+                    'background-image': theme('backgroundImage.gradient-glass-light'),
+                },
+                '.dark .bg-gradient-glass': {
+                    'background-image': theme('backgroundImage.gradient-glass-dark'),
+                },
+            });
+        }),
+    ],
 };
 
 export default config;
