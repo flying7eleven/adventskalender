@@ -99,5 +99,9 @@ export const CalendarView = () => {
         return elements;
     };
 
-    return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr [&>*]:min-w-[320px]">{getWinnerCardsForAllDays()}</div>;
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-900 dark:via-purple-950 dark:to-slate-900 p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr [&>*]:min-w-[320px]">{getWinnerCardsForAllDays()}</div>
+        </div>
+    );
 };
