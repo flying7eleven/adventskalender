@@ -198,6 +198,32 @@
     ::-webkit-scrollbar-thumb:hover {
         @apply bg-foreground;
     }
+
+    /* Enhanced focus indicators for glassmorphism and accessibility */
+    *:focus-visible {
+        outline: 3px solid hsl(var(--primary));
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+
+    /* Ensure focus visible on glass backgrounds */
+    .glass *:focus-visible,
+    .glass-strong *:focus-visible {
+        outline-width: 3px;
+        outline-color: hsl(var(--primary));
+    }
+
+    /* High contrast mode support - fallback to solid backgrounds */
+    @media (prefers-contrast: more) {
+        .glass,
+        .glass-strong {
+            background-color: hsl(var(--card)) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border-width: 2px !important;
+            border-color: hsl(var(--border)) !important;
+        }
+    }
 }
 
 @layer utilities {
@@ -261,8 +287,13 @@
         }
     }
 
-    /* Reduced Motion Support */
+    /* Reduced Motion Support - Disable animations for accessibility */
     @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+
         .glass-hover {
             transition: none;
         }

@@ -81,6 +81,23 @@ export const WinnerCard = (props: Props) => {
         return 'glass';
     };
 
+    // Generate ARIA label for screen readers
+    const getAriaLabel = () => {
+        const formattedDate = getFormattedDate(props.winningDate);
+        const hasWinner = props.listOfWinner.length > 0;
+        const today = new Date();
+        const cardDate = new Date(props.winningDate);
+        const isToday = today.getFullYear() === cardDate.getFullYear() && today.getMonth() === cardDate.getMonth() && today.getDate() === cardDate.getDate();
+
+        if (hasWinner) {
+            return `Winner card for ${formattedDate} - ${props.listOfWinner.length} winner${props.listOfWinner.length > 1 ? 's' : ''} selected`;
+        } else if (isToday) {
+            return `Winner card for ${formattedDate} - Today, no winner selected yet`;
+        }
+
+        return `Winner card for ${formattedDate} - No winner selected`;
+    };
+
     return (
         <>
             <EditWinnerDialog
@@ -90,7 +107,7 @@ export const WinnerCard = (props: Props) => {
                 numberOfMaxSubPackages={props.numberOfMaxSubPackages}
                 packageSelections={packageSelections}
             />
-            <Card variant={getCardVariant()} className="glass-hover">
+            <Card variant={getCardVariant()} className="glass-hover" aria-label={getAriaLabel()} role="article">
                 <CardContent className="p-6">
                     <div className="flex flex-col gap-2">
                         <div className="grid grid-cols-[1.3fr_1.3fr_0.2fr] items-center">
