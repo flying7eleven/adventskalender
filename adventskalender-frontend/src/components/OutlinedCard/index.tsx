@@ -7,11 +7,12 @@ interface Props {
     value: string | ReactElement;
     description: string;
     className?: string;
+    variant?: 'glass' | 'glass-success' | 'glass-warning' | 'glass-error';
 }
 
 export const OutlinedCard = (props: Props) => {
     return (
-        <Card className={cn('min-w-[275px]', props.className)}>
+        <Card variant={props.variant || 'glass'} className={cn('min-w-[275px]', 'glass-hover', props.className)}>
             <CardContent className="p-6">
                 <p className="text-sm text-muted-foreground mb-2">{props.headline}</p>
                 <div className="text-2xl font-semibold">{props.value}</div>
