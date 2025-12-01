@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as React from 'react';
 import { AuthenticationContext } from '../../hooks/useAuthentication';
 import { API_BACKEND_URL } from '../../api';
@@ -7,6 +7,28 @@ import { rateLimiter } from '../../utils/RateLimiter';
 export const AuthenticationProvider = ({ children }: { children: React.ReactNode }) => {
     // Remove token state - authentication is now server-side via httpOnly cookies
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+
+    // Check authentication status on mount by calling /auth/me
+    useEffect(() => {
+        fetch(`${API_BACKEND_URL}/auth/me`, {
+            method: 'GET',
+            credentials: 'include', // Include httpOnly cookie
+        })
+            .then((response) => {
+                if (response.ok) {
+                    setIsAuthenticated(true);
+                } else {
+                    setIsAuthenticated(false);
+                }
+            })
+            .catch(() => {
+                setIsAuthenticated(false);
+            })
+            .finally(() => {
+                setIsLoading(false);
+            });
+    }, []);
 
     const signin = (username: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction, rateLimitCallback?: (waitTime: number) => void) => {
         const key = `login:${username}`;
@@ -69,7 +91,7 @@ export const AuthenticationProvider = ({ children }: { children: React.ReactNode
             });
     };
 
-    const value = { isAuthenticated, signin, signout };
+    const value = { isAuthenticated, isLoading, signin, signout };
 
     return <AuthenticationContext.Provider value={value}>{children}</AuthenticationContext.Provider>;
 };

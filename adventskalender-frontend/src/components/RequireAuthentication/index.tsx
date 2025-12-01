@@ -6,6 +6,11 @@ export const RequireAuthentication = ({ children }: { children: ReactNode }) => 
     const auth = useAuthentication();
     const location = useLocation();
 
+    // Wait for authentication check to complete
+    if (auth.isLoading) {
+        return null; // or a loading spinner
+    }
+
     if (!auth.isAuthenticated) {
         // Redirect them to the /login page, but save the current location they were
         // trying to go to when they were redirected. This allows us to send them
