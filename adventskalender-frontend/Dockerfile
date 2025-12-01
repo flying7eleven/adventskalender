@@ -1,5 +1,5 @@
 # Build stage using official Node.js image
-FROM node:23.2.0-bookworm-slim AS build
+FROM node:22-bookworm-slim AS build
 
 # Set working directory
 WORKDIR /usr/src/app
