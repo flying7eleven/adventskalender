@@ -1,6 +1,6 @@
 {
     "name": "adventskalender-frontend",
-    "version": "2024.11.18",
+    "version": "2024.12.1",
     "private": true,
     "dependencies": {
         "@radix-ui/react-dialog": "^1.1.15",
