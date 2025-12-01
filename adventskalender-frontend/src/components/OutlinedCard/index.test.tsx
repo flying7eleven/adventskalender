@@ -1,9 +1,9 @@
-import { create } from 'react-test-renderer';
+import { render } from '@testing-library/react';
 import { OutlinedCard } from './index';
 
 describe('OutlinedCard component', () => {
     test('Matches the snapshot', () => {
-        const card = create(<OutlinedCard headline={'Headline'} value={'Value'} description={'Description'} />);
-        expect(card.toJSON()).toMatchSnapshot();
+        const { container } = render(<OutlinedCard headline={'Headline'} value={'Value'} description={'Description'} />);
+        expect(container.firstChild).toMatchSnapshot();
     });
 });

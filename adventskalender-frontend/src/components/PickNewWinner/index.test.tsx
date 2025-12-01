@@ -1,4 +1,4 @@
-import { create } from 'react-test-renderer';
+import { render } from '@testing-library/react';
 import { PickNewWinner } from './index';
 
 describe('PickNewWinner component', () => {
@@ -6,7 +6,7 @@ describe('PickNewWinner component', () => {
         const testMethod = () => {
             /* nothing to do here */
         };
-        const component = create(<PickNewWinner isLoadingNewWinner={false} isEnabled={true} label={'Some text'} onRequestWinner={testMethod} />);
-        expect(component.toJSON()).toMatchSnapshot();
+        const { container } = render(<PickNewWinner isLoadingNewWinner={false} isEnabled={true} label={'Some text'} onRequestWinner={testMethod} />);
+        expect(container.firstChild).toMatchSnapshot();
     });
 });
