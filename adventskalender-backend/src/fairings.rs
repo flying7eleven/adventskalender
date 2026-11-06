@@ -27,6 +27,43 @@ pub struct BackendConfiguration {
     pub token_validation: jsonwebtoken::Validation,
 }
 
+impl BackendConfiguration {
+    /// Builds the configuration with the precomputed parameter set which is used to validate
+    /// incoming tokens: EdDSA signatures, the supplied audience and the API host as the only
+    /// accepted issuer.
+    pub fn new(
+        api_host: String,
+        jwks_uri: String,
+        encoding_key: EncodingKey,
+        decoding_key: DecodingKey,
+        ed25519_key_bytes: Vec<u8>,
+        healthcheck_project: String,
+        token_audience: HashSet<String>,
+    ) -> Result<Self, String> {
+        let mut token_validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::EdDSA);
+        // allow a time difference of max. 5 seconds
+        token_validation.leeway = 5;
+        token_validation.validate_exp = true;
+        token_validation.validate_nbf = true;
+        token_validation.validate_aud = true;
+        token_validation.aud = Some(token_audience.clone());
+        let mut issuer_set = HashSet::new();
+        issuer_set.insert(api_host.clone());
+        token_validation.iss = Some(issuer_set);
+
+        Ok(BackendConfiguration {
+            api_host,
+            jwks_uri,
+            encoding_key,
+            decoding_key,
+            ed25519_key_bytes,
+            healthcheck_project,
+            token_audience,
+            token_validation,
+        })
+    }
+}
+
 /// The reason why a blocking database task did not run to completion: either the connection pool
 /// did not provide a connection, or the blocking task itself could not be executed.
 #[derive(Debug)]

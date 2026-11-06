@@ -1,3 +1,4 @@
+use adventskalender_backend::fairings::BackendConfiguration;
 use adventskalender_backend::routes::mount_routes;
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
@@ -154,9 +155,7 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
 
 #[rocket::main]
 async fn main() {
-    use adventskalender_backend::fairings::{
-        AdventskalenderDatabaseConnection, BackendConfiguration, SecurityHeaders,
-    };
+    use adventskalender_backend::fairings::{AdventskalenderDatabaseConnection, SecurityHeaders};
     use log::{error, info};
     use rocket::Config as RocketConfig;
     use std::env;
@@ -198,10 +197,13 @@ async fn main() {
             return;
         }
     };
-    let jwks_uri = api_host_url
-        .join("/.well-known/jwks.json")
-        .expect("joining a static path to a valid URL cannot fail")
-        .to_string();
+    let jwks_uri = match api_host_url.join("/.well-known/jwks.json") {
+        Ok(url) => url.to_string(),
+        Err(error) => {
+            error!("Could not build the JWKS URL from the API host '{api_host}'. The error was: {error}");
+            return;
+        }
+    };
 
     // get the configuration for the database server and terminate if something is missing
     let database_connection_url =
@@ -264,26 +266,20 @@ async fn main() {
     };
     let decoding_key = DecodingKey::from_ed_der(&public_key_bytes);
 
-    // precompute the parameter set used to validate incoming tokens
-    let mut token_validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::EdDSA);
-    token_validation.leeway = 5; // allow a time difference of max. 5 seconds
-    token_validation.validate_exp = true;
-    token_validation.validate_nbf = true;
-    token_validation.validate_aud = true;
-    token_validation.aud = Some(token_audience_hash_set.clone());
-    let mut issuer_set = std::collections::HashSet::new();
-    issuer_set.insert(api_host.clone());
-    token_validation.iss = Some(issuer_set);
-
-    let backend_config = BackendConfiguration {
+    let backend_config = match BackendConfiguration::new(
         api_host,
         jwks_uri,
         encoding_key,
         decoding_key,
-        ed25519_key_bytes: ed25519_key_bytes.clone(),
-        token_audience: token_audience_hash_set,
-        healthcheck_project: healthcheck_io_project.to_string(),
-        token_validation,
+        ed25519_key_bytes.clone(),
+        healthcheck_io_project.to_string(),
+        token_audience_hash_set,
+    ) {
+        Ok(configuration) => configuration,
+        Err(error) => {
+            error!("Could not build the backend configuration. The error was: {error}");
+            return;
+        }
     };
 
     // create a db connection pool manager and the corresponding pool with retry logic

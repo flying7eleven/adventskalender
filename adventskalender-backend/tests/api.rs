@@ -19,30 +19,21 @@ fn fresh_key_bytes() -> Vec<u8> {
 }
 
 fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
-    let public_key = Ed25519KeyPair::from_pkcs8(key_bytes)
-        .unwrap()
-        .public_key()
-        .as_ref()
-        .to_vec();
-    let mut token_validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::EdDSA);
-    token_validation.leeway = 5;
-    token_validation.validate_exp = true;
-    token_validation.validate_nbf = true;
-    token_validation.validate_aud = true;
-    token_validation.aud = Some(HashSet::from(["http://localhost:5173".to_string()]));
-    let mut issuer_set = HashSet::new();
-    issuer_set.insert("http://localhost:5479".to_string());
-    token_validation.iss = Some(issuer_set);
-    let configuration = BackendConfiguration {
-        api_host: "http://localhost:5479".to_string(),
-        jwks_uri: "http://localhost:5479/.well-known/jwks.json".to_string(),
-        encoding_key: EncodingKey::from_ed_der(key_bytes),
-        decoding_key: DecodingKey::from_ed_der(&public_key),
-        ed25519_key_bytes: key_bytes.to_vec(),
-        healthcheck_project: "".to_string(),
-        token_audience: HashSet::from(["http://localhost:5173".to_string()]),
-        token_validation,
-    };
+    let configuration = BackendConfiguration::new(
+        "http://localhost:5479".to_string(),
+        "http://localhost:5479/.well-known/jwks.json".to_string(),
+        EncodingKey::from_ed_der(key_bytes),
+        DecodingKey::from_ed_der(
+            Ed25519KeyPair::from_pkcs8(key_bytes)
+                .unwrap()
+                .public_key()
+                .as_ref(),
+        ),
+        key_bytes.to_vec(),
+        "".to_string(),
+        HashSet::from(["http://localhost:5173".to_string()]),
+    )
+    .unwrap();
     let rocket = mount_routes(
         rocket::build()
             .manage(configuration)
