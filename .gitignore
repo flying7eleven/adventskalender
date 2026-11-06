@@ -17,3 +17,4 @@ real_data.sql
 security.txt
 public_key.gpg
 rust-clippy-results.sarif
+adventskalender-backend/.env
