@@ -285,51 +285,22 @@ pub async fn remove_participant_from_winner_list(
     participant_id: i32,
     authenticated_user: AuthenticatedUser,
 ) -> Status {
-    use crate::log_action;
-    use crate::models::ParticipantPicking;
-    use crate::schema::participants::dsl::{id, participants};
-    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
-    let username = authenticated_user.username.clone();
-
-    // reset the winning state of the participant and log the removal on a blocking thread, so
-    // that the database work does not block the async runtime
-    match db_connection_pool
-        .run_blocking(move |db_connection| {
-            let rows_updated = update(participants.filter(id.eq(participant_id)))
-                .set(&ParticipantPicking {
-                    won_on: None,
-                    picking_time: None,
-                    picked_by: None,
-                    present_identifier: None,
-                })
-                .execute(db_connection)
-                .map_err(RemoveWinnerError::Database)?;
-            if rows_updated == 0 {
-                return Err(RemoveWinnerError::UnknownParticipant);
-            }
-
-            log_action(
-                db_connection,
-                Some(username),
-                Action::RemovedWinner,
-                Some(format!(
-                    "The participant with the id {participant_id} was marked removed from the list of winners"
-                )),
-            );
-            Ok(())
-        })
-        .await
+    // reset the winning state of the participant and write the audit log entry via the shared
+    // helper, which runs both on a blocking thread so the database work does not block the
+    // async runtime
+    match mark_participant_as_not_won(
+        db_connection_pool,
+        participant_id,
+        authenticated_user.username.clone(),
+    )
+    .await
     {
-        Ok(Ok(())) => Status::NoContent,
-        Ok(Err(RemoveWinnerError::UnknownParticipant)) => Status::NotFound,
-        Ok(Err(error)) => {
-            error!("The user {} tried to mark the participant with the id {} as NOT won but it failed. The error was: {:?}", authenticated_user.username, participant_id, error);
-            Status::InternalServerError
-        }
+        Ok(()) => Status::NoContent,
+        Err(RemoveWinnerError::UnknownParticipant) => Status::NotFound,
         Err(error) => {
-            error!("The user {} tried to mark the participant with the id {} as NOT won but it failed. The error was: {error}", authenticated_user.username, participant_id);
+            error!("The user {} tried to mark the participant with the id {} as NOT won but it failed. The error was: {error:?}", authenticated_user.username, participant_id);
             Status::InternalServerError
         }
     }
@@ -957,16 +928,18 @@ pub async fn mark_participant_as_not_won(
     user_who_unpicked: String,
 ) -> Result<(), RemoveWinnerError> {
     use crate::fairings::BlockingDatabaseError;
+    use crate::log_action;
     use crate::models::ParticipantPicking;
     use crate::schema::participants::dsl::{id, participants};
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::debug;
 
-    // reset the winning state of the participant on a blocking thread so the database work does
-    // not block the async runtime
-    let rows_updated = match db_connection_pool
+    // reset the winning state of the participant and write the audit log entry on a blocking
+    // thread, so that the database work does not block the async runtime and both statements
+    // run on the same connection
+    let outcome = match db_connection_pool
         .run_blocking(move |db_connection| {
-            update(participants.filter(id.eq(participant_id)))
+            let rows_updated = update(participants.filter(id.eq(participant_id)))
                 .set(&ParticipantPicking {
                     won_on: None,
                     picking_time: None,
@@ -974,7 +947,20 @@ pub async fn mark_participant_as_not_won(
                     present_identifier: None,
                 })
                 .execute(db_connection)
-                .map_err(RemoveWinnerError::Database)
+                .map_err(RemoveWinnerError::Database)?;
+            if rows_updated == 0 {
+                return Err(RemoveWinnerError::UnknownParticipant);
+            }
+
+            log_action(
+                db_connection,
+                Some(user_who_unpicked),
+                Action::RemovedWinner,
+                Some(format!(
+                    "The participant with the id {participant_id} was marked removed from the list of winners"
+                )),
+            );
+            Ok(())
         })
         .await
     {
@@ -983,13 +969,12 @@ pub async fn mark_participant_as_not_won(
             Err(RemoveWinnerError::NoDatabaseConnection(error))
         }
         Err(BlockingDatabaseError::Join(error)) => Err(RemoveWinnerError::BlockingThread(error)),
-    }?;
-    if rows_updated == 0 {
-        return Err(RemoveWinnerError::UnknownParticipant);
-    }
+    };
 
-    debug!("The user {user_who_unpicked} marked the user with the id {participant_id} as NOT won");
-    Ok(())
+    if outcome.is_ok() {
+        debug!("The participant with the id {participant_id} was marked as NOT won");
+    }
+    outcome
 }
 
 #[derive(Serialize, Deserialize)]

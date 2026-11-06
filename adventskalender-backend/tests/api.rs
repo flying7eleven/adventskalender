@@ -822,6 +822,49 @@ fn me_reports_the_username_and_the_remaining_token_lifetime() {
 }
 
 #[test]
+fn removing_a_winner_over_http_resets_the_participant_and_logs_it() {
+    let database = TestDatabase::start(1);
+    let client = logged_in_client(&database);
+    let winner_id = pick_winners(&client, 1, "2026-12-24")[0];
+
+    let response = client
+        .delete(format!("/v1/participants/won/{winner_id}"))
+        .dispatch();
+
+    assert_eq!(response.status(), Status::NoContent);
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM participants \
+             WHERE id = {winner_id} AND won_on IS NULL AND picked_by IS NULL AND picking_time IS NULL"
+        )),
+        1
+    );
+    assert_eq!(
+        database.count(
+            "SELECT COUNT(*) AS count FROM performed_actions \
+             WHERE action = 'removed_winner' AND user_id IS NOT NULL"
+        ),
+        1
+    );
+}
+
+#[test]
+fn removing_an_unknown_winner_over_http_is_not_found() {
+    let database = TestDatabase::start(1);
+    let client = logged_in_client(&database);
+
+    let response = client.delete("/v1/participants/won/4711").dispatch();
+
+    assert_eq!(response.status(), Status::NotFound);
+    assert_eq!(
+        database.count(
+            "SELECT COUNT(*) AS count FROM performed_actions WHERE action = 'removed_winner'"
+        ),
+        0
+    );
+}
+
+#[test]
 fn refreshing_a_session_after_the_absolute_session_lifetime_is_forbidden() {
     let database = TestDatabase::start(0);
     let key_bytes = fresh_key_bytes();
