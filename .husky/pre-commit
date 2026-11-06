@@ -1,2 +1,0 @@
-#!/bin/sh
-cd adventskalender-frontend && npm audit --audit-level=high

@@ -75,7 +75,7 @@
         "format": "prettier --write \"{{public,src,scripts,types},.}/**/*.{js,jsx,ts,tsx,md,scss,css,json,htm,html}\" .prettierrc",
         "lint": "eslint --format stylish src/**/*.{ts,tsx}",
         "lint:fix": "eslint --format stylish src/**/*.{ts,tsx} --fix",
-        "prepare": "husky"
+        "prepare": "cd .. && husky adventskalender-frontend/.husky"
     },
     "jest": {
         "preset": "ts-jest/presets/js-with-ts",

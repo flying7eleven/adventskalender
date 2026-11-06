@@ -1,1 +1,2 @@
-npm test
+#!/bin/sh
+cd adventskalender-frontend && npm run lint && npm run check-format && npm audit --audit-level=high && npx jest
