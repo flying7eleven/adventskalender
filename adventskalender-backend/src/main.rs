@@ -35,11 +35,6 @@ pub fn run_migrations(
     }
 }
 
-fn unset_environment_variable(name: &str) {
-    use std::env::remove_var;
-    remove_var(name)
-}
-
 fn setup_logging(logging_level: LevelFilter) {
     use chrono::Utc;
 
@@ -162,7 +157,7 @@ async fn main() {
     use adventskalender_backend::fairings::{
         AdventskalenderDatabaseConnection, BackendConfiguration, SecurityHeaders,
     };
-    use log::{debug, error, info};
+    use log::{error, info};
     use rocket::figment::{
         util::map,
         value::{Map, Value},
@@ -403,18 +398,6 @@ async fn main() {
     }
     .to_cors()
     .unwrap();
-
-    // after everything is set up, we should unset all environment variables to prevent leaking
-    // sensitive information through process memory inspection or core dumps
-    debug!("Clearing sensitive environment variables from memory");
-    unset_environment_variable("ADVENTSKALENDER_LOGGING_LEVEL");
-    unset_environment_variable("ADVENTSKALENDER_DB_CONNECTION");
-    unset_environment_variable("ADVENTSKALENDER_API_HOST");
-    unset_environment_variable("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT");
-    unset_environment_variable("ADVENTSKALENDER_TOKEN_AUDIENCE");
-    unset_environment_variable("ADVENTSKALENDER_CORS_ORIGINS");
-    unset_environment_variable("ADVENTSKALENDER_KEY_FILE_PATH");
-    debug!("Environment variable cleanup completed");
 
     // log the startup of the backend service
     log_action(
