@@ -7,16 +7,19 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::sql_types::{BigInt, Integer, Text};
 use diesel::{sql_query, PgConnection, QueryableByName, RunQueryDsl};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::runners::SyncRunner;
 use testcontainers_modules::testcontainers::Container;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
-pub const PICKING_USER: &str = "picker";
 pub const PICKING_USER_PASSWORD: &str = "picker-password";
+static CREATED_DATABASES: AtomicUsize = AtomicUsize::new(0);
 
 pub struct TestDatabase {
     pub pool: AdventskalenderDatabaseConnection,
+    /// Unique per database, since the login rate limiter is process-wide and keyed by username.
+    pub picking_user: String,
     raw_pool: Pool<ConnectionManager<PgConnection>>,
     _container: Container<Postgres>,
 }
@@ -42,10 +45,14 @@ impl TestDatabase {
             .build(ConnectionManager::<PgConnection>::new(url))
             .unwrap();
 
+        let picking_user = format!(
+            "picker-{}",
+            CREATED_DATABASES.fetch_add(1, Ordering::Relaxed)
+        );
         let connection = &mut raw_pool.get().unwrap();
         connection.run_pending_migrations(MIGRATIONS).unwrap();
         sql_query("INSERT INTO users (username, password_hash) VALUES ($1, $2)")
-            .bind::<Text, _>(PICKING_USER)
+            .bind::<Text, _>(&picking_user)
             .bind::<Text, _>(bcrypt::hash(PICKING_USER_PASSWORD, 4).unwrap())
             .execute(connection)
             .unwrap();
@@ -59,6 +66,7 @@ impl TestDatabase {
 
         TestDatabase {
             pool: AdventskalenderDatabaseConnection::from(raw_pool.clone()),
+            picking_user,
             raw_pool,
             _container: container,
         }
