@@ -840,14 +840,6 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
     Ok(Json(winners))
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct PickingInformation {
-    /// The participant who was picked as a winner
-    participant_id: i32,
-    /// The date for which the winner was picked
-    picked_for_date: NaiveDate,
-}
-
 #[derive(Debug)]
 pub enum RemoveWinnerError {
     UnknownParticipant,
