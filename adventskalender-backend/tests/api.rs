@@ -1,7 +1,7 @@
 mod common;
 
 use adventskalender_backend::fairings::BackendConfiguration;
-use adventskalender_backend::routes::api_routes;
+use adventskalender_backend::routes::mount_routes;
 use common::{TestDatabase, PICKING_USER_PASSWORD};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use ring::rand::SystemRandom;
@@ -29,10 +29,11 @@ fn client(database: &TestDatabase) -> Client {
         healthcheck_project: "unused".to_string(),
         token_audience: HashSet::from(["http://localhost:5173".to_string()]),
     };
-    let rocket = rocket::build()
-        .manage(configuration)
-        .manage(database.new_connection_pool())
-        .mount("/v1", api_routes());
+    let rocket = mount_routes(
+        rocket::build()
+            .manage(configuration)
+            .manage(database.new_connection_pool()),
+    );
     Client::tracked(rocket).unwrap()
 }
 
@@ -186,4 +187,25 @@ fn changing_the_password_of_a_deleted_user_is_a_server_error() {
         change_password(&client, NEW_PASSWORD, NEW_PASSWORD),
         Status::InternalServerError
     );
+}
+
+#[test]
+fn the_advertised_json_web_key_set_is_served() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+    let configuration: Value = client
+        .get("/.well-known/openid-configuration")
+        .dispatch()
+        .into_json()
+        .unwrap();
+    let jwks_path = url::Url::parse(configuration["jwks_uri"].as_str().unwrap())
+        .unwrap()
+        .path()
+        .to_string();
+
+    let response = client.get(jwks_path).dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+    let key_set: Value = response.into_json().unwrap();
+    assert_eq!(key_set["keys"].as_array().unwrap().len(), 1);
 }

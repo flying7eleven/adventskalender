@@ -1,5 +1,5 @@
 use adventskalender_backend::rocket_cors::AllowedOrigins;
-use adventskalender_backend::routes::{api_routes, get_jwks, get_openid_configuration};
+use adventskalender_backend::routes::mount_routes;
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
 use diesel::PgConnection;
@@ -156,7 +156,6 @@ async fn main() {
         value::{Map, Value},
     };
     use rocket::http::Method;
-    use rocket::routes;
     use rocket::Config as RocketConfig;
     use std::env;
 
@@ -421,15 +420,15 @@ async fn main() {
 
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");
-    let _ = rocket::custom(rocket_configuration_figment)
-        .attach(cors_header)
-        .attach(SecurityHeaders)
-        .manage(backend_config)
-        .manage(AdventskalenderDatabaseConnection::from(db_connection_pool))
-        .mount("/.well-known", routes![get_openid_configuration, get_jwks])
-        .mount("/v1", api_routes())
-        .launch()
-        .await;
+    let _ = mount_routes(
+        rocket::custom(rocket_configuration_figment)
+            .attach(cors_header)
+            .attach(SecurityHeaders)
+            .manage(backend_config)
+            .manage(AdventskalenderDatabaseConnection::from(db_connection_pool)),
+    )
+    .launch()
+    .await;
 
     // log the shutdown of the backend service
     log_action(&mut db_connection, None, Action::ServerTerminated, None);

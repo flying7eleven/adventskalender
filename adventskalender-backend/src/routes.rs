@@ -8,33 +8,38 @@ use rocket::http::{Cookie, CookieJar, Method, SameSite, Status};
 use rocket::response::status::NoContent;
 use rocket::response::Responder;
 use rocket::serde::json::{json, Json};
-use rocket::{delete, get, options, post, put, routes, Route, State};
+use rocket::{delete, get, options, post, put, routes, Build, Rocket, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use url::Url;
 
-/// All routes served below the `/v1` base path.
-pub fn api_routes() -> Vec<Route> {
-    routes![
-        get_login_token,
-        get_login_token_options,
-        logout,
-        get_current_user,
-        get_number_of_participants_who_already_won,
-        get_number_of_participants_who_already_won_options,
-        pick_multiple_random_participant_from_raffle_list,
-        participants_won_options,
-        get_all_won_participants,
-        count_won_participants_on_day,
-        update_participant_values,
-        remove_participant_from_winner_list,
-        check_backend_health,
-        get_backend_version,
-        get_backend_version_options,
-        update_user_password,
-        get_audit_event_count,
-        get_won_participants_on_day_route,
-    ]
+/// Mounts all routes of the backend below their base paths.
+pub fn mount_routes(rocket: Rocket<Build>) -> Rocket<Build> {
+    rocket
+        .mount("/.well-known", routes![get_openid_configuration, get_jwks])
+        .mount(
+            "/v1",
+            routes![
+                get_login_token,
+                get_login_token_options,
+                logout,
+                get_current_user,
+                get_number_of_participants_who_already_won,
+                get_number_of_participants_who_already_won_options,
+                pick_multiple_random_participant_from_raffle_list,
+                participants_won_options,
+                get_all_won_participants,
+                count_won_participants_on_day,
+                update_participant_values,
+                remove_participant_from_winner_list,
+                check_backend_health,
+                get_backend_version,
+                get_backend_version_options,
+                update_user_password,
+                get_audit_event_count,
+                get_won_participants_on_day_route,
+            ],
+        )
 }
 
 #[derive(Serialize)]
@@ -91,7 +96,7 @@ pub struct JwksResponse {
     pub keys: Vec<JsonWebKey>,
 }
 
-#[get("/.well-known/jwks.json")]
+#[get("/jwks.json")]
 pub async fn get_jwks(config: &State<BackendConfiguration>) -> Result<Json<JwksResponse>, Status> {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use base64::Engine;
