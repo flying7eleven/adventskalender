@@ -349,28 +349,37 @@ pub async fn remove_participant_from_winner_list(
     authenticated_user: AuthenticatedUser,
 ) -> Status {
     use crate::log_action_rocket;
+    use log::error;
 
-    if mark_participant_as_not_won(
+    match mark_participant_as_not_won(
         db_connection_pool,
         participant_id,
         authenticated_user.username.clone(),
     )
     .await
-    .is_ok()
     {
-        log_action_rocket(
-            db_connection_pool,
-            authenticated_user.username,
-            Action::RemovedWinner,
-            Some(format!(
-                "The participant with the id {} was marked removed from the list of winners",
-                participant_id
-            )),
-        )
-        .await;
-        return Status::NoContent;
+        Ok(()) => {
+            log_action_rocket(
+                db_connection_pool,
+                authenticated_user.username,
+                Action::RemovedWinner,
+                Some(format!(
+                    "The participant with the id {} was marked removed from the list of winners",
+                    participant_id
+                )),
+            )
+            .await;
+            Status::NoContent
+        }
+        Err(RemoveWinnerError::UnknownParticipant) => Status::NotFound,
+        Err(error) => {
+            error!(
+                "The user {} tried to mark the participant with the id {} as NOT won but it failed. The error was: {:?}",
+                authenticated_user.username, participant_id, error
+            );
+            Status::InternalServerError
+        }
     }
-    Status::NotFound
 }
 
 #[get("/participants/won")]
@@ -829,68 +838,44 @@ pub struct PickingInformation {
     picked_for_date: NaiveDate,
 }
 
+#[derive(Debug)]
+pub enum RemoveWinnerError {
+    UnknownParticipant,
+    NoDatabaseConnection(r2d2::Error),
+    Database(diesel::result::Error),
+}
+
 pub async fn mark_participant_as_not_won(
     db_connection_pool: &AdventskalenderDatabaseConnection,
     participant_id: i32,
     user_who_unpicked: String,
-) -> Result<(), ()> {
+) -> Result<(), RemoveWinnerError> {
     use crate::models::ParticipantPicking;
     use crate::schema::participants::dsl::{id, participants};
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
-    use log::{debug, error};
+    use log::debug;
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
-            );
-            return Err(());
-        }
-    };
+    let db_connection = &mut db_connection_pool
+        .get()
+        .map_err(RemoveWinnerError::NoDatabaseConnection)?;
 
-    let maybe_result = db_connection
-        .build_transaction()
-        .read_write()
-        .run::<_, diesel::result::Error, _>(move |connection| {
-            // set all fields to none
-            let participant_info = ParticipantPicking {
-                won_on: None,
-                picking_time: None,
-                picked_by: None,
-                present_identifier: None
-            };
-
-            // do the actual update of the database
-            match update(participants.filter(id.eq(participant_id)))
-                .set(&participant_info)
-                .execute(connection)
-            {
-                Ok(rows_updated) =>
-
-                    {
-                        // ensure that the expected row was updated, if we did not exactly update one row, something went wrong
-                        if rows_updated != 1 {
-                            error!("There should be 1 row updates but {} rows were actually updated. The following ID should not be marked as NOT won: {:?}", rows_updated, participant_id);
-                            return Err(diesel::result::Error::NotFound); // TODO: not really the correct error code
-                        }
-
-                        debug!("The user {} marked the user with the id {} as NOT won", user_who_unpicked, participant_id);
-                        Ok(())
-                    }
-                Err(error) => {
-                    error!("The user {} tried to mark the user with the id {} as NOT won but we failed to do so. The error was: {}", user_who_unpicked, participant_id, error);
-                    Err(error)
-                }
-            }
-        });
-
-    //
-    if maybe_result.is_err() {
-        return Err(());
+    let rows_updated = update(participants.filter(id.eq(participant_id)))
+        .set(&ParticipantPicking {
+            won_on: None,
+            picking_time: None,
+            picked_by: None,
+            present_identifier: None,
+        })
+        .execute(db_connection)
+        .map_err(RemoveWinnerError::Database)?;
+    if rows_updated == 0 {
+        return Err(RemoveWinnerError::UnknownParticipant);
     }
+
+    debug!(
+        "The user {} marked the user with the id {} as NOT won",
+        user_who_unpicked, participant_id
+    );
     Ok(())
 }
 

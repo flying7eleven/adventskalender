@@ -1,5 +1,7 @@
 use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
-use adventskalender_backend::routes::{pick_winners, PickWinnersError};
+use adventskalender_backend::routes::{
+    mark_participant_as_not_won, pick_winners, PickWinnersError, RemoveWinnerError,
+};
 use chrono::NaiveDate;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::sql_types::{BigInt, Integer};
@@ -155,4 +157,46 @@ fn picking_for_an_unknown_user_marks_nobody() {
         ),
         0
     );
+}
+
+#[test]
+fn removing_a_winner_puts_the_participant_back_into_the_raffle() {
+    let database = start_database(1);
+    let winner = rocket::execute(pick_winners(
+        &database.pool,
+        1,
+        christmas_eve(),
+        PICKING_USER,
+    ))
+    .unwrap()
+    .remove(0);
+
+    let result = rocket::execute(mark_participant_as_not_won(
+        &database.pool,
+        winner.id,
+        PICKING_USER.to_string(),
+    ));
+
+    assert!(result.is_ok());
+    assert_eq!(
+        count(
+            &database,
+            "SELECT COUNT(*) AS count FROM participants \
+             WHERE won_on IS NULL AND picked_by IS NULL AND picking_time IS NULL"
+        ),
+        1
+    );
+}
+
+#[test]
+fn removing_an_unknown_participant_reports_it_as_unknown() {
+    let database = start_database(1);
+
+    let result = rocket::execute(mark_participant_as_not_won(
+        &database.pool,
+        4711,
+        PICKING_USER.to_string(),
+    ));
+
+    assert!(matches!(result, Err(RemoveWinnerError::UnknownParticipant)));
 }
