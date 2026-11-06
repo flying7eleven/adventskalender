@@ -861,6 +861,53 @@ fn refreshing_the_session_of_a_deleted_user_is_forbidden() {
 }
 
 #[test]
+fn too_many_wrong_current_passwords_are_rate_limited() {
+    let database = TestDatabase::start(0);
+    let client = logged_in_client(&database);
+
+    for _ in 0..5 {
+        assert_eq!(
+            change_password(
+                &client,
+                "wrong-current-password",
+                NEW_PASSWORD,
+                NEW_PASSWORD
+            ),
+            Status::UnprocessableEntity
+        );
+    }
+
+    let response = client
+        .put("/v1/auth/password")
+        .header(ContentType::JSON)
+        .body(
+            json!({
+                "current_password": "wrong-current-password",
+                "first_time": NEW_PASSWORD,
+                "second_time": NEW_PASSWORD
+            })
+            .to_string(),
+        )
+        .dispatch();
+    assert_eq!(response.status(), Status::TooManyRequests);
+    assert!(
+        response
+            .headers()
+            .get_one("Retry-After")
+            .expect("a Retry-After header must be set")
+            .parse::<u64>()
+            .expect("Retry-After must be a number")
+            > 0
+    );
+
+    // the rate limit also blocks a request with the correct current password
+    assert_eq!(
+        change_password(&client, PICKING_USER_PASSWORD, NEW_PASSWORD, NEW_PASSWORD),
+        Status::TooManyRequests
+    );
+}
+
+#[test]
 fn refreshing_a_session_reissues_the_cookie_and_returns_the_new_remaining_lifetime() {
     let database = TestDatabase::start(0);
     let key_bytes = fresh_key_bytes();

@@ -363,6 +363,7 @@ pub enum PasswordChangeError {
     PasswordsDoNotMatch,
     PasswordTooShort,
     PasswordTooWeak,
+    TooManyRequests { retry_after_seconds: u64 },
     InternalServerError,
 }
 
@@ -373,6 +374,7 @@ impl PasswordChangeError {
             PasswordChangeError::PasswordsDoNotMatch => "passwords_do_not_match",
             PasswordChangeError::PasswordTooShort => "password_too_short",
             PasswordChangeError::PasswordTooWeak => "password_too_weak",
+            PasswordChangeError::TooManyRequests { .. } => "too_many_requests",
             PasswordChangeError::InternalServerError => "internal_server_error",
         }
     }
@@ -389,6 +391,16 @@ impl<'r> Responder<'r, 'static> for PasswordChangeError {
         match self {
             PasswordChangeError::InternalServerError => {
                 response.set_status(Status::InternalServerError)
+            }
+            PasswordChangeError::TooManyRequests {
+                retry_after_seconds,
+            } => {
+                response.set_status(Status::TooManyRequests);
+                response.set_raw_header("Retry-After", retry_after_seconds.to_string());
+                response.set_sized_body(
+                    json!({ "reason": self.reason() }).to_string().len(),
+                    std::io::Cursor::new(json!({ "reason": self.reason() }).to_string()),
+                );
             }
             _ => {
                 response.set_status(Status::UnprocessableEntity);
@@ -410,15 +422,32 @@ pub async fn update_user_password(
 ) -> Result<NoContent, PasswordChangeError> {
     use crate::log_action;
     use crate::lookup_user_by_name;
+    use crate::rate_limiter::{
+        check_rate_limit, reset_rate_limit, RateLimitConfig, RateLimitDecision,
+    };
     use crate::schema::users::dsl::{password_hash, username, users};
     use bcrypt::{hash, verify};
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
-    use log::{debug, error};
+    use log::{debug, error, warn};
 
     let target_username = authenticated_user.username.clone();
     let current_password = new_password.current_password.clone();
     let first_time = new_password.first_time.clone();
     let second_time = new_password.second_time.clone();
+
+    // the current-password check is rate limited per user, so that the correct password cannot
+    // be brute forced through the password change endpoint
+    let rate_limit_config = RateLimitConfig::default();
+    let rate_limit_key = format!("pwchange:{target_username}");
+    if let RateLimitDecision::RateLimited {
+        retry_after_seconds,
+    } = check_rate_limit(&rate_limit_key, &rate_limit_config)
+    {
+        warn!("Rate limit exceeded for password changes of the user: {target_username}");
+        return Err(PasswordChangeError::TooManyRequests {
+            retry_after_seconds,
+        });
+    }
 
     // the user lookup, the bcrypt verification and hashing, the update and the audit log all run
     // on a blocking thread so that neither the database work nor the password hashing block the
@@ -446,6 +475,11 @@ pub async fn update_user_password(
                     return Err(PasswordChangeError::InternalServerError);
                 }
             }
+
+            // the current password was correct, so the failed-attempt counter of the rate
+            // limiter is reset before the new password is even validated
+            reset_rate_limit(&rate_limit_key);
+
 
             // check if the passwords are the same. If not, return an corresonding error
             if first_time.ne(&second_time) {
