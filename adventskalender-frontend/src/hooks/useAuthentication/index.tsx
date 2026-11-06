@@ -6,7 +6,7 @@ interface AuthContextType {
     expiresIn: number | null;
     signin: (user: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction, rateLimitCallback?: (waitTimeSeconds: number) => void) => void;
     signout: (callback: VoidFunction) => void;
-    refresh: (successCallback: VoidFunction, failCallback: VoidFunction) => void;
+    refresh: (successCallback: (expiresIn: number) => void, failCallback: VoidFunction) => void;
 }
 
 export const AuthenticationContext = createContext<AuthContextType>(null!);

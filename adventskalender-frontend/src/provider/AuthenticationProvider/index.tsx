@@ -11,6 +11,7 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
     const applySessionInformation = (data: unknown) => {
         const sessionInformation = SessionInformationSchema.parse(data);
         setExpiresIn(sessionInformation.expires_in);
+        return sessionInformation.expires_in;
     };
 
     // Check authentication status on mount by calling /auth/me
@@ -97,7 +98,7 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
             });
     };
 
-    const refresh = useCallback((successCallback: VoidFunction, failCallback: VoidFunction) => {
+    const refresh = useCallback((successCallback: (expiresIn: number) => void, failCallback: VoidFunction) => {
         fetch(`${API_BACKEND_URL}/auth/refresh`, {
             method: 'POST',
             credentials: 'include',
@@ -107,12 +108,12 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
                     return response
                         .json()
                         .then(applySessionInformation)
-                        .catch(() => undefined);
+                        .catch(() => Promise.reject());
                 }
                 return Promise.reject();
             })
-            .then(() => {
-                successCallback();
+            .then((expiresIn) => {
+                successCallback(expiresIn);
             })
             .catch(() => {
                 failCallback();

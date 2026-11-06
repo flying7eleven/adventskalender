@@ -94,7 +94,7 @@ export const AuthenticatedView = (props: Props) => {
         // Ask the backend to re-issue the auth cookie; on success reschedule the
         // warning and expiry against the new expiry reported by the backend
         auth.refresh(
-            () => undefined,
+            (expiresIn) => sessionManager.startMonitoring(expiresIn, () => setShowExpiryWarning(true), recheckSession),
             () => handleSessionExpired()
         );
     };

@@ -91,6 +91,49 @@ describe('AuthenticatedView session handling', () => {
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
     });
 
+    test('stay logged in reschedules even when the refresh reports the same remaining lifetime', async () => {
+        let authMeCalls = 0;
+        mockFetchWith((url) => {
+            if (url === `${API_BACKEND_URL}/auth/me`) {
+                authMeCalls += 1;
+                if (authMeCalls === 1) {
+                    return { status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) };
+                }
+                return { status: 401, ok: false, json: () => Promise.reject(new Error('no body')) };
+            }
+            if (url === `${API_BACKEND_URL}/auth/refresh`) {
+                return { status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) };
+            }
+            return { status: 204, ok: true, json: () => Promise.reject(new Error('no body')) };
+        });
+        const alertMock = jest.spyOn(window, 'alert').mockImplementation(() => undefined);
+        renderView();
+        await settleAuthentication();
+
+        await jest.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
+        await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
+
+        global.alert = jest.fn();
+        const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTimeAsync });
+        await user.click(screen.getByRole('button', { name: 'Stay Logged In' }));
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/refresh`, expect.objectContaining({ method: 'POST', credentials: 'include' })));
+        await waitFor(() => expect(screen.queryByText('Session Expiring Soon')).not.toBeInTheDocument());
+
+        // the deadline from before the refresh must no longer end the session
+        await jest.advanceTimersByTimeAsync(5 * 60 * 1000);
+        await act(async () => {
+            await jest.advanceTimersByTimeAsync(0);
+        });
+        expect(alertMock).not.toHaveBeenCalled();
+        expect(global.fetch).not.toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything());
+
+        // the warning reappears 5 minutes before the expiry reported by the refresh
+        await jest.advanceTimersByTimeAsync((60 - 5) * 60 * 1000 - 5 * 60 * 1000);
+        await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
+        alertMock.mockRestore();
+    });
+
     test('stay logged in logs the user out when the refresh fails', async () => {
         mockFetchWith((url) => {
             if (url === `${API_BACKEND_URL}/auth/me`) {
