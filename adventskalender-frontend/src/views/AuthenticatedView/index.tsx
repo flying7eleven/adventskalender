@@ -8,6 +8,8 @@ import { sessionManager } from '../../utils/SessionManager';
 import { SessionExpiryWarningDialog } from '../../dialogs/SessionExpiryWarningDialog';
 import { NavigationDrawer } from '../../components/NavigationDrawer';
 import { AppHeader } from '../../components/AppHeader';
+import { API_BACKEND_URL } from '../../api';
+import { SessionInformationSchema } from '../../schemas';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -62,6 +64,29 @@ export const AuthenticatedView = (props: Props) => {
         logoutUser();
     };
 
+    const recheckSession = () => {
+        // The local expiry timer fired, but another browser tab may have
+        // refreshed the cookie in the meantime. Ask the backend for the
+        // session's remaining lifetime: if it is still valid, reschedule the
+        // monitoring; otherwise the session really has expired.
+        fetch(`${API_BACKEND_URL}/auth/me`, {
+            method: 'GET',
+            credentials: 'include',
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    return Promise.reject();
+                }
+                return response.json().then((data) => SessionInformationSchema.parse(data).expires_in);
+            })
+            .then((expiresIn) => {
+                sessionManager.startMonitoring(expiresIn, () => setShowExpiryWarning(true), handleSessionExpired);
+            })
+            .catch(() => {
+                handleSessionExpired();
+            });
+    };
+
     const handleExtendSession = () => {
         // Close the warning dialog
         setShowExpiryWarning(false);
@@ -76,8 +101,8 @@ export const AuthenticatedView = (props: Props) => {
 
     // Start session monitoring when component mounts (user is authenticated)
     useEffect(() => {
-        if (auth.isAuthenticated && auth.expiresAt) {
-            sessionManager.startMonitoring(auth.expiresAt, () => setShowExpiryWarning(true), handleSessionExpired);
+        if (auth.isAuthenticated && auth.expiresIn) {
+            sessionManager.startMonitoring(auth.expiresIn, () => setShowExpiryWarning(true), recheckSession);
         }
 
         // Cleanup: stop monitoring when component unmounts
@@ -85,7 +110,7 @@ export const AuthenticatedView = (props: Props) => {
             sessionManager.stopMonitoring();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [auth.isAuthenticated, auth.expiresAt]);
+    }, [auth.isAuthenticated, auth.expiresIn]);
 
     // Define navigation items
     const mainNavItems = [

@@ -65,7 +65,7 @@ describe('DashboardView', () => {
 
     test('shows a message when the day already has the maximum number of winners', async () => {
         mockFetchWith({
-            [`${API_BACKEND_URL}/auth/me`]: () => ({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_at: 1 }) }),
+            [`${API_BACKEND_URL}/auth/me`]: () => ({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 3600 }) }),
             [`${API_BACKEND_URL}/participants/count`]: () => ({
                 status: 200,
                 ok: true,
@@ -91,7 +91,7 @@ describe('DashboardView', () => {
         });
         let counterCall = 0;
         mockFetchWith({
-            [`${API_BACKEND_URL}/auth/me`]: () => ({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_at: 1 }) }),
+            [`${API_BACKEND_URL}/auth/me`]: () => ({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 3600 }) }),
             [`${API_BACKEND_URL}/participants/count`]: () => ({
                 status: 200,
                 ok: true,

@@ -1,23 +1,16 @@
-import { useState, useEffect, createContext, useCallback, useContext, ReactNode } from 'react';
-import * as React from 'react';
+import { useState, useEffect, useCallback, ReactNode } from 'react';
 import { AuthenticationContext } from '../../hooks/useAuthentication';
 import { API_BACKEND_URL } from '../../api';
-import { SessionExpiresAtSchema } from '../../schemas';
-
-interface AuthenticationContextValue extends React.ContextType<typeof AuthenticationContext> {
-    expiresAt: number | null;
-}
-
-export const AuthenticationExpiryContext = createContext<AuthenticationContextValue>(null!);
+import { SessionInformationSchema } from '../../schemas';
 
 export const AuthenticationProvider = ({ children }: { children: ReactNode }) => {
     // Remove token state - authentication is now server-side via httpOnly cookies
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [expiresAt, setExpiresAt] = useState<number | null>(null);
+    const [expiresIn, setExpiresIn] = useState<number | null>(null);
     const applySessionInformation = (data: unknown) => {
-        const sessionInformation = SessionExpiresAtSchema.parse(data);
-        setExpiresAt(sessionInformation.expires_at * 1000);
+        const sessionInformation = SessionInformationSchema.parse(data);
+        setExpiresIn(sessionInformation.expires_in);
     };
 
     // Check authentication status on mount by calling /auth/me
@@ -35,11 +28,11 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
                         .catch(() => undefined);
                 }
                 setIsAuthenticated(false);
-                setExpiresAt(null);
+                setExpiresIn(null);
             })
             .catch(() => {
                 setIsAuthenticated(false);
-                setExpiresAt(null);
+                setExpiresIn(null);
             })
             .finally(() => {
                 setIsLoading(false);
@@ -71,8 +64,8 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
                 return Promise.reject();
             })
             .then(() => {
-                // The backend re-issued the cookie: fetch the fresh expiry so the
-                // session manager schedules against the real expiry
+                // The backend re-issued the cookie: fetch the session information
+                // so the expiry monitor can schedule against the remaining time
                 fetch(`${API_BACKEND_URL}/auth/me`, {
                     method: 'GET',
                     credentials: 'include',
@@ -81,20 +74,24 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
                         if (response.ok) {
                             return response
                                 .json()
-                                .then(applySessionInformation)
-                                .catch(() => undefined);
+                                .then((data) => {
+                                    applySessionInformation(data);
+                                    setIsAuthenticated(true);
+                                    successCallback();
+                                })
+                                .catch(() => Promise.reject());
                         }
-                        setExpiresAt(null);
+                        return Promise.reject();
                     })
-                    .catch(() => setExpiresAt(null));
-                setIsAuthenticated(true);
-                successCallback();
+                    .catch(() => {
+                        setExpiresIn(null);
+                        failCallback();
+                    });
             })
             .catch((reason: unknown) => {
                 setIsAuthenticated(false);
-                const rateLimited = typeof reason === 'object' && reason !== null && 'rateLimited' in reason && (reason as { rateLimited: unknown }).rateLimited === true;
-                if (rateLimited && rateLimitCallback) {
-                    const retryAfter = typeof reason === 'object' && reason !== null && 'retryAfter' in reason ? Number((reason as { retryAfter: unknown }).retryAfter) : 0;
+                if (reason !== null && typeof reason === 'object' && 'rateLimited' in reason && reason.rateLimited === true && rateLimitCallback) {
+                    const retryAfter = 'retryAfter' in reason && typeof reason.retryAfter === 'number' ? reason.retryAfter : 0;
                     rateLimitCallback(Number.isNaN(retryAfter) ? 0 : retryAfter);
                 } else {
                     failCallback();
@@ -109,13 +106,13 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
         })
             .then(() => {
                 setIsAuthenticated(false);
-                setExpiresAt(null);
+                setExpiresIn(null);
                 callback();
             })
             .catch(() => {
                 // Even if logout fails, clear local state
                 setIsAuthenticated(false);
-                setExpiresAt(null);
+                setExpiresIn(null);
                 callback();
             });
     };
@@ -142,15 +139,7 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
             });
     }, []);
 
-    const value = { isAuthenticated, isLoading, expiresAt, signin, signout, refresh };
+    const value = { isAuthenticated, isLoading, expiresIn, signin, signout, refresh };
 
-    return (
-        <AuthenticationExpiryContext.Provider value={value}>
-            <AuthenticationContext.Provider value={value}>{children}</AuthenticationContext.Provider>
-        </AuthenticationExpiryContext.Provider>
-    );
-};
-
-export const useAuthenticationExpiry = () => {
-    return useContext(AuthenticationExpiryContext);
+    return <AuthenticationContext.Provider value={value}>{children}</AuthenticationContext.Provider>;
 };

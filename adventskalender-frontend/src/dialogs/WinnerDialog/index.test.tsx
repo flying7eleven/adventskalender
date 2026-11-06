@@ -13,7 +13,7 @@ const mockFetch = () => {
         Promise.resolve({
             status: url.endsWith('/auth/me') ? 200 : 204,
             ok: true,
-            json: () => Promise.resolve({ username: 'test', expires_at: 1234567890 }),
+            json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }),
         } as Response)
     );
 };

@@ -2,9 +2,9 @@
  * SessionManager monitors session expiration and provides warnings.
  *
  * The actual expiry of the session is determined by the backend JWT which is
- * stored in an httpOnly cookie. The backend reports the expiry timestamp
- * (UNIX seconds) via GET /auth/me, so monitoring is scheduled against that
- * real expiry instead of assuming a fixed duration from page load.
+ * stored in an httpOnly cookie. The backend reports the remaining lifetime in
+ * seconds via GET /auth/me, so monitoring is scheduled against that server
+ * reported time instead of the client's clock.
  */
 export class SessionManager {
     private expiryTimeout: NodeJS.Timeout | null = null;
@@ -12,16 +12,15 @@ export class SessionManager {
     private readonly WARNING_BEFORE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
     /**
-     * Start monitoring a session that expires at the given time.
-     * @param expiresAtMs Session expiry in milliseconds (UNIX epoch)
+     * Start monitoring a session with the given remaining lifetime.
+     * @param expiresInSeconds Remaining session lifetime in seconds, as reported by the backend
      * @param onExpirySoon Callback when the session expires in 5 minutes
      * @param onExpired Callback when the session has expired
      */
-    startMonitoring(expiresAtMs: number, onExpirySoon: () => void, onExpired: () => void) {
+    startMonitoring(expiresInSeconds: number, onExpirySoon: () => void, onExpired: () => void) {
         this.stopMonitoring();
 
-        const now = Date.now();
-        const timeUntilExpiry = expiresAtMs - now;
+        const timeUntilExpiry = expiresInSeconds * 1000;
 
         const warningDelay = timeUntilExpiry - this.WARNING_BEFORE_EXPIRY_MS;
         if (warningDelay > 0) {

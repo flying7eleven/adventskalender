@@ -20,12 +20,12 @@ describe('SessionManager', () => {
         jest.setSystemTime(now);
     });
 
-    test('shows the warning 5 minutes before the given expiry and expires at it', async () => {
+    test('shows the warning 5 minutes before the given remaining lifetime and expires at it', async () => {
         const sessionManager = new SessionManager();
         const onExpirySoon = jest.fn();
         const onExpired = jest.fn();
 
-        sessionManager.startMonitoring(now + 50 * 60 * 1000, onExpirySoon, onExpired);
+        sessionManager.startMonitoring(50 * 60, onExpirySoon, onExpired);
 
         await advanceTo(now + 45 * 60 * 1000 - 1);
         expect(onExpirySoon).not.toHaveBeenCalled();
@@ -39,12 +39,12 @@ describe('SessionManager', () => {
         expect(onExpired).toHaveBeenCalledTimes(1);
     });
 
-    test('shows the warning immediately when the given expiry is less than 5 minutes away', async () => {
+    test('shows the warning immediately when the given remaining lifetime is less than 5 minutes', async () => {
         const sessionManager = new SessionManager();
         const onExpirySoon = jest.fn();
         const onExpired = jest.fn();
 
-        sessionManager.startMonitoring(now + 2 * 60 * 1000, onExpirySoon, onExpired);
+        sessionManager.startMonitoring(2 * 60, onExpirySoon, onExpired);
 
         expect(onExpirySoon).toHaveBeenCalledTimes(1);
         expect(onExpired).not.toHaveBeenCalled();
@@ -58,7 +58,7 @@ describe('SessionManager', () => {
         const onExpirySoon = jest.fn();
         const onExpired = jest.fn();
 
-        sessionManager.startMonitoring(now + 50 * 60 * 1000, onExpirySoon, onExpired);
+        sessionManager.startMonitoring(50 * 60, onExpirySoon, onExpired);
         sessionManager.stopMonitoring();
 
         await advanceTo(now + 120 * 60 * 1000);

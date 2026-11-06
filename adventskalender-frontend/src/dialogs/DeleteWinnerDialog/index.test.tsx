@@ -19,7 +19,7 @@ const mockFetch = (deleteStatus: number) => {
         Promise.resolve({
             status: url.endsWith('/auth/me') ? 200 : deleteStatus,
             ok: url.endsWith('/auth/me') ? true : deleteStatus < 400,
-            json: () => Promise.resolve({ username: 'test', expires_at: 1234567890 }),
+            json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }),
         } as Response)
     );
 };
