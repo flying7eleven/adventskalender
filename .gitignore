@@ -10,10 +10,8 @@ venv/
 *.tmp
 *.log
 *.pem
-jwks.json
 CLAUDE.md
 AGENTS.md
-private_key.json
 .playwright-mcp
 real_data.sql
 security.txt
