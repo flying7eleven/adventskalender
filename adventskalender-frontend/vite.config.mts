@@ -8,6 +8,8 @@ export default defineConfig(() => {
     return {
         define: {
             __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0]),
+            __DEV__: JSON.stringify(process.env.NODE_ENV !== 'production'),
+            __PROD__: JSON.stringify(process.env.NODE_ENV === 'production'),
         },
         resolve: {
             alias: {

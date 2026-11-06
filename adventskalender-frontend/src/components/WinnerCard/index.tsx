@@ -91,7 +91,7 @@ export const WinnerCard = (props: Props) => {
                                 <Button variant={'outline'} size="icon" className="rounded-full h-8 w-8" onClick={handleViewClick}>
                                     <Eye className="h-4 w-4" />
                                 </Button>
-                                {import.meta.env.DEV && (
+                                {__DEV__ && (
                                     <Button variant={'outline'} size="icon" className="rounded-full h-8 w-8" onClick={handleEditClick}>
                                         <Edit className="h-4 w-4" />
                                     </Button>

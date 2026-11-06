@@ -131,7 +131,7 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const handleFillPackageSelectionAutomatically = () => {
-        if (import.meta.env.DEV) {
+        if (__DEV__) {
             const selectedPackages: StringMap = {};
             let currentAlphabetIdx = 0;
             props.winner
@@ -409,7 +409,7 @@ export const WinnerDialog = (props: Props) => {
                     <div className="text-sm text-foreground">{renderWinnerText()}</div>
                 )}
                 <DialogFooter className="flex-col sm:flex-row gap-2">
-                    {import.meta.env.DEV && (
+                    {__DEV__ && (
                         <Button variant="secondary" onClick={handleFillPackageSelectionAutomatically} className="sm:mr-auto">
                             <LocalizedText translationKey={'dashboard.dialogs.new_winners.autofill_button'} />
                         </Button>

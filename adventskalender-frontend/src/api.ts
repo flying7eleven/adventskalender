@@ -1,5 +1,5 @@
 const determineApiUrl = () => {
-    if (window.location && import.meta.env.PROD) {
+    if (typeof window !== 'undefined' && window.location && __PROD__) {
         const locationValue = `${window.location.protocol}//${window.location.host}`;
         return `${locationValue}/api`;
     }
@@ -36,10 +36,10 @@ export interface AccessToken {
 
 export interface VersionInformation {
     backend_version: string;
-    backend_arch: string;
     rustc_version: string;
     build_date: string;
     build_time: string;
+    backend_arch: string;
 }
 
 export interface AuditEventCount {
