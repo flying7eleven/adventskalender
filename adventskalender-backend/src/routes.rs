@@ -703,9 +703,12 @@ pub async fn count_won_participants_on_day(
     Err(Status::InternalServerError)
 }
 
+pub const MAX_WINNERS_PER_DAY: usize = 5;
+
 #[derive(Debug)]
 pub enum PickWinnersError {
     NotEnoughParticipants,
+    TooManyWinnersForDay,
     UnknownUser,
     NoDatabaseConnection(r2d2::Error),
     Database(diesel::result::Error),
@@ -752,6 +755,14 @@ pub async fn pick_winners(
                 .filter(won_on.is_null())
                 .for_update()
                 .load::<DatabaseParticipant>(connection)?;
+            let winners_on_day = participants
+                .filter(won_on.eq(picked_for_date))
+                .count()
+                .get_result::<i64>(connection)? as usize;
+            if winners_on_day + count > MAX_WINNERS_PER_DAY {
+                return Err(PickWinnersError::TooManyWinnersForDay);
+            }
+
             if participants_in_raffle.len() < count {
                 return Err(PickWinnersError::NotEnoughParticipants);
             }
@@ -810,6 +821,14 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
                 authenticated_user.username, count
             );
             return Err(Status::NotFound);
+        }
+        Err(PickWinnersError::TooManyWinnersForDay) => {
+            error!(
+                "The user {} tried to pick {} new winners but the day {} already has the maximum \
+                 number of winners",
+                authenticated_user.username, count, picked_for_date
+            );
+            return Err(Status::Conflict);
         }
         Err(error) => {
             error!(

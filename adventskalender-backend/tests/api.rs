@@ -98,6 +98,22 @@ fn picking_for_an_invalid_date_is_a_bad_request() {
 }
 
 #[test]
+fn picking_more_winners_than_the_day_allows_is_a_conflict() {
+    let database = TestDatabase::start(7);
+    let client = logged_in_client(&database);
+
+    let response = client
+        .post("/v1/participants/pick/6/for/2026-12-24")
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Conflict);
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
+        0
+    );
+}
+
+#[test]
 fn login_with_an_unknown_user_is_unauthorized() {
     let database = TestDatabase::start(0);
     let client = client(&database);

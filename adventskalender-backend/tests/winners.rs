@@ -17,7 +17,8 @@ fn parallel_picks_never_select_the_same_participant_twice() {
     let barrier = Arc::new(Barrier::new(PARALLEL_PICKS));
 
     let picks: Vec<_> = (0..PARALLEL_PICKS)
-        .map(|_| {
+        .enumerate()
+        .map(|(index, _)| {
             let database = Arc::clone(&database);
             let barrier = Arc::clone(&barrier);
             std::thread::spawn(move || {
@@ -25,7 +26,7 @@ fn parallel_picks_never_select_the_same_participant_twice() {
                 rocket::execute(pick_winners(
                     &database.pool,
                     WINNERS_PER_PICK,
-                    christmas_eve(),
+                    christmas_eve() + chrono::Duration::days(index as i64),
                     &database.picking_user,
                 ))
             })
@@ -47,7 +48,7 @@ fn parallel_picks_never_select_the_same_participant_twice() {
     assert_eq!(
         database.count(&format!(
             "SELECT COUNT(*) AS count FROM participants p JOIN users u ON p.picked_by = u.id \
-             WHERE p.won_on = DATE '2026-12-24' AND u.username = '{}'",
+             WHERE u.username = '{}'",
             database.picking_user
         )),
         (PARALLEL_PICKS * WINNERS_PER_PICK) as i64
@@ -76,12 +77,20 @@ fn picking_more_winners_than_participants_left_marks_nobody() {
 }
 
 #[test]
-fn picking_for_an_unknown_user_marks_nobody() {
-    let database = TestDatabase::start(5);
+fn picking_more_winners_than_the_day_allows_marks_nobody() {
+    let database = TestDatabase::start(7);
 
-    let result = rocket::execute(pick_winners(&database.pool, 2, christmas_eve(), "unknown"));
+    let result = rocket::execute(pick_winners(
+        &database.pool,
+        adventskalender_backend::routes::MAX_WINNERS_PER_DAY + 1,
+        christmas_eve(),
+        &database.picking_user,
+    ));
 
-    assert!(matches!(result, Err(PickWinnersError::UnknownUser)));
+    assert!(matches!(
+        result,
+        Err(PickWinnersError::TooManyWinnersForDay)
+    ));
     assert_eq!(
         database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
         0
@@ -89,50 +98,52 @@ fn picking_for_an_unknown_user_marks_nobody() {
 }
 
 #[test]
-fn removing_a_winner_puts_the_participant_back_into_the_raffle() {
-    let database = TestDatabase::start(1);
-    let winner = rocket::execute(pick_winners(
-        &database.pool,
-        1,
-        christmas_eve(),
-        &database.picking_user,
-    ))
-    .unwrap()
-    .remove(0);
-
-    let result = rocket::execute(mark_participant_as_not_won(
-        &database.pool,
-        winner.id,
-        database.picking_user.clone(),
+fn parallel_picks_never_exceed_the_maximum_number_of_winners_per_day() {
+    const PARALLEL_PICKS: usize = 10;
+    const WINNERS_PER_PICK: usize = 1;
+    let database = Arc::new(TestDatabase::start(
+        (PARALLEL_PICKS * WINNERS_PER_PICK) as i32,
     ));
+    let barrier = Arc::new(Barrier::new(PARALLEL_PICKS));
 
-    assert!(result.is_ok());
+    let picks: Vec<_> = (0..PARALLEL_PICKS)
+        .map(|_| {
+            let database = Arc::clone(&database);
+            let barrier = Arc::clone(&barrier);
+            std::thread::spawn(move || {
+                barrier.wait();
+                rocket::execute(pick_winners(
+                    &database.pool,
+                    WINNERS_PER_PICK,
+                    christmas_eve(),
+                    &database.picking_user,
+                ))
+            })
+        })
+        .collect();
+
+    let mut total_winners = 0;
+    for pick in picks {
+        match pick.join().unwrap() {
+            Ok(winners) => total_winners += winners.len(),
+            Err(PickWinnersError::TooManyWinnersForDay) => {}
+            Err(error) => panic!("unexpected pick error: {error:?}"),
+        }
+    }
     assert_eq!(
-        database.count(
-            "SELECT COUNT(*) AS count FROM participants \
-             WHERE won_on IS NULL AND picked_by IS NULL AND picking_time IS NULL"
-        ),
-        1
+        total_winners,
+        adventskalender_backend::routes::MAX_WINNERS_PER_DAY
     );
-}
-
-#[test]
-fn removing_an_unknown_participant_reports_it_as_unknown() {
-    let database = TestDatabase::start(1);
-
-    let result = rocket::execute(mark_participant_as_not_won(
-        &database.pool,
-        4711,
-        database.picking_user.clone(),
-    ));
-
-    assert!(matches!(result, Err(RemoveWinnerError::UnknownParticipant)));
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
+        adventskalender_backend::routes::MAX_WINNERS_PER_DAY as i64
+    );
 }
 
 #[test]
 fn picking_reports_database_errors_instead_of_an_unknown_user() {
     let database = TestDatabase::start(1);
-    database.execute("ALTER TABLE users RENAME TO unreadable_users");
+    database.execute("ALTER TABLE participants RENAME TO renamed_participants");
 
     let result = rocket::execute(pick_winners(
         &database.pool,
@@ -142,4 +153,46 @@ fn picking_reports_database_errors_instead_of_an_unknown_user() {
     ));
 
     assert!(matches!(result, Err(PickWinnersError::Database(_))));
+}
+
+#[test]
+fn removing_a_winner_puts_the_participant_back_into_the_raffle() {
+    let database = TestDatabase::start(1);
+
+    let winners = rocket::execute(pick_winners(
+        &database.pool,
+        1,
+        christmas_eve(),
+        &database.picking_user,
+    ))
+    .expect("the pick should succeed");
+
+    let result = rocket::execute(mark_participant_as_not_won(
+        &database.pool,
+        winners[0].id,
+        database.picking_user.clone(),
+    ));
+
+    assert!(result.is_ok());
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
+        0
+    );
+}
+
+#[test]
+fn removing_an_unknown_participant_reports_it_as_unknown() {
+    let database = TestDatabase::start(1);
+
+    let result = rocket::execute(mark_participant_as_not_won(
+        &database.pool,
+        123456,
+        database.picking_user.clone(),
+    ));
+
+    assert!(matches!(result, Err(RemoveWinnerError::UnknownParticipant)));
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
+        0
+    );
 }
