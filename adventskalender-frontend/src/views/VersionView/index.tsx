@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_BACKEND_URL, VersionInformation, MAX_WINNERS_PER_DAY } from '../../api';
 import packageJson from '../../../package.json';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { LocalizedText } from '../../components/LocalizedText';
 import { VersionInformationSchema, AuditEventCountSchema } from '../../schemas';
+import { useAuthentication } from '../../hooks/useAuthentication';
 
 export const VersionView = () => {
     const [backendVersionInformation, setBackendVersionInformation] = useState<VersionInformation>({
@@ -15,6 +17,12 @@ export const VersionView = () => {
         build_time: 'unknown',
     });
     const [auditEventCount, setAuditEventCount] = useState<number>(0);
+    const auth = useAuthentication();
+    const navigate = useNavigate();
+
+    const logoutUser = () => {
+        auth.signout(() => navigate('/'));
+    };
 
     const getFrontendBuildDateTimeString = () => {
         return __BUILD_DATE__;
@@ -50,19 +58,26 @@ export const VersionView = () => {
     }, []);
 
     useEffect(() => {
-        // get the audit event count from the backend
         fetch(`${API_BACKEND_URL}/audit/count`, {
             method: 'GET',
             headers: {
                 'Content-type': 'application/json; charset=UTF-8',
             },
+            credentials: 'include',
         })
             .then((res) => {
-                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
-                // object and proceed processing it
                 if (res.status === 200) {
                     return res.json();
                 }
+
+                // if it seems that we are not authorized, invalidate the session. By invalidating the session,
+                // the user should automatically be redirected to the login page
+                if (res.status === 401 || res.status === 403) {
+                    logoutUser();
+                    return Promise.reject();
+                }
+
+                return Promise.reject();
             })
             .then((data) => {
                 // Validate the response data using Zod schema

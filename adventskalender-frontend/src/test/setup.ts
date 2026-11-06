@@ -14,3 +14,9 @@ Object.defineProperty(globalThis, '__PROD__', {
     writable: true,
     configurable: true,
 });
+
+Object.defineProperty(globalThis, '__BUILD_DATE__', {
+    value: '2024-12-01T12:00:00Z',
+    writable: true,
+    configurable: true,
+});
