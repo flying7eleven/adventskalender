@@ -406,11 +406,10 @@ pub async fn get_all_won_participants(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     _authenticated_user: AuthenticatedUser,
 ) -> Result<Json<HashMap<String, Vec<Participant>>>, Status> {
-    let maybe_all_winners = get_all_winners(db_connection_pool).await;
-    if let Ok(winners) = maybe_all_winners {
-        return Ok(Json(winners));
-    }
-    Err(Status::NotFound)
+    get_all_winners(db_connection_pool)
+        .await
+        .map(Json)
+        .map_err(|_| Status::InternalServerError)
 }
 
 #[derive(Serialize, Deserialize)]

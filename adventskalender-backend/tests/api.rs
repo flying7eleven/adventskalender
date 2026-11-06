@@ -118,3 +118,14 @@ fn login_reports_a_server_error_if_the_users_cannot_be_read() {
         Status::InternalServerError
     );
 }
+
+#[test]
+fn listing_winners_reports_a_server_error_if_the_participants_cannot_be_read() {
+    let database = TestDatabase::start(0);
+    let client = logged_in_client(&database);
+    database.execute("ALTER TABLE participants RENAME TO unreadable_participants");
+
+    let response = client.get("/v1/participants/won").dispatch();
+
+    assert_eq!(response.status(), Status::InternalServerError);
+}
