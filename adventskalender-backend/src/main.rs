@@ -131,7 +131,10 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
                 .create_new(true)
                 .mode(0o600)
                 .open(path)
-                .or_else(|_| {
+                .or_else(|error| {
+                    if error.kind() != std::io::ErrorKind::AlreadyExists {
+                        return Err(error);
+                    }
                     let file = std::fs::OpenOptions::new()
                         .write(true)
                         .truncate(true)
@@ -494,5 +497,30 @@ mod tests {
         assert_eq!(mode_of(&key_file_path) & 0o777, 0o600);
 
         std::fs::remove_file(&key_file_path).unwrap();
+    }
+
+    #[test]
+    fn an_unwritable_key_directory_is_reported_as_an_error() {
+        let key_directory = std::env::temp_dir().join(format!(
+            "adventskalender-key-dir-permission-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&key_directory).unwrap();
+        std::fs::set_permissions(&key_directory, std::fs::Permissions::from_mode(0o555)).unwrap();
+
+        let result = load_or_generate_keypair(&key_directory.join("key.pem"));
+
+        std::fs::set_permissions(&key_directory, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::remove_dir_all(&key_directory).unwrap();
+
+        let error = result.expect_err("writing a key into an unwritable directory must fail");
+        assert!(
+            error.contains("Permission denied"),
+            "the error must name the real reason instead of masking it, got: {error}"
+        );
     }
 }
