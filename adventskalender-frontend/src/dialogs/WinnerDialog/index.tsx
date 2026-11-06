@@ -12,6 +12,7 @@ import { LocalizationContext } from '../../provider/LocalizationContext';
 import { format, parse } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { WinnerInformation2Schema } from '../../schemas';
+import { toast } from 'sonner';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
 
@@ -179,7 +180,9 @@ export const WinnerDialog = (props: Props) => {
         )
             .then(handleDialogClose)
             .catch(() => {
-                // FIXME: show an actual error message that this was not successful
+                toast.error(localizationContext.translate('dashboard.dialogs.new_winners.error_unpick'), {
+                    duration: 6000,
+                });
             });
     };
 
@@ -217,13 +220,21 @@ export const WinnerDialog = (props: Props) => {
 
                 // there should never be other status codes which have to be handled, but just in case, we'll handle
                 // them here too
-                return Promise.reject(); // TODO: implement this correctly
+                if (res.status === 409) {
+                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.error_package_taken'), { duration: 6000 });
+                    return Promise.reject();
+                }
+                if (res.status === 422) {
+                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.table.error_package_selection'), { duration: 6000 });
+                    return Promise.reject();
+                }
+                return Promise.reject();
             })
             .then(() => {
                 if (doUpdateState) {
                     // update the value the user successfully set for the package
                     const previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
-                    previousSelection[userId] = selectedPackage;
+                    previousSelection[userId] = packageValue;
                     setPackageSelections(previousSelection);
 
                     // clear a previous error state, if it existed

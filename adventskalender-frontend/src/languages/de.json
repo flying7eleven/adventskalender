@@ -178,8 +178,10 @@
                 },
                 "accept_button": "Weiter",
                 "cancel_button": "Abbrechen",
+                "autofill_button": "Automatisch auswählen",
                 "finish_button": "Fertig",
-                "autofill_button": "Automatisch auswählen"
+                "error_unpick": "Die Gewinner:innen konnten nicht entfernt werden. Bitte versuche es erneut.",
+                "error_package_taken": "Dieses Paket ist an diesem Tag bereits vergeben. Bitte wähle ein anderes."
             },
             "already_picked": {
                 "title": "Gewinner:innen schon gezogen",

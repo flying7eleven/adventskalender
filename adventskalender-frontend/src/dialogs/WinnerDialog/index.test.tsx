@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { WinnerDialog } from './index';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
@@ -6,13 +7,20 @@ import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
 import { API_BACKEND_URL } from '../../api';
 
+jest.mock('sonner', () => ({
+    toast: { error: jest.fn(), warning: jest.fn(), success: jest.fn() },
+    Toaster: () => null,
+}));
+
+import { toast } from 'sonner';
+
 const winners = [1, 2, 3, 4, 5].map((id) => ({ id, firstName: `First${id}`, lastName: `Last${id}` }));
 
-const mockFetch = () => {
+const mockFetch = (participantPutStatus?: number) => {
     global.fetch = jest.fn().mockImplementation((url: string) =>
         Promise.resolve({
-            status: url.endsWith('/auth/me') ? 200 : 204,
-            ok: true,
+            status: url.endsWith('/auth/me') ? 200 : url.includes('/participants/') && participantPutStatus ? participantPutStatus : 204,
+            ok: url.endsWith('/auth/me') ? true : !participantPutStatus || participantPutStatus < 400,
             json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }),
         } as Response)
     );
@@ -39,11 +47,16 @@ const goToSecondStep = async () => {
 describe('WinnerDialog', () => {
     beforeEach(() => {
         mockFetch();
+        Element.prototype.scrollIntoView = () => {};
+        Element.prototype.hasPointerCapture = jest.fn();
+        Element.prototype.releasePointerCapture = jest.fn();
+        Element.prototype.setPointerCapture = jest.fn();
         (globalThis as unknown as { __DEV__: boolean }).__DEV__ = true;
     });
 
     afterEach(() => {
         (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+        (toast.error as jest.Mock).mockClear();
     });
 
     test('the close button un-picks the winners on the first step', async () => {
@@ -82,5 +95,83 @@ describe('WinnerDialog', () => {
         expect((global.fetch as jest.Mock).mock.calls.filter(([url]) => url.includes('/participants/won/'))).toHaveLength(0);
         expect(setDialogOpenStateFunction).not.toHaveBeenCalledWith(false);
         expect(screen.getByRole('button', { name: 'Finish' })).toBeInTheDocument();
+    });
+
+    test('stores an empty package when clearing the selection and still allows continuing', async () => {
+        const setDialogOpenStateFunction = jest.fn();
+        renderDialog(setDialogOpenStateFunction);
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+        fireEvent.click(screen.getByRole('button', { name: 'Select automatically' }));
+
+        const user = userEvent.setup();
+        const firstRowCombobox = screen.getByText('First1 Last1').closest('tr')!.querySelector('button[role="combobox"]')!;
+        await user.click(firstRowCombobox);
+        await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+        await user.click(screen.getByRole('option', { name: '-' }));
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/1`, expect.objectContaining({ method: 'PUT' })));
+        const [, init] = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === `${API_BACKEND_URL}/participants/1`)!;
+        expect(JSON.parse(init.body)).toEqual({ package: '' });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Finish' })).toBeInTheDocument());
+        expect(screen.getByText(/\(6\)/)).toBeInTheDocument();
+        expect(screen.queryByText(/6__/)).not.toBeInTheDocument();
+    });
+
+    test('shows an error toast when un-picking the winners fails', async () => {
+        mockFetch();
+        (global.fetch as jest.Mock).mockImplementation((url: string) =>
+            Promise.resolve({
+                status: url.endsWith('/auth/me') ? 200 : url.includes('/participants/won/') ? 500 : 204,
+                ok: url.endsWith('/auth/me'),
+                json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }),
+            } as Response)
+        );
+        const setDialogOpenStateFunction = jest.fn();
+        renderDialog(setDialogOpenStateFunction);
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('could not be removed'), expect.anything()));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(setDialogOpenStateFunction).not.toHaveBeenCalledWith(false);
+    });
+
+    test('shows an error toast when the package is already taken on that day (409)', async () => {
+        mockFetch(409);
+        const setDialogOpenStateFunction = jest.fn();
+        renderDialog(setDialogOpenStateFunction);
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+
+        const user = userEvent.setup();
+        const firstRowCombobox = screen.getByText('First1 Last1').closest('tr')!.querySelector('button[role="combobox"]')!;
+        await user.click(firstRowCombobox);
+        await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+        await user.click(screen.getByRole('option', { name: 'A' }));
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/1`, expect.objectContaining({ method: 'PUT' })));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('already taken'), expect.anything()));
+    });
+
+    test('shows an error toast when the package format is invalid (422)', async () => {
+        mockFetch(422);
+        const setDialogOpenStateFunction = jest.fn();
+        renderDialog(setDialogOpenStateFunction);
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+
+        const user = userEvent.setup();
+        const firstRowCombobox = screen.getByText('First1 Last1').closest('tr')!.querySelector('button[role="combobox"]')!;
+        await user.click(firstRowCombobox);
+        await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+        await user.click(screen.getByRole('option', { name: 'A' }));
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/1`, expect.objectContaining({ method: 'PUT' })));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Failed to select package'), expect.anything()));
     });
 });

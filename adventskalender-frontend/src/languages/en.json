@@ -178,8 +178,10 @@
                 },
                 "accept_button": "Continue",
                 "cancel_button": "Cancel",
+                "autofill_button": "Select automatically",
                 "finish_button": "Finish",
-                "autofill_button": "Select automatically"
+                "error_unpick": "The winners could not be removed. Please try again.",
+                "error_package_taken": "This package is already taken on that day. Please select another one."
             },
             "already_picked": {
                 "title": "Already picked winners",
