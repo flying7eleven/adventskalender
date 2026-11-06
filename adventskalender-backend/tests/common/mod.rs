@@ -21,7 +21,7 @@ pub struct TestDatabase {
     /// Unique per database, since the login rate limiter is process-wide and keyed by username.
     pub picking_user: String,
     raw_pool: Pool<ConnectionManager<PgConnection>>,
-    _container: Container<Postgres>,
+    container: Container<Postgres>,
 }
 
 #[derive(QueryableByName)]
@@ -83,7 +83,7 @@ impl TestDatabase {
             pool: AdventskalenderDatabaseConnection::from(raw_pool.clone()),
             picking_user,
             raw_pool,
-            _container: container,
+            container,
         }
     }
 
@@ -102,6 +102,10 @@ impl TestDatabase {
         sql_query(statement)
             .execute(&mut self.raw_pool.get().unwrap())
             .unwrap();
+    }
+
+    pub fn stop(&self) {
+        self.container.stop().unwrap();
     }
 }
 

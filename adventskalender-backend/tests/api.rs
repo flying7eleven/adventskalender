@@ -26,7 +26,7 @@ fn client(database: &TestDatabase) -> Client {
         encoding_key: Some(EncodingKey::from_ed_der(&key_bytes)),
         decoding_key: Some(DecodingKey::from_ed_der(&public_key)),
         ed25519_key_bytes: Some(key_bytes),
-        healthcheck_project: "unused".to_string(),
+        healthcheck_project: "".to_string(),
         token_audience: HashSet::from(["http://localhost:5173".to_string()]),
     };
     let rocket = mount_routes(
@@ -53,6 +53,31 @@ fn logged_in_client(database: &TestDatabase) -> Client {
         Status::NoContent
     );
     client
+}
+
+#[test]
+fn a_healthy_backend_reports_its_status_as_ok() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client.get("/v1/health").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let body = response.into_json::<rocket::serde::json::Value>().unwrap();
+    assert_eq!(body["database_healthy"], true);
+    assert_eq!(body["backend_healthy"], true);
+}
+
+#[test]
+fn an_unreachable_database_is_reported_as_unavailable() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+    database.stop();
+
+    let response = client.get("/v1/health").dispatch();
+    assert_eq!(response.status(), Status::ServiceUnavailable);
+    let body = response.into_json::<rocket::serde::json::Value>().unwrap();
+    assert_eq!(body["database_healthy"], false);
+    assert_eq!(body["backend_healthy"], false);
 }
 
 #[test]

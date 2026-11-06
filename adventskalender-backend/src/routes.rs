@@ -1276,7 +1276,7 @@ pub fn notify_service_down(project_uuid: &str, error_data: &str) {
 pub async fn check_backend_health(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     config: &State<BackendConfiguration>,
-) -> Result<Json<HealthCheck>, Status> {
+) -> Result<Json<HealthCheck>, (Status, Json<HealthCheck>)> {
     use crate::schema::participants::dsl::participants;
     use diesel::dsl::count_star;
     use diesel::{QueryDsl, RunQueryDsl};
@@ -1285,21 +1285,11 @@ pub async fn check_backend_health(
     // get a connection to the database for dealing with the request
     let db_connection = &mut match db_connection_pool.get() {
         Ok(connection) => connection,
-        Err(error) => {
+        Err(pool_error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
+                "Could not get a connection from the database connection pool. The error was: {pool_error}"
             );
-            let response_json = HealthCheck {
-                database_healthy: false,
-                backend_healthy: false,
-            };
-            BACKOFF_HANDLER.lock().unwrap().call(|| {
-                notify_service_down(
-                    &config.healthcheck_project,
-                    &json!(response_json).to_string(),
-                )
-            });
-            return Ok(Json(response_json));
+            return Err(unhealthy_response(config, false, false));
         }
     };
 
@@ -1308,9 +1298,11 @@ pub async fn check_backend_health(
         .build_transaction()
         .read_only()
         .run::<_, diesel::result::Error, _>(|connection| {
-            if let Err(error) = participants.select(count_star()).first::<i64>(connection) {
-                error!("The health check of the database connection failed with the following error: {error}");
-                return Err(error);
+            if let Err(query_error) = participants.select(count_star()).first::<i64>(connection) {
+                error!(
+                    "The health check of the database connection failed with the following error: {query_error}"
+                );
+                return Err(query_error);
             }
             debug!("Last health check was successful");
             Ok(())
@@ -1318,27 +1310,38 @@ pub async fn check_backend_health(
 
     // if the database is healthy, we can return the status immediately
     if database_is_healthy.is_ok() {
-        BACKOFF_HANDLER
-            .lock()
-            .unwrap()
-            .call(|| notify_service_up(&config.healthcheck_project));
+        if !config.healthcheck_project.is_empty() {
+            BACKOFF_HANDLER
+                .lock()
+                .unwrap()
+                .call(|| notify_service_up(&config.healthcheck_project));
+        }
         return Ok(Json(HealthCheck {
             database_healthy: true,
             backend_healthy: true,
         }));
     }
 
-    // if seems that the health check failed, indicate that by returning a 500
-    let response_json = HealthCheck {
-        database_healthy: false,
-        backend_healthy: false,
-    };
-    BACKOFF_HANDLER.lock().unwrap().call(|| {
-        notify_service_down(
-            &config.healthcheck_project,
-            &json!(response_json).to_string(),
-        )
-    });
+    // it seems that the health check failed, indicate that by returning a 503
+    Err(unhealthy_response(config, false, false))
+}
 
-    Ok(Json(response_json))
+fn unhealthy_response(
+    config: &BackendConfiguration,
+    database_healthy: bool,
+    backend_healthy: bool,
+) -> (Status, Json<HealthCheck>) {
+    let health_check = HealthCheck {
+        database_healthy,
+        backend_healthy,
+    };
+    if !config.healthcheck_project.is_empty() {
+        BACKOFF_HANDLER.lock().unwrap().call(|| {
+            notify_service_down(
+                &config.healthcheck_project,
+                &json!(health_check).to_string(),
+            )
+        });
+    }
+    (Status::ServiceUnavailable, Json(health_check))
 }
