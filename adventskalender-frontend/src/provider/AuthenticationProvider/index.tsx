@@ -54,8 +54,8 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
             credentials: 'include', // CRITICAL: Send cookies with request
         })
             .then((response) => {
-                if (response.status === 204) {
-                    return response;
+                if (response.ok) {
+                    return response.json();
                 }
                 if (response.status === 429) {
                     const retryAfter = Number.parseInt(response.headers.get('Retry-After') || '0', 10);
@@ -63,30 +63,10 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
                 }
                 return Promise.reject();
             })
-            .then(() => {
-                // The backend re-issued the cookie: fetch the session information
-                // so the expiry monitor can schedule against the remaining time
-                fetch(`${API_BACKEND_URL}/auth/me`, {
-                    method: 'GET',
-                    credentials: 'include',
-                })
-                    .then((response) => {
-                        if (response.ok) {
-                            return response
-                                .json()
-                                .then((data) => {
-                                    applySessionInformation(data);
-                                    setIsAuthenticated(true);
-                                    successCallback();
-                                })
-                                .catch(() => Promise.reject());
-                        }
-                        return Promise.reject();
-                    })
-                    .catch(() => {
-                        setExpiresIn(null);
-                        failCallback();
-                    });
+            .then((data) => {
+                applySessionInformation(data);
+                setIsAuthenticated(true);
+                successCallback();
             })
             .catch((reason: unknown) => {
                 setIsAuthenticated(false);

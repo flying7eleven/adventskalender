@@ -66,10 +66,10 @@ describe('AuthenticationProvider signin', () => {
         expect(successCallback).not.toHaveBeenCalled();
     });
 
-    test('calls the success callback only after the follow-up /auth/me succeeded', async () => {
+    test('starts the session from the token response and does not fetch the session information again', async () => {
         global.fetch = jest.fn().mockImplementation((url: RequestInfo | URL) => {
             if (String(url) === `${API_BACKEND_URL}/auth/token`) {
-                return Promise.resolve({ status: 204, ok: true } as unknown as Response);
+                return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) } as unknown as Response);
             }
             return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) } as unknown as Response);
         });
@@ -83,17 +83,18 @@ describe('AuthenticationProvider signin', () => {
         getSignin()('user', 'password', successCallback, failCallback, rateLimitCallback);
 
         await waitFor(() => expect(successCallback).toHaveBeenCalledTimes(1));
-        expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything());
-        expect(failCallback).not.toHaveBeenCalled();
+        const authMeCalls = (global.fetch as jest.Mock).mock.calls.filter(([url]) => String(url) === `${API_BACKEND_URL}/auth/me`);
+        expect(authMeCalls).toHaveLength(1);
+        expect((global.fetch as jest.Mock).mock.calls.filter(([url]) => String(url) === `${API_BACKEND_URL}/auth/token`)).toHaveLength(1);
         expect(rateLimitCallback).not.toHaveBeenCalled();
     });
 
-    test('calls the fail callback when the follow-up /auth/me fails after a successful login', async () => {
+    test('calls the fail callback when the token response carries no session information', async () => {
         global.fetch = jest.fn().mockImplementation((url: RequestInfo | URL) => {
             if (String(url) === `${API_BACKEND_URL}/auth/token`) {
-                return Promise.resolve({ status: 204, ok: true } as unknown as Response);
+                return Promise.resolve({ status: 200, ok: true, json: () => Promise.reject(new Error('no body')) } as unknown as Response);
             }
-            return Promise.resolve({ status: 401, ok: false } as unknown as Response);
+            return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) } as unknown as Response);
         });
 
         const getSignin = renderProbe();
@@ -105,8 +106,28 @@ describe('AuthenticationProvider signin', () => {
         getSignin()('user', 'password', successCallback, failCallback, rateLimitCallback);
 
         await waitFor(() => expect(failCallback).toHaveBeenCalledTimes(1));
-        expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything());
         expect(successCallback).not.toHaveBeenCalled();
+        expect(rateLimitCallback).not.toHaveBeenCalled();
+    });
+
+    test('accepts a token response whose session is already in its last second', async () => {
+        global.fetch = jest.fn().mockImplementation((url: RequestInfo | URL) => {
+            if (String(url) === `${API_BACKEND_URL}/auth/token`) {
+                return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 0 }) } as unknown as Response);
+            }
+            return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) } as unknown as Response);
+        });
+
+        const getSignin = renderProbe();
+        await waitFor(() => expect(getSignin()).toBeTruthy());
+
+        const rateLimitCallback = jest.fn();
+        const successCallback = jest.fn();
+        const failCallback = jest.fn();
+        getSignin()('user', 'password', successCallback, failCallback, rateLimitCallback);
+
+        await waitFor(() => expect(successCallback).toHaveBeenCalledTimes(1));
+        expect(failCallback).not.toHaveBeenCalled();
         expect(rateLimitCallback).not.toHaveBeenCalled();
     });
 });
