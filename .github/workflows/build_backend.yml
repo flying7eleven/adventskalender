@@ -26,6 +26,7 @@ jobs:
       - run: cargo +${{ matrix.toolchain }} build --verbose
         working-directory: adventskalender-backend
       - run: cargo +${{ matrix.toolchain }} fmt --all -- --check
+        if: matrix.toolchain == 'stable'
         working-directory: adventskalender-backend
       - run: cargo +${{ matrix.toolchain }} test --verbose
         working-directory: adventskalender-backend
