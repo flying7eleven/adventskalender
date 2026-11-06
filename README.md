@@ -50,15 +50,8 @@ psql -h localhost -U adventskalender -d adventskalender -c \
 
 **Note**: The example hash above is for demonstration only. Always generate a fresh hash for your actual password.
 
-## Generate the public / private key pairs for signing the tokens
-```shell
-cd key_generation
-python3 -mvenv venv
-source venv/bin/activate
-pip install -r requirements.txt
-openssl genrsa -out keypair.pem 4096
-python3 generate_key.py
-```
+## Token signing key
+The backend signs its tokens with an Ed25519 key stored at `ADVENTSKALENDER_KEY_FILE_PATH` (default `/data/adventskalender_ed25519.key`). If the file is missing or invalid, the backend generates a new key on startup and stores it there, which invalidates all previously issued tokens. Keep the file on a persistent volume.
 
 ## Things still to do
 - [ ] _Backend_: Ensure that there can not be two parallel requests for picking winners (we have to use mutexes here)

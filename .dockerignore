@@ -13,9 +13,7 @@ adventskalender-frontend/build/
 adventskalender-frontend/coverage/
 adventskalender-frontend/.husky/
 
-# Python virtual environments
-key_generation/venv/
-key_generation/__pycache__/
+# Python artifacts
 **/*.pyc
 **/.pytest_cache/
 
@@ -23,7 +21,6 @@ key_generation/__pycache__/
 .volumes/
 **/*.key
 **/*.pem
-**/keypair.pem
 
 # IDE and editor files
 .idea/
