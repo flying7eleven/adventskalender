@@ -18,6 +18,7 @@ The backend tests start their own PostgreSQL container, so Docker must be runnin
 
 ## Authenticate against the backend
 The backend returns the token as the HTTP-only cookie `auth_token`. Store it in a cookie jar and pass that jar to all following requests:
+The token is valid for one hour and can be refreshed until the session reaches its absolute lifetime of 12 hours after the original login.
 ```shell
 curl --cookie-jar cookies.txt --header "Content-Type: application/json" --request POST --data '{"username":"demouser","password":"demopassword"}' http://localhost:5479/v1/auth/token
 curl --cookie cookies.txt http://localhost:5479/v1/participants/count
