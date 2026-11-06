@@ -55,10 +55,9 @@ export const LoginView = () => {
                 toast.error(localizationContext.translate('login.alerts.failed_login.message'), {
                     duration: 6000,
                 }),
-            (waitTime: number) => {
-                // Rate limit hit - show user how long to wait
-                const waitSeconds = Math.ceil(waitTime / 1000);
-                const rateLimitMessage = `Too many login attempts. Please wait ${waitSeconds} second${waitSeconds !== 1 ? 's' : ''} before trying again.`;
+            (waitTimeSeconds: number) => {
+                // Rate limit hit - show user how long to wait (Retry-After seconds from the backend)
+                const rateLimitMessage = localizationContext.translate('login.alerts.rate_limited.message').replace('{0}', String(waitTimeSeconds));
                 toast.warning(rateLimitMessage, {
                     duration: 10000,
                 });

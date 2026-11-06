@@ -19,6 +19,9 @@
         "alerts": {
             "failed_login": {
                 "message": "Fehler bei der Authentifizierung mit den eingegebenen Informationen. Sind Sie sicher, dass diese korrekt sind?"
+            },
+            "rate_limited": {
+                "message": "Zu viele Anmeldeversuche. Bitte warten Sie {0} Sekunde(n), bevor Sie es erneut versuchen."
             }
         }
     },

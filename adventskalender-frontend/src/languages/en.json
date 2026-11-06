@@ -19,6 +19,9 @@
         "alerts": {
             "failed_login": {
                 "message": "Failed to authenticate with the given credentials. Are you sure they are correct?"
+            },
+            "rate_limited": {
+                "message": "Too many login attempts. Please wait {0} second(s) before trying again."
             }
         }
     },
