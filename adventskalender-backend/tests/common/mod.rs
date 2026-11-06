@@ -3,7 +3,7 @@
 
 use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
 use chrono::NaiveDate;
-use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool};
 use diesel::sql_types::{BigInt, Integer, Text};
 use diesel::{sql_query, PgConnection, QueryableByName, RunQueryDsl};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -30,6 +30,20 @@ struct Count {
     count: i64,
 }
 
+/// Code that depends on an isolation level has to request it explicitly, so the tests run with a
+/// stricter session default than the PostgreSQL default of READ COMMITTED.
+#[derive(Debug)]
+struct RepeatableReadByDefault;
+
+impl CustomizeConnection<PgConnection, diesel::r2d2::Error> for RepeatableReadByDefault {
+    fn on_acquire(&self, connection: &mut PgConnection) -> Result<(), diesel::r2d2::Error> {
+        sql_query("SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+            .execute(connection)
+            .map(|_| ())
+            .map_err(diesel::r2d2::Error::QueryError)
+    }
+}
+
 impl TestDatabase {
     pub fn start(number_of_participants: i32) -> TestDatabase {
         let container = Postgres::default()
@@ -42,6 +56,7 @@ impl TestDatabase {
         );
         let raw_pool = Pool::builder()
             .max_size(16)
+            .connection_customizer(Box::new(RepeatableReadByDefault))
             .build(ConnectionManager::<PgConnection>::new(url))
             .unwrap();
 
