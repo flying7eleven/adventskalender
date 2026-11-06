@@ -127,3 +127,18 @@ fn removing_an_unknown_participant_reports_it_as_unknown() {
 
     assert!(matches!(result, Err(RemoveWinnerError::UnknownParticipant)));
 }
+
+#[test]
+fn picking_reports_database_errors_instead_of_an_unknown_user() {
+    let database = TestDatabase::start(1);
+    database.execute("ALTER TABLE users RENAME TO unreadable_users");
+
+    let result = rocket::execute(pick_winners(
+        &database.pool,
+        1,
+        christmas_eve(),
+        PICKING_USER,
+    ));
+
+    assert!(matches!(result, Err(PickWinnersError::Database(_))));
+}

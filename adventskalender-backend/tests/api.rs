@@ -106,3 +106,15 @@ fn login_with_an_unknown_user_is_unauthorized() {
         Status::Unauthorized
     );
 }
+
+#[test]
+fn login_reports_a_server_error_if_the_users_cannot_be_read() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+    database.execute("ALTER TABLE users RENAME TO unreadable_users");
+
+    assert_eq!(
+        login(&client, PICKING_USER, PICKING_USER_PASSWORD),
+        Status::InternalServerError
+    );
+}

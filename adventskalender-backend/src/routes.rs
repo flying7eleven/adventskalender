@@ -1,6 +1,5 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
 use crate::guards::AuthenticatedUser;
-use crate::models::User;
 use crate::rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use crate::{Action, BACKOFF_HANDLER};
 use chrono::{DateTime, NaiveDate};
@@ -741,8 +740,11 @@ pub async fn pick_winners(
         .build_transaction()
         .read_write()
         .run(|connection| {
-            let user = lookup_user_by_name(connection, user_who_picked.to_string())
-                .map_err(|_| PickWinnersError::UnknownUser)?;
+            let user = match lookup_user_by_name(connection, user_who_picked) {
+                Ok(user) => user,
+                Err(diesel::result::Error::NotFound) => return Err(PickWinnersError::UnknownUser),
+                Err(error) => return Err(PickWinnersError::Database(error)),
+            };
 
             let participants_in_raffle = participants
                 .filter(won_on.is_null())
@@ -917,10 +919,9 @@ pub async fn get_login_token(
 ) -> Result<NoContent, Status> {
     use crate::get_token_for_user;
     use crate::log_action_rocket;
+    use crate::lookup_user_by_name;
     use crate::rate_limiter::{is_rate_limited, reset_rate_limit, RateLimitConfig};
-    use crate::schema::users::dsl::{username, users};
     use bcrypt::verify;
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{error, warn};
 
     let rate_limit_config = RateLimitConfig::default();
@@ -954,16 +955,13 @@ pub async fn get_login_token(
     };
 
     // try to get the user record for the supplied username
-    let user = match users
-        .filter(username.eq(&login_information.username))
-        .first::<User>(db_connection)
-    {
+    let user = match lookup_user_by_name(db_connection, &login_information.username) {
         Ok(user) => user,
-        Err(error) => {
+        Err(diesel::result::Error::NotFound) => {
             // ensure that we know what happened
             error!(
-                "Could not get the user record for '{}'. The error was: {}",
-                login_information.username, error
+                "Could not get the user record for '{}'",
+                login_information.username
             );
             // just slow down the process to prevent easy checking if a username exists or not
             let _ = verify(
@@ -987,6 +985,13 @@ pub async fn get_login_token(
 
             // finally we can tell teh user that he/she is not authorized
             return Err(Status::Unauthorized);
+        }
+        Err(error) => {
+            error!(
+                "Could not look up the user record for '{}'. The error was: {error}",
+                login_information.username
+            );
+            return Err(Status::InternalServerError);
         }
     };
 

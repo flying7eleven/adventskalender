@@ -121,35 +121,16 @@ impl Display for Action {
     }
 }
 
-#[derive(Debug)]
-pub struct CouldNotFindUser;
-
-impl Display for CouldNotFindUser {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Could not find user")
-    }
-}
-
-impl std::error::Error for CouldNotFindUser {}
-
 pub fn lookup_user_by_name(
     db_connection: &mut PgConnection,
-    supplied_username: String,
-) -> Result<User, CouldNotFindUser> {
+    supplied_username: &str,
+) -> Result<User, diesel::result::Error> {
     use crate::schema::users::dsl::{username, users};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-    use log::error;
 
-    if let Ok(found_user) = users
-        .filter(username.eq(supplied_username.clone()))
+    users
+        .filter(username.eq(supplied_username))
         .first::<User>(db_connection)
-    {
-        return Ok(found_user);
-    }
-
-    // it seems that the user could not be looked up
-    error!("Could not look up the user object for the user '{supplied_username}'");
-    Err(CouldNotFindUser)
 }
 
 pub async fn log_action_rocket(
@@ -198,23 +179,18 @@ pub fn log_action(
     use diesel::RunQueryDsl;
     use log::error;
 
-    // if no username was supplied, we do not have to handle any user name lookup
-    // also handle "anonymous" user (used for failed logins to prevent username enumeration)
-    let maybe_user = if let Some(username_performing_action) = maybe_username_performing_action {
-        if username_performing_action == "anonymous" {
-            Err(CouldNotFindUser)
-        } else {
-            lookup_user_by_name(db_connection, username_performing_action)
+    // failed logins are logged as "anonymous" to prevent username enumeration and have no user id
+    let user_id = match maybe_username_performing_action.as_deref() {
+        None | Some("anonymous") => None,
+        Some(username_performing_action) => {
+            match lookup_user_by_name(db_connection, username_performing_action) {
+                Ok(user) => Some(user.id),
+                Err(error) => {
+                    error!("Could not look up the user object for the user '{username_performing_action}'. The error was: {error}");
+                    None
+                }
+            }
         }
-    } else {
-        Err(CouldNotFindUser)
-    };
-
-    // ensure we have an user id wrapped in an option (a failed login request may not have a valid user name)
-    let user_id = if let Ok(user) = maybe_user {
-        Some(user.id)
-    } else {
-        None
     };
 
     // create the object we want to store in the database
