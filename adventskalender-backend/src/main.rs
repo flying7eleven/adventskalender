@@ -117,25 +117,26 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
         }
     }
 
-    // write the key to a file which only the owner can read and write, right from its
-    // creation, so that the private key is never visible to other users even for a short
-    // time. If an (invalid) key file already exists, it is truncated with the same
-    // restriction applied.
+    // write the key to a file which only the owner can read and write, right from its creation,
+    // so that the private key is never visible to other users even for a short time. The mode of
+    // a newly created file only applies on creation, so the permissions of a replaced existing
+    // file are explicitly set again before anything is written to it.
     #[cfg(unix)]
     let open_key_file = {
-        use std::os::unix::fs::OpenOptionsExt;
-        |path: &std::path::Path| {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        |path: &std::path::Path| -> std::io::Result<std::fs::File> {
             std::fs::OpenOptions::new()
                 .write(true)
                 .create_new(true)
                 .mode(0o600)
                 .open(path)
                 .or_else(|_| {
-                    std::fs::OpenOptions::new()
+                    let file = std::fs::OpenOptions::new()
                         .write(true)
                         .truncate(true)
-                        .mode(0o600)
-                        .open(path)
+                        .open(path)?;
+                    file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+                    Ok(file)
                 })
         }
     };
@@ -450,27 +451,49 @@ mod tests {
     use super::load_or_generate_keypair;
     use std::os::unix::fs::PermissionsExt;
 
-    #[test]
-    fn a_newly_generated_key_file_is_only_accessible_by_the_owner() {
-        let key_file_path = std::env::temp_dir().join(format!(
+    fn temporary_key_file_path() -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
             "adventskalender-key-permission-test-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos()
-        ));
+        ))
+    }
+
+    fn mode_of(path: &std::path::Path) -> u32 {
+        std::fs::metadata(path)
+            .expect("key file metadata")
+            .permissions()
+            .mode()
+    }
+
+    #[test]
+    fn a_newly_generated_key_file_is_only_accessible_by_the_owner() {
+        let key_file_path = temporary_key_file_path();
         let _ = std::fs::remove_file(&key_file_path);
 
         let key_bytes = load_or_generate_keypair(&key_file_path).expect("key generation failed");
         assert!(!key_bytes.is_empty());
 
-        let mode = std::fs::metadata(&key_file_path)
-            .expect("key file metadata")
-            .permissions()
-            .mode();
-        assert_eq!(mode & 0o777, 0o600);
+        assert_eq!(mode_of(&key_file_path) & 0o777, 0o600);
+
+        std::fs::remove_file(&key_file_path).unwrap();
+    }
+
+    #[test]
+    fn a_regenerated_key_file_over_an_existing_invalid_one_is_only_accessible_by_the_owner() {
+        let key_file_path = temporary_key_file_path();
+        std::fs::write(&key_file_path, "this is not a valid PKCS8 key").unwrap();
+        std::fs::set_permissions(&key_file_path, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        let key_bytes = load_or_generate_keypair(&key_file_path).expect("key generation failed");
+        assert!(!key_bytes.is_empty());
+
+        assert_eq!(mode_of(&key_file_path) & 0o777, 0o600);
 
         std::fs::remove_file(&key_file_path).unwrap();
     }
 }
+
