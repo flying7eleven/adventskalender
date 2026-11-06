@@ -1,14 +1,12 @@
 #[macro_use]
 extern crate diesel;
 
-use crate::fairings::AdventskalenderDatabaseConnection;
 use crate::models::User;
 use chrono::{DateTime, Utc};
 use diesel::PgConnection;
 use jsonwebtoken::EncodingKey;
 use lazy_static::lazy_static;
 use log::debug;
-use rocket::State;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
@@ -166,39 +164,6 @@ pub fn lookup_user_by_name(
     users
         .filter(username.eq(supplied_username))
         .first::<User>(db_connection)
-}
-
-pub async fn log_action_rocket(
-    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
-    username_performing_action: String,
-    executed_action: Action,
-    possible_description: Option<String>,
-) {
-    use log::error;
-
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
-            );
-            return;
-        }
-    };
-
-    let _ = db_connection
-        .build_transaction()
-        .read_write()
-        .run::<_, diesel::result::Error, _>(move |connection| {
-            log_action(
-                connection,
-                Some(username_performing_action),
-                executed_action,
-                possible_description,
-            );
-            Ok(())
-        });
 }
 
 pub fn log_action(

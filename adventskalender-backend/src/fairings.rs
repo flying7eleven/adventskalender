@@ -1,4 +1,4 @@
-use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
+use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::PgConnection;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use rocket::fairing::{Fairing, Info, Kind};
@@ -63,12 +63,6 @@ pub struct AdventskalenderDatabaseConnection(Pool<ConnectionManager<PgConnection
 
 /// TODO
 impl AdventskalenderDatabaseConnection {
-    /// TODO
-    #[inline(always)]
-    pub fn get(&self) -> Result<PooledConnection<ConnectionManager<PgConnection>>, r2d2::Error> {
-        self.0.get()
-    }
-
     /// Runs the given closure with a pooled connection on the blocking thread pool so that
     /// neither the database work nor the bcrypt password hashing blocks one of Rocket's async
     /// worker threads. Cloning the pool is cheap, the connection is taken inside the blocking

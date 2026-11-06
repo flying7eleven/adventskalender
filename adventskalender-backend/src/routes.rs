@@ -285,34 +285,51 @@ pub async fn remove_participant_from_winner_list(
     participant_id: i32,
     authenticated_user: AuthenticatedUser,
 ) -> Status {
-    use crate::log_action_rocket;
+    use crate::log_action;
+    use crate::models::ParticipantPicking;
+    use crate::schema::participants::dsl::{id, participants};
+    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
-    match mark_participant_as_not_won(
-        db_connection_pool,
-        participant_id,
-        authenticated_user.username.clone(),
-    )
-    .await
-    {
-        Ok(()) => {
-            log_action_rocket(
-                db_connection_pool,
-                authenticated_user.username,
+    let username = authenticated_user.username.clone();
+
+    // reset the winning state of the participant and log the removal on a blocking thread, so
+    // that the database work does not block the async runtime
+    match db_connection_pool
+        .run_blocking(move |db_connection| {
+            let rows_updated = update(participants.filter(id.eq(participant_id)))
+                .set(&ParticipantPicking {
+                    won_on: None,
+                    picking_time: None,
+                    picked_by: None,
+                    present_identifier: None,
+                })
+                .execute(db_connection)
+                .map_err(RemoveWinnerError::Database)?;
+            if rows_updated == 0 {
+                return Err(RemoveWinnerError::UnknownParticipant);
+            }
+
+            log_action(
+                db_connection,
+                Some(username),
                 Action::RemovedWinner,
                 Some(format!(
                     "The participant with the id {participant_id} was marked removed from the list of winners"
                 )),
-            )
-            .await;
-            Status::NoContent
-        }
-        Err(RemoveWinnerError::UnknownParticipant) => Status::NotFound,
-        Err(error) => {
-            error!(
-                "The user {} tried to mark the participant with the id {} as NOT won but it failed. The error was: {:?}",
-                authenticated_user.username, participant_id, error
             );
+            Ok(())
+        })
+        .await
+    {
+        Ok(Ok(())) => Status::NoContent,
+        Ok(Err(RemoveWinnerError::UnknownParticipant)) => Status::NotFound,
+        Ok(Err(error)) => {
+            error!("The user {} tried to mark the participant with the id {} as NOT won but it failed. The error was: {:?}", authenticated_user.username, participant_id, error);
+            Status::InternalServerError
+        }
+        Err(error) => {
+            error!("The user {} tried to mark the participant with the id {} as NOT won but it failed. The error was: {error}", authenticated_user.username, participant_id);
             Status::InternalServerError
         }
     }
@@ -391,119 +408,116 @@ pub async fn update_user_password(
     authenticated_user: AuthenticatedUser,
     new_password: Json<NewPassword>,
 ) -> Result<NoContent, PasswordChangeError> {
-    use crate::log_action_rocket;
+    use crate::log_action;
     use crate::lookup_user_by_name;
     use crate::schema::users::dsl::{password_hash, username, users};
     use bcrypt::{hash, verify};
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
+    let target_username = authenticated_user.username.clone();
+    let current_password = new_password.current_password.clone();
+    let first_time = new_password.first_time.clone();
+    let second_time = new_password.second_time.clone();
+
+    // the user lookup, the bcrypt verification and hashing, the update and the audit log all run
+    // on a blocking thread so that neither the database work nor the password hashing block the
+    // async runtime
+    match db_connection_pool
+        .run_blocking(move |db_connection| -> Result<(), PasswordChangeError> {
+            // load the currently logged in user. Only if the user still exists, the supplied
+            // current password can be verified against the stored one
+            let current_user = match lookup_user_by_name(db_connection, &target_username) {
+                Ok(user) => user,
+                Err(error) => {
+                    error!("Could not find the user '{target_username}' for a password change. The error was: {error}");
+                    return Err(PasswordChangeError::InternalServerError);
+                }
+            };
+
+            match verify(&current_password, current_user.password_hash.as_str()) {
+                Ok(true) => {}
+                Ok(false) => {
+                    debug!("Password change rejected: the supplied current password is wrong for user '{target_username}'");
+                    return Err(PasswordChangeError::WrongCurrentPassword);
+                }
+                Err(error) => {
+                    error!("Could not verify the supplied current password. The error was: {error}");
+                    return Err(PasswordChangeError::InternalServerError);
+                }
+            }
+
+            // check if the passwords are the same. If not, return an corresonding error
+            if first_time.ne(&second_time) {
+                return Err(PasswordChangeError::PasswordsDoNotMatch);
+            }
+
+            // validate password strength using the passwords crate
+            use passwords::analyzer;
+            use passwords::scorer;
+
+            // enforce minimum length of 8 characters
+            if first_time.len() < 8 {
+                debug!("Password rejected: too short (minimum 8 characters)");
+                return Err(PasswordChangeError::PasswordTooShort);
+            }
+
+            // analyze password strength
+            let analyzed = analyzer::analyze(&first_time);
+            let score = scorer::score(&analyzed);
+
+            // require a minimum score of ~40 (roughly equivalent to zxcvbn score of 2)
+            // the passwords crate scores 0-100, zxcvbn scores 0-4
+            // score ~40 represents "Fair" strength
+            if score < 40.0 {
+                debug!("Password rejected: too weak (score: {score}, minimum required: 40)");
+                return Err(PasswordChangeError::PasswordTooWeak);
+            }
+
+            // create a hashed version of the password which we then can store in the database.
+            // if we fail, we return an error
+            let hashed_password = match hash(&first_time, crate::PASSWORD_HASH_COST) {
+                Ok(hashed_password) => hashed_password,
+                Err(error) => {
+                    error!("Could not generate an hash of a supplied password. The error was: {error}");
+                    return Err(PasswordChangeError::InternalServerError);
+                }
+            };
+
+            // update the corresponding row in the database
+            match update(users.filter(username.eq(&target_username)))
+                .set(password_hash.eq(hashed_password))
+                .execute(db_connection)
+            {
+                Ok(1) => {}
+                Ok(_) => {
+                    error!("Could not update the password since the user '{target_username}' does not exist anymore");
+                    return Err(PasswordChangeError::InternalServerError);
+                }
+                Err(error) => {
+                    error!("Could not update the password in the database. The error was: {error}");
+                    return Err(PasswordChangeError::InternalServerError);
+                }
+            }
+
+            // log that the user changed the own password
+            log_action(
+                db_connection,
+                Some(target_username),
+                Action::PasswordChanged,
+                None,
             );
-            return Err(PasswordChangeError::InternalServerError);
-        }
-    };
 
-    // load the currently logged in user. Only if the user still exists, the supplied current
-    // password can be verified against the stored one
-    let current_user = match lookup_user_by_name(db_connection, &authenticated_user.username) {
-        Ok(user) => user,
-        Err(error) => {
-            error!(
-                "Could not find the user '{}' for a password change. The error was: {error}",
-                authenticated_user.username
-            );
-            return Err(PasswordChangeError::InternalServerError);
-        }
-    };
-
-    match verify(
-        &new_password.current_password,
-        current_user.password_hash.as_str(),
-    ) {
-        Ok(true) => {}
-        Ok(false) => {
-            debug!(
-                "Password change rejected: the supplied current password is wrong for user '{}'",
-                authenticated_user.username
-            );
-            return Err(PasswordChangeError::WrongCurrentPassword);
-        }
-        Err(error) => {
-            error!("Could not verify the supplied current password. The error was: {error}");
-            return Err(PasswordChangeError::InternalServerError);
-        }
-    }
-
-    // check if the passwords are the same. If not, return an corresonding error
-    if new_password.first_time.ne(&new_password.second_time) {
-        return Err(PasswordChangeError::PasswordsDoNotMatch);
-    }
-
-    // validate password strength using the passwords crate
-    use passwords::analyzer;
-    use passwords::scorer;
-
-    // enforce minimum length of 8 characters
-    if new_password.first_time.len() < 8 {
-        debug!("Password rejected: too short (minimum 8 characters)");
-        return Err(PasswordChangeError::PasswordTooShort);
-    }
-
-    // analyze password strength
-    let analyzed = analyzer::analyze(&new_password.first_time);
-    let score = scorer::score(&analyzed);
-
-    // require a minimum score of ~40 (roughly equivalent to zxcvbn score of 2)
-    // the passwords crate scores 0-100, zxcvbn scores 0-4
-    // score ~40 represents "Fair" strength
-    if score < 40.0 {
-        debug!("Password rejected: too weak (score: {score}, minimum required: 40)");
-        return Err(PasswordChangeError::PasswordTooWeak);
-    }
-
-    // create a hashed version of the password which we then can store in the database. if we fail, we
-    // return an error
-    let hashed_password = match hash(&new_password.first_time, crate::PASSWORD_HASH_COST) {
-        Ok(hashed_password) => hashed_password,
-        Err(error) => {
-            error!("Could not generate an hash of a supplied password. The error was: {error}");
-            return Err(PasswordChangeError::InternalServerError);
-        }
-    };
-
-    // update the corresponding row in the database
-    match update(users.filter(username.eq(&authenticated_user.username)))
-        .set(password_hash.eq(hashed_password))
-        .execute(db_connection)
+            Ok(())
+        })
+        .await
     {
-        Ok(1) => {}
-        Ok(_) => {
-            error!(
-                "Could not update the password since the user '{}' does not exist anymore",
-                authenticated_user.username
-            );
-            return Err(PasswordChangeError::InternalServerError);
-        }
+        Ok(result) => result,
         Err(error) => {
-            error!("Could not update the password in the database. The error was: {error}");
-            return Err(PasswordChangeError::InternalServerError);
+            error!("Could not change the password. The error was: {error}");
+            Err(PasswordChangeError::InternalServerError)
         }
-    }
-
-    // log that the user changed the own password
-    log_action_rocket(
-        db_connection_pool,
-        authenticated_user.username,
-        Action::PasswordChanged,
-        None,
-    )
-    .await;
+    }?;
 
     // if we get here, the password was successfully updated
     debug!("Password was successfully updated",);
@@ -714,6 +728,7 @@ pub enum PickWinnersError {
     TooManyWinnersForDay,
     UnknownUser,
     NoDatabaseConnection(r2d2::Error),
+    BlockingThread(rocket::tokio::task::JoinError),
     Database(diesel::result::Error),
 }
 
@@ -733,64 +748,85 @@ pub async fn pick_winners(
     picked_for_date: NaiveDate,
     user_who_picked: &str,
 ) -> Result<Vec<Participant>, PickWinnersError> {
+    use crate::fairings::BlockingDatabaseError;
     use crate::lookup_user_by_name;
     use crate::models::{Participant as DatabaseParticipant, ParticipantPicking};
     use crate::schema::participants::dsl::{id, participants, won_on};
     use chrono::Utc;
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
+    use log::error;
 
-    let db_connection = &mut db_connection_pool
-        .get()
-        .map_err(PickWinnersError::NoDatabaseConnection)?;
+    let user_who_picked = user_who_picked.to_string();
 
-    db_connection
-        .build_transaction()
-        .read_committed()
-        .read_write()
-        .run(|connection| {
-            let user = match lookup_user_by_name(connection, user_who_picked) {
-                Ok(user) => user,
-                Err(diesel::result::Error::NotFound) => return Err(PickWinnersError::UnknownUser),
-                Err(error) => return Err(PickWinnersError::Database(error)),
-            };
+    // the whole pick runs on a blocking thread so that the database work does not block the
+    // async runtime. The open participants stay row-locked until the commit, so a parallel pick
+    // waits and, since READ COMMITTED re-checks the filter after the wait, only draws from the
+    // participants who are still open afterwards
+    match db_connection_pool
+        .run_blocking(move |db_connection| {
+            db_connection
+                .build_transaction()
+                .read_committed()
+                .read_write()
+                .run(|connection| {
+                    let user = match lookup_user_by_name(connection, &user_who_picked) {
+                        Ok(user) => user,
+                        Err(diesel::result::Error::NotFound) => {
+                            return Err(PickWinnersError::UnknownUser)
+                        }
+                        Err(error) => return Err(PickWinnersError::Database(error)),
+                    };
 
-            let participants_in_raffle = participants
-                .filter(won_on.is_null())
-                .for_update()
-                .load::<DatabaseParticipant>(connection)?;
-            let winners_on_day = participants
-                .filter(won_on.eq(picked_for_date))
-                .count()
-                .get_result::<i64>(connection)? as usize;
-            if winners_on_day + count > MAX_WINNERS_PER_DAY {
-                return Err(PickWinnersError::TooManyWinnersForDay);
-            }
+                    let participants_in_raffle = participants
+                        .filter(won_on.is_null())
+                        .for_update()
+                        .load::<DatabaseParticipant>(connection)?;
+                    let winners_on_day = participants
+                        .filter(won_on.eq(picked_for_date))
+                        .count()
+                        .get_result::<i64>(connection)?
+                        as usize;
+                    if winners_on_day + count > MAX_WINNERS_PER_DAY {
+                        return Err(PickWinnersError::TooManyWinnersForDay);
+                    }
 
-            if participants_in_raffle.len() < count {
-                return Err(PickWinnersError::NotEnoughParticipants);
-            }
+                    if participants_in_raffle.len() < count {
+                        return Err(PickWinnersError::NotEnoughParticipants);
+                    }
 
-            let winners: Vec<Participant> = participants_in_raffle
-                .choose_multiple(&mut rand::rng(), count)
-                .map(|winner| Participant {
-                    id: winner.id,
-                    first_name: winner.first_name.clone(),
-                    last_name: winner.last_name.clone(),
-                    present_identifier: None,
+                    let winners: Vec<Participant> = participants_in_raffle
+                        .choose_multiple(&mut rand::rng(), count)
+                        .map(|winner| Participant {
+                            id: winner.id,
+                            first_name: winner.first_name.clone(),
+                            last_name: winner.last_name.clone(),
+                            present_identifier: None,
+                        })
+                        .collect();
+
+                    update(participants.filter(id.eq_any(winners.iter().map(|winner| winner.id))))
+                        .set(&ParticipantPicking {
+                            won_on: Some(picked_for_date),
+                            picking_time: Some(Utc::now().naive_utc()),
+                            picked_by: Some(user.id),
+                            present_identifier: None,
+                        })
+                        .execute(connection)?;
+
+                    Ok(winners)
                 })
-                .collect();
-
-            update(participants.filter(id.eq_any(winners.iter().map(|winner| winner.id))))
-                .set(&ParticipantPicking {
-                    won_on: Some(picked_for_date),
-                    picking_time: Some(Utc::now().naive_utc()),
-                    picked_by: Some(user.id),
-                    present_identifier: None,
-                })
-                .execute(connection)?;
-
-            Ok(winners)
         })
+        .await
+    {
+        Ok(result) => result,
+        Err(BlockingDatabaseError::NoConnection(error)) => {
+            Err(PickWinnersError::NoDatabaseConnection(error))
+        }
+        Err(BlockingDatabaseError::Join(error)) => {
+            error!("Could not pick winners on a blocking thread. The error was: {error}");
+            Err(PickWinnersError::BlockingThread(error))
+        }
+    }
 }
 
 #[post("/participants/pick/<count>/for/<date>")]
@@ -800,7 +836,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
     count: usize,
     date: &str,
 ) -> Result<Json<Vec<Participant>>, Status> {
-    use crate::log_action_rocket;
+    use crate::log_action;
     use log::{debug, error};
     use std::str::FromStr;
 
@@ -842,18 +878,26 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         }
     };
 
-    // log the picked winners and return them
-    for winner in &winners {
-        log_action_rocket(
-            db_connection_pool,
-            authenticated_user.username.clone(),
-            Action::PickedWinner,
-            Some(format!(
-                "The participant with the id {} was marked as won",
-                winner.id
-            )),
-        )
-        .await;
+    // log the picked winners on a blocking thread so that neither the inserts nor the audit log
+    // block the async runtime, and return them
+    let username = authenticated_user.username.clone();
+    let winner_ids = winners.iter().map(|winner| winner.id).collect::<Vec<_>>();
+    if let Err(error) = db_connection_pool
+        .run_blocking(move |db_connection| {
+            for winner_id in winner_ids {
+                log_action(
+                    db_connection,
+                    Some(username.clone()),
+                    Action::PickedWinner,
+                    Some(format!(
+                        "The participant with the id {winner_id} was marked as won"
+                    )),
+                );
+            }
+        })
+        .await
+    {
+        error!("Could not log the picked winners. The error was: {error}");
     }
     debug!(
         "The user {} picked the participants with the ids {:?} as new winners",
@@ -867,6 +911,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
 pub enum RemoveWinnerError {
     UnknownParticipant,
     NoDatabaseConnection(r2d2::Error),
+    BlockingThread(rocket::tokio::task::JoinError),
     Database(diesel::result::Error),
 }
 
@@ -875,24 +920,34 @@ pub async fn mark_participant_as_not_won(
     participant_id: i32,
     user_who_unpicked: String,
 ) -> Result<(), RemoveWinnerError> {
+    use crate::fairings::BlockingDatabaseError;
     use crate::models::ParticipantPicking;
     use crate::schema::participants::dsl::{id, participants};
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::debug;
 
-    let db_connection = &mut db_connection_pool
-        .get()
-        .map_err(RemoveWinnerError::NoDatabaseConnection)?;
-
-    let rows_updated = update(participants.filter(id.eq(participant_id)))
-        .set(&ParticipantPicking {
-            won_on: None,
-            picking_time: None,
-            picked_by: None,
-            present_identifier: None,
+    // reset the winning state of the participant on a blocking thread so the database work does
+    // not block the async runtime
+    let rows_updated = match db_connection_pool
+        .run_blocking(move |db_connection| {
+            update(participants.filter(id.eq(participant_id)))
+                .set(&ParticipantPicking {
+                    won_on: None,
+                    picking_time: None,
+                    picked_by: None,
+                    present_identifier: None,
+                })
+                .execute(db_connection)
+                .map_err(RemoveWinnerError::Database)
         })
-        .execute(db_connection)
-        .map_err(RemoveWinnerError::Database)?;
+        .await
+    {
+        Ok(result) => result,
+        Err(BlockingDatabaseError::NoConnection(error)) => {
+            Err(RemoveWinnerError::NoDatabaseConnection(error))
+        }
+        Err(BlockingDatabaseError::Join(error)) => Err(RemoveWinnerError::BlockingThread(error)),
+    }?;
     if rows_updated == 0 {
         return Err(RemoveWinnerError::UnknownParticipant);
     }
@@ -986,13 +1041,20 @@ pub async fn get_login_token(
     client_ip: ClientIp,
     cookies: &CookieJar<'_>,
 ) -> Result<NoContent, LoginError> {
-    use crate::log_action_rocket;
+    use crate::log_action;
     use crate::lookup_user_by_name;
     use crate::rate_limiter::{
         check_rate_limit, reset_rate_limit, RateLimitConfig, RateLimitDecision,
     };
     use bcrypt::verify;
     use log::{error, warn};
+
+    /// The outcome of checking the supplied credentials against the database.
+    enum LoginCheckOutcome {
+        Authenticated,
+        Unauthorized,
+        InternalServerError,
+    }
 
     let rate_limit_config = RateLimitConfig::default();
     let client_ip = client_ip.0;
@@ -1027,93 +1089,98 @@ pub async fn get_login_token(
         });
     }
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
-            );
-            return Err(LoginError::InternalServerError);
-        }
-    };
+    let username = login_information.username.clone();
+    let password = login_information.password.clone();
 
-    // try to get the user record for the supplied username
-    let user = match lookup_user_by_name(db_connection, &login_information.username) {
-        Ok(user) => user,
-        Err(diesel::result::Error::NotFound) => {
-            // ensure that we know what happened
-            error!(
-                "Could not get the user record for '{}'",
-                login_information.username
-            );
-            // just slow down the process to prevent easy checking if a username exists or not
-            let _ = verify("some_password", crate::DUMMY_PASSWORD_HASH.as_str());
+    // the user lookup, the bcrypt verification and the audit log all run on a blocking thread so
+    // that neither the database work nor the password hashing block the async runtime
+    let outcome = match db_connection_pool
+        .run_blocking(move |db_connection| {
+            // try to get the user record for the supplied username
+            let user = match lookup_user_by_name(db_connection, &username) {
+                Ok(user) => user,
+                Err(diesel::result::Error::NotFound) => {
+                    // ensure that we know what happened
+                    error!("Could not get the user record for '{username}'");
+                    // just slow down the process to prevent easy checking if a username exists
+                    // or not
+                    let _ = verify("some_password", crate::DUMMY_PASSWORD_HASH.as_str());
 
-            // log the failed attempt (use anonymous to avoid username enumeration)
-            log_action_rocket(
-                db_connection_pool,
-                "anonymous".to_string(),
-                Action::FailedLogin,
-                Some(format!(
-                    "Failed login attempt - invalid credentials from IP: {ip_for_logging}"
-                )),
-            )
-            .await;
+                    // log the failed attempt (use anonymous to avoid username enumeration)
+                    log_action(
+                        db_connection,
+                        Some("anonymous".to_string()),
+                        Action::FailedLogin,
+                        Some(format!(
+                            "Failed login attempt - invalid credentials from IP: {ip_for_logging}"
+                        )),
+                    );
 
-            // finally we can tell teh user that he/she is not authorized
-            return Err(LoginError::Unauthorized);
-        }
-        Err(error) => {
-            error!(
-                "Could not look up the user record for '{}'. The error was: {error}",
-                login_information.username
-            );
-            return Err(LoginError::InternalServerError);
-        }
-    };
+                    // finally we can tell teh user that he/she is not authorized
+                    return LoginCheckOutcome::Unauthorized;
+                }
+                Err(error) => {
+                    error!("Could not look up the user record for '{username}'. The error was: {error}");
+                    return LoginCheckOutcome::InternalServerError;
+                }
+            };
 
-    // check if the supplied password matches the one we stored in the database using the same bcrypt
-    // parameters
-    match verify(&login_information.password, user.password_hash.as_str()) {
-        Ok(is_password_correct) => {
-            if !is_password_correct {
-                log_action_rocket(
-                    db_connection_pool,
-                    user.username.clone(),
-                    Action::FailedLogin,
-                    Some(format!(
-                        "Failed login attempt - invalid credentials from IP: {ip_for_logging}"
-                    )),
-                )
-                .await;
-                return Err(LoginError::Unauthorized);
+            // check if the supplied password matches the one we stored in the database using the
+            // same bcrypt parameters
+            match verify(&password, user.password_hash.as_str()) {
+                Ok(is_password_correct) => {
+                    if !is_password_correct {
+                        log_action(
+                            db_connection,
+                            Some(user.username),
+                            Action::FailedLogin,
+                            Some(format!(
+                                "Failed login attempt - invalid credentials from IP: {ip_for_logging}"
+                            )),
+                        );
+                        return LoginCheckOutcome::Unauthorized;
+                    }
+                }
+                Err(error) => {
+                    error!("Could not verify the supplied password with the one stored in the database. The error was: {error}");
+                    return LoginCheckOutcome::InternalServerError;
+                }
             }
-        }
+
+            // if we get here, we ensured that the user is known and that the supplied password
+            // was valid, so we log the successful login with the same connection
+            log_action(
+                db_connection,
+                Some(username.clone()),
+                Action::SuccessfulLogin,
+                Some(format!("Successfully logged in user '{username}' with a token")),
+            );
+            LoginCheckOutcome::Authenticated
+        })
+        .await
+    {
+        Ok(outcome) => outcome,
         Err(error) => {
-            error!("Could not verify the supplied password with the one stored in the database. The error was: {error}");
+            error!("Could not check the supplied login credentials. The error was: {error}");
+            LoginCheckOutcome::InternalServerError
+        }
+    };
+
+    match outcome {
+        LoginCheckOutcome::Authenticated => {}
+        LoginCheckOutcome::Unauthorized => return Err(LoginError::Unauthorized),
+        LoginCheckOutcome::InternalServerError => {
             return Err(LoginError::InternalServerError);
         }
     }
 
-    // if we get here, we ensured that the user is known and that the supplied password
-    // was valid, we can generate a new access token and return it to the calling party
+    // the user is known and the supplied password was valid, we can generate a new access
+    // token and return it to the calling party
     if issue_session_cookie(&login_information.username, config, cookies).is_some() {
         if let Some(ip) = client_ip {
             reset_rate_limit(&format!("ip:{ip}"));
         }
         reset_rate_limit(&format!("user:{}", login_information.username));
-
-        log_action_rocket(
-            db_connection_pool,
-            login_information.username.clone(),
-            Action::SuccessfulLogin,
-            Some(format!(
-                "Successfully logged in user '{}' with a token",
-                login_information.username
-            )),
-        )
-        .await;
 
         return Ok(NoContent);
     }
