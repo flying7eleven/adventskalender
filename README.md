@@ -54,6 +54,12 @@ psql -h localhost -U adventskalender -d adventskalender -c \
 
 **Note**: The example hash above is for demonstration only. Always generate a fresh hash for your actual password.
 
+## Reverse proxy requirement in production
+The backend takes the client IP for the login rate limit from the `X-Real-IP` header (via Rocket's `client_ip()`). In production, the backend must therefore only be reachable through a reverse proxy which sets this header, since otherwise clients could spoof their IP and bypass the rate limit.
+
+## Local diesel usage
+For running `diesel` commands locally, create the configuration file first: `cp adventskalender-backend/.env.example adventskalender-backend/.env`.
+
 ## Token signing key
 The backend signs its tokens with an Ed25519 key stored at `ADVENTSKALENDER_KEY_FILE_PATH` (default `/data/adventskalender_ed25519.key`). If the file is missing or invalid, the backend generates a new key on startup and stores it there, which invalidates all previously issued tokens. Keep the file on a persistent volume.
 
