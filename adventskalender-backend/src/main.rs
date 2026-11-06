@@ -123,25 +123,35 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
         }
     }
 
-    // write key to file
+    // write the key to a file which only the owner can read and write, right from its
+    // creation, so that the private key is never visible to other users even for a short
+    // time. If an (invalid) key file already exists, it is truncated with the same
+    // restriction applied.
+    #[cfg(unix)]
+    let open_key_file = {
+        use std::os::unix::fs::OpenOptionsExt;
+        |path: &std::path::Path| {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(path)
+                .or_else(|_| {
+                    std::fs::OpenOptions::new()
+                        .write(true)
+                        .truncate(true)
+                        .mode(0o600)
+                        .open(path)
+                })
+        }
+    };
+    #[cfg(not(unix))]
+    let open_key_file = |path: &std::path::Path| std::fs::File::create(path);
+
     let mut file =
-        fs::File::create(key_file_path).map_err(|e| format!("Failed to create key file: {e}"))?;
+        open_key_file(key_file_path).map_err(|e| format!("Failed to create key file: {e}"))?;
     file.write_all(key_pair_doc.as_ref())
         .map_err(|e| format!("Failed to write key to file: {e}"))?;
-
-    // set file permissions to 0600 (read/write for the owner only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = file
-            .metadata()
-            .map_err(|e| format!("Failed to get file metadata: {e}"))?
-            .permissions();
-        perms.set_mode(0o600);
-        fs::set_permissions(key_file_path, perms)
-            .map_err(|e| format!("Failed to set file permissions: {e}"))?;
-        info!("Set key file permissions to 0600");
-    }
 
     info!("Successfully generated and saved new Ed25519 key pair");
     Ok(key_pair_doc.as_ref().to_vec())
@@ -450,4 +460,34 @@ async fn main() {
 
     // log the shutdown of the backend service
     log_action(&mut db_connection, None, Action::ServerTerminated, None);
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::load_or_generate_keypair;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn a_newly_generated_key_file_is_only_accessible_by_the_owner() {
+        let key_file_path = std::env::temp_dir().join(format!(
+            "adventskalender-key-permission-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_file(&key_file_path);
+
+        let key_bytes = load_or_generate_keypair(&key_file_path).expect("key generation failed");
+        assert!(!key_bytes.is_empty());
+
+        let mode = std::fs::metadata(&key_file_path)
+            .expect("key file metadata")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+
+        std::fs::remove_file(&key_file_path).unwrap();
+    }
 }
