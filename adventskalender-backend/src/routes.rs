@@ -1165,13 +1165,7 @@ pub async fn get_login_token(
             }
 
             // if we get here, we ensured that the user is known and that the supplied password
-            // was valid, so we log the successful login with the same connection
-            log_action(
-                db_connection,
-                Some(username.clone()),
-                Action::SuccessfulLogin,
-                Some(format!("Successfully logged in user '{username}' with a token")),
-            );
+            // was valid
             LoginCheckOutcome::Authenticated
         })
         .await
@@ -1194,6 +1188,25 @@ pub async fn get_login_token(
     // the user is known and the supplied password was valid, we can generate a new access
     // token and return it to the calling party
     if let Some(expires_at) = issue_session_cookie(&login_information.username, config, cookies) {
+        // the session was issued successfully, so we can audit the successful login; if this
+        // fails we keep going because the user already received a valid token
+        let audit_username = login_information.username.clone();
+        if let Err(error) = db_connection_pool
+            .run_blocking(move |db_connection| {
+                log_action(
+                    db_connection,
+                    Some(audit_username.clone()),
+                    Action::SuccessfulLogin,
+                    Some(format!(
+                        "Successfully logged in user '{audit_username}' with a token"
+                    )),
+                )
+            })
+            .await
+        {
+            error!("Could not audit the successful login. The error was: {error}");
+        }
+
         if let Some(ip) = client_ip {
             reset_rate_limit(&format!("ip:{ip}"));
         }
