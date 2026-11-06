@@ -1,6 +1,6 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
 use crate::guards::{AuthenticatedUser, ClientIp};
-use crate::{Action, BACKOFF_HANDLER};
+use crate::{Action, ServiceStatus, BACKOFF_HANDLER};
 use chrono::{DateTime, NaiveDate};
 use rand::prelude::IndexedRandom;
 use rocket::http::{Cookie, CookieJar, SameSite, Status};
@@ -1393,11 +1393,18 @@ pub async fn check_backend_health(
 
     // if the database is healthy, we can return the status immediately
     if database_is_healthy {
-        if !config.healthcheck_project.is_empty() {
-            BACKOFF_HANDLER
+        if !config.healthcheck_project.is_empty()
+            && BACKOFF_HANDLER
                 .lock()
                 .unwrap()
-                .call(|| notify_service_up(&config.healthcheck_project));
+                .should_call(ServiceStatus::Up)
+        {
+            // the ping itself runs fire-and-forget on a blocking thread so that the health
+            // route does not wait for healthchecks.io
+            let project_uuid = config.healthcheck_project.clone();
+            rocket::tokio::spawn(rocket::tokio::task::spawn_blocking(move || {
+                notify_service_up(&project_uuid);
+            }));
         }
         return Ok(Json(HealthCheck {
             database_healthy: true,
@@ -1418,13 +1425,19 @@ fn unhealthy_response(
         database_healthy,
         backend_healthy,
     };
-    if !config.healthcheck_project.is_empty() {
-        BACKOFF_HANDLER.lock().unwrap().call(|| {
-            notify_service_down(
-                &config.healthcheck_project,
-                &json!(health_check).to_string(),
-            )
-        });
+    if !config.healthcheck_project.is_empty()
+        && BACKOFF_HANDLER
+            .lock()
+            .unwrap()
+            .should_call(ServiceStatus::Down)
+    {
+        // the ping itself runs fire-and-forget on a blocking thread so that the health route does
+        // not wait for healthchecks.io
+        let project_uuid = config.healthcheck_project.clone();
+        let error_data = json!(health_check).to_string();
+        rocket::tokio::spawn(rocket::tokio::task::spawn_blocking(move || {
+            notify_service_down(&project_uuid, &error_data);
+        }));
     }
     (Status::ServiceUnavailable, Json(health_check))
 }

@@ -75,44 +75,56 @@ struct Claims {
     aud: HashSet<String>,
 }
 
-#[derive(Clone)]
-pub struct BackoffHandler {
-    last_call: SystemTime,
-    backoff_time: Duration,
+/// The service status a healthcheck.io ping reports.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ServiceStatus {
+    /// The service is healthy.
+    Up,
+    /// The service is unhealthy.
+    Down,
 }
 
-impl Default for BackoffHandler {
-    fn default() -> Self {
-        BackoffHandler {
-            last_call: SystemTime::now() - Duration::from_secs(120),
-            backoff_time: Duration::from_secs(60),
-        }
-    }
+#[derive(Clone)]
+pub struct BackoffHandler {
+    last_up_call: SystemTime,
+    last_down_call: SystemTime,
+    backoff_time: Duration,
 }
 
 impl From<Duration> for BackoffHandler {
     fn from(backoff_duration: Duration) -> Self {
+        // set the last call times far enough in the past so that the first ping for each status
+        // is always sent immediately
+        let expired = SystemTime::now() - (backoff_duration * 2);
         BackoffHandler {
-            last_call: SystemTime::now() - (backoff_duration * 2),
+            last_up_call: expired,
+            last_down_call: expired,
             backoff_time: backoff_duration,
         }
     }
 }
 
 impl BackoffHandler {
-    pub fn call<F>(&mut self, method_to_call: F)
-    where
-        F: Fn(),
-    {
-        if self.last_call + self.backoff_time < SystemTime::now() {
-            let datetime: DateTime<Utc> = self.last_call.into();
+    /// Decides whether a ping for the given status should be sent now and records the decision,
+    /// so each status has its own backoff: after an "up" ping a "down" ping is still sent
+    /// immediately, while repeated pings for the same status within the backoff window are
+    /// suppressed.
+    pub fn should_call(&mut self, status: ServiceStatus) -> bool {
+        let last_call = match status {
+            ServiceStatus::Up => &mut self.last_up_call,
+            ServiceStatus::Down => &mut self.last_down_call,
+        };
+        if *last_call + self.backoff_time < SystemTime::now() {
+            let datetime: DateTime<Utc> = (*last_call).into();
             debug!(
                 "Calling method since the last call time was {} and the back off duration was {}s",
                 datetime.to_rfc3339(),
                 self.backoff_time.as_secs()
             );
-            method_to_call();
-            self.last_call = SystemTime::now();
+            *last_call = SystemTime::now();
+            true
+        } else {
+            false
         }
     }
 }
@@ -252,4 +264,33 @@ pub fn get_token_for_user(
 
     // if we fail, return None
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BackoffHandler, ServiceStatus};
+    use std::time::Duration;
+
+    #[test]
+    fn down_ping_is_sent_immediately_after_an_up_ping() {
+        let mut handler = BackoffHandler::from(Duration::from_secs(600));
+        assert!(handler.should_call(ServiceStatus::Up));
+        // the up ping must not suppress the down ping, since both have separate backoff states
+        assert!(handler.should_call(ServiceStatus::Down));
+    }
+
+    #[test]
+    fn repeated_up_pings_within_the_backoff_window_are_suppressed() {
+        let mut handler = BackoffHandler::from(Duration::from_secs(600));
+        assert!(handler.should_call(ServiceStatus::Up));
+        assert!(!handler.should_call(ServiceStatus::Up));
+        assert!(!handler.should_call(ServiceStatus::Up));
+    }
+
+    #[test]
+    fn repeated_down_pings_within_the_backoff_window_are_suppressed() {
+        let mut handler = BackoffHandler::from(Duration::from_secs(600));
+        assert!(handler.should_call(ServiceStatus::Down));
+        assert!(!handler.should_call(ServiceStatus::Down));
+    }
 }
