@@ -77,6 +77,7 @@ export const WinnerCard = (props: Props) => {
                 setDialogOpenStateFunction={setEditDialogOpen}
                 numberOfMaxSubPackages={props.numberOfMaxSubPackages}
                 packageSelections={packageSelections}
+                updateWinnerList={props.updateWinnerList}
             />
             <ViewWinnersDialog winningDate={props.winningDate} listOfWinner={props.listOfWinner} isOpen={viewDialogOpen} onClose={() => setViewDialogOpen(false)} />
             <Card>

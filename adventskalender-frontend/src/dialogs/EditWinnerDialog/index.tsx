@@ -16,13 +16,14 @@ interface Props {
     numberOfMaxSubPackages: number;
     setDialogOpenStateFunction: Dispatch<SetStateAction<boolean>>;
     packageSelections: StringMap;
+    updateWinnerList?: () => void;
 }
 
 export const EditWinnerDialog = (props: Props) => {
     const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<{ [key: string]: boolean }>({});
     const auth = useAuthentication();
     const navigate = useNavigate();
-    const [packageSelections, setPackageSelections] = useState<{ [key: string]: string }>({});
+    const [packageSelections, setPackageSelections] = useState<StringMap>(Object.keys(props.packageSelections).length > 0 ? props.packageSelections : {});
 
     const getPossiblePackageMenuItems = (userId: number, maxPackageCount: number) => {
         const alphabet = Array.from(Array(maxPackageCount))
@@ -31,7 +32,7 @@ export const EditWinnerDialog = (props: Props) => {
         const items: ReactNode[] = [];
 
         items.push(
-            <SelectItem key={`menu-item-not-selected-for-user-${userId}`} value={''}>
+            <SelectItem key={`menu-item-not-selected-for-user-${userId}`} value="__none__">
                 -
             </SelectItem>
         );
@@ -53,46 +54,43 @@ export const EditWinnerDialog = (props: Props) => {
             return;
         }
 
-        // since we have a token, we can update the package selection for the given user id
+        const packageValue = selectedPackage === '__none__' ? '' : selectedPackage;
+
         fetch(`${API_BACKEND_URL}/participants/${userId}`, {
             method: 'PUT',
             headers: {
                 'Content-type': 'application/json; charset=UTF-8',
             },
             credentials: 'include',
-            body: JSON.stringify({ package: selectedPackage }),
+            body: JSON.stringify({ package: packageValue }),
         })
             .then((res) => {
-                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
-                // object and proceed processing it
                 if (res.status === 204) {
                     return userId;
                 }
 
-                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                // the user should automatically be redirected to the login page
                 if (res.status === 401 || res.status === 403) {
                     logoutUser();
                     return Promise.reject();
                 }
 
-                // there should never be other status codes which have to be handled, but just in case, we'll handle
-                // them here too
-                return Promise.reject(); // TODO: implement this correctly
+                return Promise.reject();
             })
             .then(() => {
-                // update the value the user successfully set for the package
-                const previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
-                previousSelection[userId] = selectedPackage;
+                const previousSelection = Object.assign({}, packageSelections);
+                previousSelection[userId] = selectedPackage === '__none__' ? '' : selectedPackage;
                 setPackageSelections(previousSelection);
 
-                // clear a previous error state, if it existed
-                const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+                const previousErrorStates = Object.assign({}, packageSelectionErrorStates);
                 previousErrorStates[userId] = false;
                 setPackageSelectionErrorStates(previousErrorStates);
+
+                if (props.updateWinnerList) {
+                    props.updateWinnerList();
+                }
             })
             .catch(() => {
-                const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
+                const previousErrorStates = Object.assign({}, packageSelectionErrorStates);
                 previousErrorStates[userId] = true;
                 setPackageSelectionErrorStates(previousErrorStates);
             });
@@ -134,7 +132,7 @@ export const EditWinnerDialog = (props: Props) => {
                                                 <Label htmlFor={`winner-${currentWinner.id}-package-selection`} className="sr-only">
                                                     <LocalizedText translationKey={'calendar.dialogs.edit_participant.table.select.package_label'} />
                                                 </Label>
-                                                <Select value={packageSelections[currentWinner.id] || ''} onValueChange={(value) => selectPackageForUser(currentWinner.id, value)}>
+                                                <Select value={packageSelections[currentWinner.id] || '__none__'} onValueChange={(value) => selectPackageForUser(currentWinner.id, value)}>
                                                     <SelectTrigger
                                                         id={`winner-${currentWinner.id}-package-selection`}
                                                         className={cn('w-full', packageSelectionErrorStates[currentWinner.id] && 'border-destructive focus-visible:ring-destructive')}
