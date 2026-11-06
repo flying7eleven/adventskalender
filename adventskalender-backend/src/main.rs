@@ -158,10 +158,6 @@ async fn main() {
         AdventskalenderDatabaseConnection, BackendConfiguration, SecurityHeaders,
     };
     use log::{error, info};
-    use rocket::figment::{
-        util::map,
-        value::{Map, Value},
-    };
     use rocket::http::Method;
     use rocket::Config as RocketConfig;
     use std::env;
@@ -348,18 +344,8 @@ async fn main() {
     }
     info!("Database preparations finished");
 
-    // configure the database pool based on the supplied connection URL
-    let adventskalender_database_config: Map<_, Value> = map! {
-        "url" => database_connection_url.into(),
-        "pool_size" => 25.into()
-    };
-
     // rocket configuration figment
     let rocket_configuration_figment = RocketConfig::figment()
-        .merge((
-            "databases",
-            map!["adventskalender" => adventskalender_database_config],
-        ))
         .merge(("port", 5479))
         .merge(("address", std::net::Ipv4Addr::new(0, 0, 0, 0)))
         .merge((
