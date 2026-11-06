@@ -143,7 +143,7 @@ fn parallel_picks_never_exceed_the_maximum_number_of_winners_per_day() {
 #[test]
 fn picking_reports_database_errors_instead_of_an_unknown_user() {
     let database = TestDatabase::start(1);
-    database.execute("ALTER TABLE participants RENAME TO renamed_participants");
+    database.execute("ALTER TABLE users RENAME TO unreadable_users");
 
     let result = rocket::execute(pick_winners(
         &database.pool,
@@ -153,6 +153,19 @@ fn picking_reports_database_errors_instead_of_an_unknown_user() {
     ));
 
     assert!(matches!(result, Err(PickWinnersError::Database(_))));
+}
+
+#[test]
+fn picking_for_an_unknown_user_marks_nobody() {
+    let database = TestDatabase::start(5);
+
+    let result = rocket::execute(pick_winners(&database.pool, 2, christmas_eve(), "unknown"));
+
+    assert!(matches!(result, Err(PickWinnersError::UnknownUser)));
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
+        0
+    );
 }
 
 #[test]
@@ -175,8 +188,11 @@ fn removing_a_winner_puts_the_participant_back_into_the_raffle() {
 
     assert!(result.is_ok());
     assert_eq!(
-        database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
-        0
+        database.count(
+            "SELECT COUNT(*) AS count FROM participants \
+             WHERE won_on IS NULL AND picked_by IS NULL AND picking_time IS NULL"
+        ),
+        1
     );
 }
 

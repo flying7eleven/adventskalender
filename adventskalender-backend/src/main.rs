@@ -496,4 +496,3 @@ mod tests {
         std::fs::remove_file(&key_file_path).unwrap();
     }
 }
-
