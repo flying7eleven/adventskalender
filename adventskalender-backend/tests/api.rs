@@ -593,6 +593,59 @@ fn the_audit_event_count_requires_an_authenticated_user() {
 }
 
 #[test]
+fn logging_out_clears_the_session_cookie() {
+    let database = TestDatabase::start(0);
+    let logged_in = logged_in_client(&database);
+    assert!(
+        logged_in.cookies().get("auth_token").is_some(),
+        "a login must set the auth_token cookie"
+    );
+
+    let response = logged_in.post("/v1/auth/logout").dispatch();
+
+    assert_eq!(response.status(), Status::NoContent);
+    assert!(
+        logged_in.cookies().get("auth_token").is_none(),
+        "the logout must remove the auth_token cookie"
+    );
+    assert_eq!(
+        logged_in.get("/v1/auth/me").dispatch().status(),
+        Status::Forbidden
+    );
+}
+
+#[test]
+fn a_bearer_token_in_the_authorization_header_is_accepted_as_fallback() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = logged_in
+        .cookies()
+        .get("auth_token")
+        .expect("a login must set the auth_token cookie")
+        .value()
+        .to_string();
+    let client_without_cookies = client_with_key_bytes(&database, &key_bytes);
+
+    let response = client_without_cookies
+        .get("/v1/auth/me")
+        .header(Header::new("Authorization", format!("Bearer {token}")))
+        .dispatch();
+    assert_eq!(response.status(), Status::Ok);
+
+    let response = client_without_cookies
+        .get("/v1/auth/me")
+        .header(Header::new("Authorization", format!("NotBearer {token}")))
+        .dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+
+    let response = client_without_cookies
+        .get("/v1/auth/me")
+        .header(Header::new("Authorization", "justonepart"))
+        .dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+}
+#[test]
 fn picking_without_logging_in_is_forbidden_and_marks_nobody() {
     let database = TestDatabase::start(1);
     let client = client(&database);
