@@ -107,10 +107,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
         ) {
             Ok(token) => token,
             Err(error) => {
-                error!(
-                    "The supplied token seems to be invalid. The error was: {}",
-                    error
-                );
+                error!("The supplied token seems to be invalid. The error was: {error}");
                 return Outcome::Error((Status::Forbidden, AuthorizationError::InvalidToken));
             }
         };

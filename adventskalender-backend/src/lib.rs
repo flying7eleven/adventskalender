@@ -148,10 +148,7 @@ pub fn lookup_user_by_name(
     }
 
     // it seems that the user could not be looked up
-    error!(
-        "Could not look up the user object for the user '{}'",
-        supplied_username
-    );
+    error!("Could not look up the user object for the user '{supplied_username}'");
     Err(CouldNotFindUser)
 }
 
@@ -168,8 +165,7 @@ pub async fn log_action_rocket(
         Ok(connection) => connection,
         Err(error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
+                "Could not get a connection from the database connection pool. The error was: {error}"
             );
             return;
         }
@@ -253,10 +249,7 @@ pub fn get_token_for_user(
     let token_issued_at = match SystemTime::now().duration_since(UNIX_EPOCH) {
         Ok(duration) => duration.as_secs() as usize,
         Err(error) => {
-            error!(
-                "Could not get the issuing time for the token. The error was: {}",
-                error
-            );
+            error!("Could not get the issuing time for the token. The error was: {error}");
             return None;
         }
     };

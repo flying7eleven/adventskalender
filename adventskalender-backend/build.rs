@@ -25,9 +25,6 @@ fn main() {
         .fail_on_error()
         .emit()
     {
-        panic!(
-            "Could not extract the required version information. The error was: {}",
-            error
-        );
+        panic!("Could not extract the required version information. The error was: {error}");
     }
 }

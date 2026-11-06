@@ -32,10 +32,7 @@ pub fn run_migrations(connection: &mut PgConnection) {
             }
         }
         Err(error) => {
-            error!(
-                "Failed to run the database migrations. The error was: {}",
-                error
-            )
+            error!("Failed to run the database migrations. The error was: {error}")
         }
     }
 }
@@ -91,7 +88,7 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
 
     // Try to load the existing key
     if key_file_path.exists() {
-        info!("Loading existing Ed25519 key pair from {:?}", key_file_path);
+        info!("Loading existing Ed25519 key pair from {key_file_path:?}");
         match fs::read(key_file_path) {
             Ok(key_bytes) => {
                 // Validate the key can be parsed
@@ -102,44 +99,37 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
                     }
                     Err(e) => {
                         warn!(
-                            "Existing key file is invalid or corrupted: {}. Generating new key.",
-                            e
+                            "Existing key file is invalid or corrupted: {e}. Generating new key."
                         );
                     }
                 }
             }
             Err(e) => {
-                warn!(
-                    "Failed to read existing key file: {}. Generating new key.",
-                    e
-                );
+                warn!("Failed to read existing key file: {e}. Generating new key.");
             }
         }
     }
 
     // generate a new key
-    info!(
-        "Generating new Ed25519 key pair and saving to {:?}",
-        key_file_path
-    );
+    info!("Generating new Ed25519 key pair and saving to {key_file_path:?}");
     let key_pair_doc = match Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new()) {
         Ok(doc) => doc,
-        Err(e) => return Err(format!("Failed to generate Ed25519 key pair: {}", e)),
+        Err(e) => return Err(format!("Failed to generate Ed25519 key pair: {e}")),
     };
 
     // create a parent directory if it doesn't exist
     if let Some(parent) = key_file_path.parent() {
         if !parent.exists() {
             fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create key directory: {}", e))?;
+                .map_err(|e| format!("Failed to create key directory: {e}"))?;
         }
     }
 
     // write key to file
     let mut file =
-        fs::File::create(key_file_path).map_err(|e| format!("Failed to create key file: {}", e))?;
+        fs::File::create(key_file_path).map_err(|e| format!("Failed to create key file: {e}"))?;
     file.write_all(key_pair_doc.as_ref())
-        .map_err(|e| format!("Failed to write key to file: {}", e))?;
+        .map_err(|e| format!("Failed to write key to file: {e}"))?;
 
     // set file permissions to 0600 (read/write for the owner only)
     #[cfg(unix)]
@@ -147,11 +137,11 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
         use std::os::unix::fs::PermissionsExt;
         let mut perms = file
             .metadata()
-            .map_err(|e| format!("Failed to get file metadata: {}", e))?
+            .map_err(|e| format!("Failed to get file metadata: {e}"))?
             .permissions();
         perms.set_mode(0o600);
         fs::set_permissions(key_file_path, perms)
-            .map_err(|e| format!("Failed to set file permissions: {}", e))?;
+            .map_err(|e| format!("Failed to set file permissions: {e}"))?;
         info!("Set key file permissions to 0600");
     }
 
@@ -241,7 +231,7 @@ async fn main() {
     // get the allowed CORS origins (comma-separated list)
     let allowed_cors_origins =
         env::var("ADVENTSKALENDER_CORS_ORIGINS").unwrap_or("http://localhost:5173".to_string());
-    info!("Allowed CORS origins: {}", allowed_cors_origins);
+    info!("Allowed CORS origins: {allowed_cors_origins}");
 
     // get the key file path for Ed25519 key persistence
     let key_file_path_str = env::var("ADVENTSKALENDER_KEY_FILE_PATH")
@@ -252,7 +242,7 @@ async fn main() {
     let ed25519_key_bytes = match load_or_generate_keypair(key_file_path) {
         Ok(bytes) => bytes,
         Err(error) => {
-            error!("Failed to load or generate Ed25519 key pair: {}", error);
+            error!("Failed to load or generate Ed25519 key pair: {error}");
             return;
         }
     };
@@ -266,7 +256,7 @@ async fn main() {
     let public_key_bytes = match Ed25519KeyPair::from_pkcs8(&ed25519_key_bytes) {
         Ok(keypair) => keypair.public_key().as_ref().to_vec(),
         Err(e) => {
-            error!("Failed to extract public key from Ed25519 keypair: {}", e);
+            error!("Failed to extract public key from Ed25519 keypair: {e}");
             return;
         }
     };
@@ -308,14 +298,12 @@ async fn main() {
                             retry_count += 1;
                             if retry_count >= max_retries {
                                 error!(
-                                    "Failed to get database connection after {} attempts. Last error: {}",
-                                    max_retries, e
+                                    "Failed to get database connection after {max_retries} attempts. Last error: {e}"
                                 );
                                 std::process::exit(-1);
                             }
                             info!(
-                                "Database connection attempt {}/{} failed, retrying in {:?}...",
-                                retry_count, max_retries, backoff_duration
+                                "Database connection attempt {retry_count}/{max_retries} failed, retrying in {backoff_duration:?}..."
                             );
                             std::thread::sleep(backoff_duration);
                             backoff_duration =
@@ -327,14 +315,12 @@ async fn main() {
                     retry_count += 1;
                     if retry_count >= max_retries {
                         error!(
-                            "Failed to create database connection pool after {} attempts. Last error: {}",
-                            max_retries, e
+                            "Failed to create database connection pool after {max_retries} attempts. Last error: {e}"
                         );
                         std::process::exit(-1);
                     }
                     info!(
-                        "Database pool creation attempt {}/{} failed, retrying in {:?}...",
-                        retry_count, max_retries, backoff_duration
+                        "Database pool creation attempt {retry_count}/{max_retries} failed, retrying in {backoff_duration:?}..."
                     );
                     std::thread::sleep(backoff_duration);
                     backoff_duration = std::cmp::min(backoff_duration * 2, Duration::from_secs(10));
@@ -345,10 +331,7 @@ async fn main() {
 
     // ensure the database is setup correctly
     let mut db_connection = db_connection_pool.get().unwrap_or_else(|e| {
-        error!(
-            "Could not get a database connection from the connection pool. The error was: {}",
-            e
-        );
+        error!("Could not get a database connection from the connection pool. The error was: {e}");
         std::process::exit(-1);
     });
     run_migrations(&mut db_connection);

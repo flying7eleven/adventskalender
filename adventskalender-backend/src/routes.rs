@@ -88,7 +88,7 @@ pub async fn get_jwks(config: &State<BackendConfiguration>) -> Result<Json<JwksR
     let key_pair = match Ed25519KeyPair::from_pkcs8(key_bytes) {
         Ok(kp) => kp,
         Err(e) => {
-            error!("Failed to parse Ed25519 key pair: {}", e);
+            error!("Failed to parse Ed25519 key pair: {e}");
             return Err(Status::InternalServerError);
         }
     };
@@ -169,8 +169,7 @@ pub async fn get_number_of_participants_who_already_won(
         Ok(connection) => connection,
         Err(error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
+                "Could not get a connection from the database connection pool. The error was: {error}"
             );
             return Err(Status::InternalServerError);
         }
@@ -237,8 +236,7 @@ pub async fn get_all_winners(
         Ok(connection) => connection,
         Err(error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
+                "Could not get a connection from the database connection pool. The error was: {error}"
             );
             return Err(());
         }
@@ -294,8 +292,7 @@ pub async fn get_won_participants_on_day(
         Ok(connection) => connection,
         Err(error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
+                "Could not get a connection from the database connection pool. The error was: {error}"
             );
             return Err(());
         }
@@ -364,8 +361,7 @@ pub async fn remove_participant_from_winner_list(
                 authenticated_user.username,
                 Action::RemovedWinner,
                 Some(format!(
-                    "The participant with the id {} was marked removed from the list of winners",
-                    participant_id
+                    "The participant with the id {participant_id} was marked removed from the list of winners"
                 )),
             )
             .await;
@@ -437,10 +433,7 @@ pub async fn update_user_password(
     // the passwords crate scores 0-100, zxcvbn scores 0-4
     // score ~40 represents "Fair" strength
     if score < 40.0 {
-        debug!(
-            "Password rejected: too weak (score: {}, minimum required: 40)",
-            score
-        );
+        debug!("Password rejected: too weak (score: {score}, minimum required: 40)");
         return Status::UnprocessableEntity;
     }
 
@@ -462,8 +455,7 @@ pub async fn update_user_password(
         Ok(connection) => connection,
         Err(error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
+                "Could not get a connection from the database connection pool. The error was: {error}"
             );
             return Status::InternalServerError;
         }
@@ -477,16 +469,12 @@ pub async fn update_user_password(
         Ok(1) => {}
         Ok(_) => {
             error!(
-                "Could not update the password since the user '{}' does not exist anymore",
-                current_user
+                "Could not update the password since the user '{current_user}' does not exist anymore"
             );
             return Status::InternalServerError;
         }
         Err(error) => {
-            error!(
-                "Could not update the password in the database. The error was: {}",
-                error
-            );
+            error!("Could not update the password in the database. The error was: {error}");
             return Status::InternalServerError;
         }
     }
@@ -532,8 +520,7 @@ pub async fn update_participant_values(
         Ok(connection) => connection,
         Err(error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
+                "Could not get a connection from the database connection pool. The error was: {error}"
             );
             return Status::InternalServerError;
         }
@@ -552,14 +539,14 @@ pub async fn update_participant_values(
             users.first().unwrap().clone()
         }
         Err(error) => {
-            error!("Tried to fetch the participant with the id {} from the database but an error occurred. The error was: {}", current_participant_id, error);
+            error!("Tried to fetch the participant with the id {current_participant_id} from the database but an error occurred. The error was: {error}");
             return Status::InternalServerError;
         }
     };
 
     //
     if participant_won.won_on.is_none() {
-        error!("Tried to select a package for the participant with the id {} but the participant was not picked before", current_participant_id);
+        error!("Tried to select a package for the participant with the id {current_participant_id} but the participant was not picked before");
         return Status::Conflict;
     }
     let date_of_win = participant_won.won_on.unwrap();
@@ -583,7 +570,7 @@ pub async fn update_participant_values(
             .map(|user| user.present_identifier.clone().unwrap())
             .collect(),
         Err(error) => {
-            error!("Tried to fetch the already selected sub-packages for the date {} from the database but an error occurred. The error was: {}", date_of_win, error);
+            error!("Tried to fetch the already selected sub-packages for the date {date_of_win} from the database but an error occurred. The error was: {error}");
             return Status::InternalServerError;
         }
     };
@@ -868,10 +855,7 @@ pub async fn mark_participant_as_not_won(
         return Err(RemoveWinnerError::UnknownParticipant);
     }
 
-    debug!(
-        "The user {} marked the user with the id {} as NOT won",
-        user_who_unpicked, participant_id
-    );
+    debug!("The user {user_who_unpicked} marked the user with the id {participant_id} as NOT won");
     Ok(())
 }
 
@@ -939,8 +923,7 @@ pub async fn get_login_token(
         Ok(connection) => connection,
         Err(error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
+                "Could not get a connection from the database connection pool. The error was: {error}"
             );
             return Err(Status::InternalServerError);
         }
@@ -1004,7 +987,7 @@ pub async fn get_login_token(
             }
         }
         Err(error) => {
-            error!("Could not verify the supplied password with the one stored in the database. The error was: {}", error);
+            error!("Could not verify the supplied password with the one stored in the database. The error was: {error}");
             return Err(Status::InternalServerError);
         }
     }
@@ -1137,8 +1120,7 @@ pub async fn get_audit_event_count(
         Ok(connection) => connection,
         Err(error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
+                "Could not get a connection from the database connection pool. The error was: {error}"
             );
             return Err(Status::InternalServerError);
         }
@@ -1155,13 +1137,12 @@ pub async fn get_audit_event_count(
         {
             Err(error) => {
                 error!(
-                    "Could not get the numnber of events in the audit log. The error was: {}",
-                    error
+                    "Could not get the numnber of events in the audit log. The error was: {error}"
                 );
                 Err(error)
             }
             Ok(count) => {
-                debug!("Got {} events in the audit log", count);
+                debug!("Got {count} events in the audit log");
                 Ok(Json(AuditEventCount { count }))
             }
         }
@@ -1193,8 +1174,7 @@ pub fn notify_service_up(project_uuid: &str) {
             }
         }
         Err(error) => error!(
-            "Could not notify healthcheck-io about a successful health-check. The error was: {}",
-            error
+            "Could not notify healthcheck-io about a successful health-check. The error was: {error}"
         ),
     };
 }
@@ -1210,8 +1190,7 @@ pub fn notify_service_down(project_uuid: &str, error_data: &str) {
             }
         }
         Err(error) => error!(
-            "Could not notify healthcheck-io about a failed health-check. The error was: {}",
-            error
+            "Could not notify healthcheck-io about a failed health-check. The error was: {error}"
         ),
     };
 }
@@ -1231,8 +1210,7 @@ pub async fn check_backend_health(
         Ok(connection) => connection,
         Err(error) => {
             error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
+                "Could not get a connection from the database connection pool. The error was: {error}"
             );
             let response_json = HealthCheck {
                 database_healthy: false,
@@ -1254,7 +1232,7 @@ pub async fn check_backend_health(
         .read_only()
         .run::<_, diesel::result::Error, _>(|connection| {
             if let Err(error) = participants.select(count_star()).first::<i64>(connection) {
-                error!("The health check of the database connection failed with the following error: {}", error);
+                error!("The health check of the database connection failed with the following error: {error}");
                 return Err(error);
             }
             debug!("Last health check was successful");
