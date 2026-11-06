@@ -347,8 +347,13 @@ export const WinnerDialog = (props: Props) => {
     };
 
     return (
-        <Dialog open={props.isOpen} onOpenChange={(open) => !open && handleDialogCancelClick()}>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <Dialog open={props.isOpen} onOpenChange={(open) => !open && (activeStep === 0 ? handleDialogCancelClick() : handleDialogClose())}>
+            <DialogContent
+                className="max-w-3xl max-h-[80vh] overflow-y-auto"
+                onEscapeKeyDown={(event) => activeStep !== 0 && event.preventDefault()}
+                onPointerDownOutside={(event) => activeStep !== 0 && event.preventDefault()}
+                onInteractOutside={(event) => activeStep !== 0 && event.preventDefault()}
+            >
                 <DialogHeader>
                     <DialogTitle>{activeStep === 0 ? <LocalizedText translationKey={'dashboard.dialogs.new_winners.title'} /> : <SpecialTextItem date={props.date} />}</DialogTitle>
                     {activeStep === 0 && (
