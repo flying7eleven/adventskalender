@@ -418,7 +418,7 @@ async fn main() {
 
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");
-    let _ = mount_routes(
+    if let Err(error) = mount_routes(
         rocket::custom(rocket_configuration_figment)
             .attach(cors_header)
             .attach(SecurityHeaders)
@@ -428,7 +428,11 @@ async fn main() {
             )),
     )
     .launch()
-    .await;
+    .await
+    {
+        error!("Could not launch the backend web server. The error was: {error}");
+        std::process::exit(-1);
+    }
 
     // log the shutdown of the backend service, using a fresh connection from the pool since
     // the one used during startup was already returned to the pool
