@@ -111,7 +111,8 @@
                 "title": "Gewinner:in entfernen",
                 "text": "Soll {0} als Gewinner:in entfernt werden? Die Person wird dann neu in den Lostopf geworfen und kann wieder gezogen werden.",
                 "accept_button": "Ja, Gewinner:in entfernen",
-                "cancel_button": "Nein, abbrechen"
+                "cancel_button": "Nein, abbrechen",
+                "error": "Der Gewinner konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
             },
             "edit_participant": {
                 "title": "Gewinner:in bearbeiten",

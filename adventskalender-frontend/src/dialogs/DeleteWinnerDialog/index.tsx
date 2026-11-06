@@ -6,6 +6,7 @@ import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface Props {
     isOpen: boolean;
@@ -51,9 +52,8 @@ export const DeleteWinnerDialog = (props: Props) => {
                     return Promise.reject();
                 }
 
-                // there should never be other status codes which have to be handled, but just in case, we'll handle
-                // them here too
-                // TODO: this
+                // in all other cases, something unexpected went wrong while removing the winner
+                return Promise.reject();
             })
             .then(() => {
                 if (props.updateWinnerList) {
@@ -62,7 +62,9 @@ export const DeleteWinnerDialog = (props: Props) => {
                 props.setDialogOpenStateFunction(false);
             })
             .catch(() => {
-                // TODO: handle errors
+                toast.error(localizationContext.translate('calendar.dialogs.remove_participant.error'), {
+                    duration: 6000,
+                });
             });
     };
 
