@@ -15,19 +15,6 @@ export const ParticipantSchema = z.object({
     present_identifier: z.string().max(10).nullable().optional(),
 });
 
-// Schema for winner information
-export const WinnerInformationSchema = z.object({
-    id: z.number().int().positive(),
-    firstName: z.string().min(1).max(100),
-    lastName: z.string().min(1).max(100),
-    presentIdentifier: z.string().max(10).nullable().optional(),
-});
-
-// Schema for access token (Note: with httpOnly cookies, this may not be used)
-export const AccessTokenSchema = z.object({
-    accessToken: z.string().min(1),
-});
-
 // Schema for version information
 export const VersionInformationSchema = z.object({
     backend_version: z.string().min(1),
@@ -44,9 +31,6 @@ export const AuditEventCountSchema = z.object({
 
 // Schema for arrays of participants
 export const ParticipantArraySchema = z.array(ParticipantSchema);
-
-// Schema for arrays of winners
-export const WinnerInformationArraySchema = z.array(WinnerInformationSchema);
 
 // Schema for simple count responses (just a number)
 export const CountSchema = z.number().int().nonnegative();
