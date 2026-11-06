@@ -11,7 +11,6 @@ use rocket::serde::json::{json, Json};
 use rocket::{delete, get, options, post, put, routes, Build, Rocket, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use url::Url;
 
 /// Mounts all routes of the backend below their base paths.
 pub fn mount_routes(rocket: Rocket<Build>) -> Rocket<Build> {
@@ -57,11 +56,7 @@ pub struct ParticipantCount {
 #[derive(Serialize)]
 pub struct OpenIdConfiguration {
     pub issuer: String,
-    pub authorization_endpoint: String,
-    pub token_endpoint: String, // TODO: only if using implicit flow
     pub jwks_uri: String,
-    pub response_types_supported: Vec<String>,
-    pub subject_types_supported: Vec<String>,
     pub id_token_signing_alg_values_supported: Vec<String>,
 }
 
@@ -146,24 +141,8 @@ pub async fn get_openid_configuration(
 ) -> Result<Json<OpenIdConfiguration>, Status> {
     Ok(Json(OpenIdConfiguration {
         issuer: config.api_host.clone(),
-        authorization_endpoint: Url::parse(config.api_host.as_str())
-            .unwrap()
-            .join("/foo")
-            .unwrap()
-            .to_string(),
-        token_endpoint: Url::parse(config.api_host.as_str())
-            .unwrap()
-            .join("/foo")
-            .unwrap()
-            .to_string(), // TODO: only if using implicit flow
-        jwks_uri: Url::parse(config.api_host.as_str())
-            .unwrap()
-            .join("/.well-known/jwks.json")
-            .unwrap()
-            .to_string(),
-        response_types_supported: vec![],
-        subject_types_supported: vec![],
-        id_token_signing_alg_values_supported: vec!["RS256".to_string(), "EdDSA".to_string()],
+        jwks_uri: config.jwks_uri.clone(),
+        id_token_signing_alg_values_supported: vec!["EdDSA".to_string()],
     }))
 }
 

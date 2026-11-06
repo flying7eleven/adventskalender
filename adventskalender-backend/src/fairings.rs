@@ -9,6 +9,8 @@ use std::collections::HashSet;
 pub struct BackendConfiguration {
     /// The host base URL of the API (e.g. https://www.example.com; without a path like /api).
     pub api_host: String,
+    /// The precomputed URL under which the JWKS with the public key is served.
+    pub jwks_uri: String,
     /// The key which is used to encode a token signature.
     pub encoding_key: Option<EncodingKey>,
     /// The key which is used to decode a token signature.

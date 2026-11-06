@@ -92,6 +92,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
         let backend_config = request.rocket().state::<BackendConfiguration>().map_or(
             BackendConfiguration {
                 api_host: "".to_string(),
+                jwks_uri: "".to_string(),
                 encoding_key: None,
                 decoding_key: None,
                 ed25519_key_bytes: None,

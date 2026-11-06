@@ -26,6 +26,7 @@ fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
         .to_vec();
     let configuration = BackendConfiguration {
         api_host: "http://localhost:5479".to_string(),
+        jwks_uri: "http://localhost:5479/.well-known/jwks.json".to_string(),
         encoding_key: Some(EncodingKey::from_ed_der(key_bytes)),
         decoding_key: Some(DecodingKey::from_ed_der(&public_key)),
         ed25519_key_bytes: Some(key_bytes.to_vec()),
@@ -537,6 +538,10 @@ fn the_advertised_json_web_key_set_is_served() {
         .dispatch()
         .into_json()
         .unwrap();
+    assert_eq!(
+        configuration["id_token_signing_alg_values_supported"],
+        json!(["EdDSA"])
+    );
     let jwks_path = url::Url::parse(configuration["jwks_uri"].as_str().unwrap())
         .unwrap()
         .path()
@@ -547,6 +552,29 @@ fn the_advertised_json_web_key_set_is_served() {
     assert_eq!(response.status(), Status::Ok);
     let key_set: Value = response.into_json().unwrap();
     assert_eq!(key_set["keys"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn the_openid_configuration_advertises_only_the_supported_fields() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let configuration: Value = client
+        .get("/.well-known/openid-configuration")
+        .dispatch()
+        .into_json()
+        .unwrap();
+
+    assert_eq!(configuration.as_object().unwrap().len(), 3);
+    assert_eq!(configuration["issuer"], json!("http://localhost:5479"));
+    assert_eq!(
+        configuration["jwks_uri"],
+        json!("http://localhost:5479/.well-known/jwks.json")
+    );
+    assert_eq!(
+        configuration["id_token_signing_alg_values_supported"],
+        json!(["EdDSA"])
+    );
 }
 
 #[test]

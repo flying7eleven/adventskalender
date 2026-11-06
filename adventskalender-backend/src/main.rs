@@ -10,6 +10,7 @@ use ring::signature::Ed25519KeyPair;
 use rocket::config::{Shutdown, Sig};
 use std::collections::HashSet;
 use std::time::Duration;
+use url::Url;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
@@ -182,12 +183,24 @@ async fn main() {
         env!("VERGEN_RUSTC_SEMVER")
     );
 
-    // get the API base host
+    // get the API base host and ensure it is a valid URL since it is used to build the
+    // advertised OpenID configuration
     let api_host = env::var("ADVENTSKALENDER_API_HOST").unwrap_or("".to_string());
     if api_host.is_empty() {
         error!("Could not get the API host. Ensure ADVENTSKALENDER_API_HOST is set properly");
         return;
     }
+    let api_host_url = match Url::parse(&api_host) {
+        Ok(url) => url,
+        Err(error) => {
+            error!("The supplied API host '{api_host}' is not a valid URL. The error was: {error}");
+            return;
+        }
+    };
+    let jwks_uri = api_host_url
+        .join("/.well-known/jwks.json")
+        .expect("joining a static path to a valid URL cannot fail")
+        .to_string();
 
     // get the configuration for the database server and terminate if something is missing
     let database_connection_url =
@@ -252,6 +265,7 @@ async fn main() {
 
     let backend_config = BackendConfiguration {
         api_host,
+        jwks_uri,
         encoding_key: Some(encoding_key),
         decoding_key: Some(decoding_key),
         ed25519_key_bytes: Some(ed25519_key_bytes.clone()),
