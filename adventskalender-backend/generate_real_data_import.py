@@ -1,8 +1,15 @@
+import sys
+
+
 def escape_sql(value: str) -> str:
     return value.replace("'", "''")
 
 
 def main():
+    if len(sys.argv) != 3:
+        sys.exit(f"Usage: {sys.argv[0]} <input_file.csv> <output_file.sql>")
+    input_file, output_file = sys.argv[1], sys.argv[2]
+
     from csv import reader
     with open(input_file) as input_file_handle:
         csv_reader = reader(input_file_handle, delimiter=';')
