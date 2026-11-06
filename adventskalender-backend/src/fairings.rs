@@ -4,6 +4,8 @@ use jsonwebtoken::{DecodingKey, EncodingKey};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Request, Response};
 use std::collections::HashSet;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
 pub struct BackendConfiguration {
@@ -25,6 +27,37 @@ pub struct BackendConfiguration {
     pub token_validation: jsonwebtoken::Validation,
 }
 
+/// The reason why a blocking database task did not run to completion: either the connection pool
+/// did not provide a connection, or the blocking task itself could not be executed.
+#[derive(Debug)]
+pub enum BlockingDatabaseError {
+    NoConnection(r2d2::Error),
+    Join(rocket::tokio::task::JoinError),
+}
+
+impl Display for BlockingDatabaseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BlockingDatabaseError::NoConnection(error) => write!(
+                f,
+                "could not get a connection from the database connection pool. The error was: {error}"
+            ),
+            BlockingDatabaseError::Join(error) => {
+                write!(f, "the blocking database task failed. The error was: {error}")
+            }
+        }
+    }
+}
+
+impl Error for BlockingDatabaseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            BlockingDatabaseError::NoConnection(error) => Some(error),
+            BlockingDatabaseError::Join(error) => Some(error),
+        }
+    }
+}
+
 /// TODO
 pub struct AdventskalenderDatabaseConnection(Pool<ConnectionManager<PgConnection>>);
 
@@ -34,6 +67,24 @@ impl AdventskalenderDatabaseConnection {
     #[inline(always)]
     pub fn get(&self) -> Result<PooledConnection<ConnectionManager<PgConnection>>, r2d2::Error> {
         self.0.get()
+    }
+
+    /// Runs the given closure with a pooled connection on the blocking thread pool so that
+    /// neither the database work nor the bcrypt password hashing blocks one of Rocket's async
+    /// worker threads. Cloning the pool is cheap, the connection is taken inside the blocking
+    /// task and returned to the pool when the task ends.
+    pub async fn run_blocking<T, F>(&self, work: F) -> Result<T, BlockingDatabaseError>
+    where
+        T: Send + 'static,
+        F: FnOnce(&mut PgConnection) -> T + Send + 'static,
+    {
+        let pool = self.0.clone();
+        rocket::tokio::task::spawn_blocking(move || {
+            let mut connection = pool.get().map_err(BlockingDatabaseError::NoConnection)?;
+            Ok(work(&mut connection))
+        })
+        .await
+        .map_err(BlockingDatabaseError::Join)?
     }
 }
 

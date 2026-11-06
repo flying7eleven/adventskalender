@@ -132,50 +132,45 @@ pub async fn get_number_of_participants_who_already_won(
         authenticated_user.username
     );
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
+    // try to fetch the information and construct the corresponding data structure we want to
+    // return, on a blocking thread so the database work does not block the async runtime
+    let maybe_result = match db_connection_pool
+        .run_blocking(|db_connection| {
+            db_connection
+                .build_transaction()
+                .read_only()
+                .run::<ParticipantCount, diesel::result::Error, _>(|connection| {
+                    let all_participants =
+                        participants.select(count(id)).first::<i64>(connection)?;
+                    let participants_won = participants
+                        .filter(won_on.is_not_null())
+                        .select(count(id))
+                        .first::<i64>(connection)?;
+                    Ok(ParticipantCount {
+                        number_of_participants: all_participants,
+                        number_of_participants_won: participants_won,
+                        number_of_participants_still_in_raffle: all_participants - participants_won,
+                    })
+                })
+        })
+        .await
+    {
+        Ok(result) => result,
         Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
-            );
+            error!("Could not get the statistics for the participants. The error was: {error}");
             return Err(Status::InternalServerError);
         }
     };
 
-    // try to fetch the information and construct the corresponding data structure we want to return
-    let maybe_result = db_connection
-        .build_transaction()
-        .read_only()
-        .run::<ParticipantCount, diesel::result::Error, _>(|connection| {
-            match participants.select(count(id)).first::<i64>(connection) {
-                Ok(all_participants) => {
-                    match participants
-                        .filter(won_on.is_not_null())
-                        .select(count(id))
-                        .first::<i64>(connection)
-                    {
-                        Ok(participants_won) => Ok(ParticipantCount {
-                            number_of_participants: all_participants,
-                            number_of_participants_won: participants_won,
-                            number_of_participants_still_in_raffle: all_participants
-                                - participants_won,
-                        }),
-                        Err(error) => Err(error),
-                    }
-                }
-                Err(error) => Err(error),
-            }
-        });
-
     // if we could fetch a result from the database, return the requested information
-    if let Ok(result) = maybe_result {
-        return Ok(Json::from(result));
+    match maybe_result {
+        Ok(result) => Ok(Json::from(result)),
+        Err(_) => {
+            // if we reach this step, we could not request the required information. Since we do
+            // not know what really happened, we return an internal server error
+            Err(Status::InternalServerError)
+        }
     }
-
-    // if we reach this step, we could not request the required information. Since we do not know what
-    // really happened, we return an internal server error
-    Err(Status::InternalServerError)
 }
 
 #[derive(Serialize, Clone)]
@@ -198,45 +193,41 @@ pub async fn get_all_winners(
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
-            );
-            return Err(());
-        }
-    };
-
-    // try to get all days on which at least one person won
-    let maybe_result = db_connection
-        .build_transaction()
-        .read_only()
-        .run::<_, diesel::result::Error, _>(|connection| {
-            let mut result_map = HashMap::new();
-            match participants
-                .filter(won_on.is_not_null())
-                .order_by(won_on.asc())
-                .load::<DatabaseParticipant>(connection)
-            {
-                Ok(participants_won_dates) => {
-                    for current in participants_won_dates.iter() {
+    // try to get all days on which at least one person won, on a blocking thread so the database
+    // work does not block the async runtime
+    let maybe_result = match db_connection_pool
+        .run_blocking(|db_connection| {
+            db_connection
+                .build_transaction()
+                .read_only()
+                .run::<_, diesel::result::Error, _>(|connection| {
+                    let participants_won_dates = participants
+                        .filter(won_on.is_not_null())
+                        .order_by(won_on.asc())
+                        .load::<DatabaseParticipant>(connection)?;
+                    let mut result_map = HashMap::new();
+                    for current in participants_won_dates {
                         result_map
                             .entry(current.won_on.unwrap().to_string())
                             .or_insert(vec![])
                             .push(Participant {
                                 id: current.id,
-                                first_name: current.first_name.clone(),
-                                last_name: current.last_name.clone(),
-                                present_identifier: current.present_identifier.clone(),
+                                first_name: current.first_name,
+                                last_name: current.last_name,
+                                present_identifier: current.present_identifier,
                             });
                     }
                     Ok(result_map)
-                }
-                Err(error) => Err(error),
-            }
-        });
+                })
+        })
+        .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            error!("Could not load all winners from the database. The error was: {error}");
+            return Err(());
+        }
+    };
 
     maybe_result.map_err(|error| {
         error!("Could not load all winners from the database. The error was: {error}");
@@ -252,38 +243,36 @@ pub async fn get_won_participants_on_day(
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
+    // try to get all participants who won on a specific day from the database, on a blocking
+    // thread so the database work does not block the async runtime
+    let maybe_result = match db_connection_pool
+        .run_blocking(move |db_connection| {
+            db_connection
+                .build_transaction()
+                .read_only()
+                .run::<_, diesel::result::Error, _>(|connection| {
+                    let participants_won_on_date = participants
+                        .filter(won_on.eq(date))
+                        .load::<DatabaseParticipant>(connection)?;
+                    Ok(participants_won_on_date
+                        .into_iter()
+                        .map(|item| Participant {
+                            id: item.id,
+                            first_name: item.first_name,
+                            last_name: item.last_name,
+                            present_identifier: item.present_identifier,
+                        })
+                        .collect())
+                })
+        })
+        .await
+    {
+        Ok(result) => result,
         Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
-            );
+            error!("Could not load the winners from the database. The error was: {error}");
             return Err(());
         }
     };
-
-    // try to get all participants who won on a specific day from the database
-    let maybe_result = db_connection
-        .build_transaction()
-        .read_only()
-        .run::<_, diesel::result::Error, _>(move |connection| {
-            match participants
-                .filter(won_on.eq(date))
-                .load::<DatabaseParticipant>(connection)
-            {
-                Ok(participants_won_on_date) => Ok(participants_won_on_date
-                    .iter()
-                    .map(|item| Participant {
-                        id: item.id,
-                        first_name: item.first_name.clone(),
-                        last_name: item.last_name.clone(),
-                        present_identifier: item.present_identifier.clone(),
-                    })
-                    .collect()),
-                Err(error) => Err(error),
-            }
-        });
 
     maybe_result.map_err(|error| {
         error!("Could not load the winners on {date} from the database. The error was: {error}");
@@ -537,112 +526,130 @@ pub async fn update_participant_values(
     current_participant_id: i32,
     new_package_selection: Json<NewPackageSelection>,
 ) -> Status {
-    use crate::log_action_rocket;
+    use crate::log_action;
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{id, participants, present_identifier};
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
-            );
-            return Status::InternalServerError;
-        }
-    };
+    /// The outcome of trying to update the package selection of a participant.
+    enum PackageSelectionOutcome {
+        Success,
+        NotFound,
+        Conflict,
+        UnprocessableEntity,
+        InternalServerError,
+    }
 
-    // get the user on which the package should be selected on
-    let participant_won = match participants
-        .filter(id.eq(current_participant_id))
-        .load::<DatabaseParticipant>(db_connection)
-    {
-        Ok(users) => {
-            if users.len() != 1 {
-                error!("Tried to fetch the participant with the id {} from the database but got {} participants as a result", current_participant_id, users.len());
-                return Status::NotFound;
+    let username = authenticated_user.username.clone();
+    let package = new_package_selection.package.clone();
+
+    // all database work for this request runs on a blocking thread so that neither the queries
+    // nor the audit log insert block the async runtime
+    let outcome = match db_connection_pool
+        .run_blocking(move |db_connection| {
+            // get the participant on which the package should be selected on
+            let participant_won = match participants
+                .filter(id.eq(current_participant_id))
+                .load::<DatabaseParticipant>(db_connection)
+            {
+                Ok(users) => {
+                    if users.len() != 1 {
+                        error!("Tried to fetch the participant with the id {} from the database but got {} participants as a result", current_participant_id, users.len());
+                        return PackageSelectionOutcome::NotFound;
+                    }
+                    users.first().unwrap().clone()
+                }
+                Err(error) => {
+                    error!("Tried to fetch the participant with the id {current_participant_id} from the database but an error occurred. The error was: {error}");
+                    return PackageSelectionOutcome::InternalServerError;
+                }
+            };
+
+            //
+            if participant_won.won_on.is_none() {
+                error!("Tried to select a package for the participant with the id {current_participant_id} but the participant was not picked before");
+                return PackageSelectionOutcome::Conflict;
             }
-            users.first().unwrap().clone()
-        }
-        Err(error) => {
-            error!("Tried to fetch the participant with the id {current_participant_id} from the database but an error occurred. The error was: {error}");
-            return Status::InternalServerError;
-        }
-    };
 
-    //
-    if participant_won.won_on.is_none() {
-        error!("Tried to select a package for the participant with the id {current_participant_id} but the participant was not picked before");
-        return Status::Conflict;
-    }
+            // a package is exactly one uppercase letter; an empty string clears the selection and is
+            // stored as NULL
+            let selected_package: Option<String> = if package.is_empty() {
+                None
+            } else if package.len() == 1
+                && package.chars().all(|character| character.is_ascii_uppercase())
+            {
+                Some(package.clone())
+            } else {
+                return PackageSelectionOutcome::UnprocessableEntity;
+            };
 
-    // a package is exactly one uppercase letter; an empty string clears the selection and is
-    // stored as NULL
-    let selected_package: Option<String> = if new_package_selection.package.is_empty() {
-        None
-    } else if new_package_selection.package.len() == 1
-        && new_package_selection
-            .package
-            .chars()
-            .all(|character| character.is_ascii_uppercase())
-    {
-        Some(new_package_selection.package.clone())
-    } else {
-        return Status::UnprocessableEntity;
-    };
-
-    // set the selected package for the participant. A unique partial index on the database
-    // ensures that a package is only assigned once per day, which we report as a conflict
-    match update(participants.filter(id.eq(current_participant_id)))
-        .set(present_identifier.eq(selected_package))
-        .execute(db_connection)
-    {
-        Ok(rows_updated) => {
-            if rows_updated != 1 {
-                error!("Tried to save the sub-packages {} for the user {} but it failed and {} rows were updated", new_package_selection.package, current_participant_id, rows_updated);
-                return Status::InternalServerError;
+            // set the selected package for the participant. A unique partial index on the database
+            // ensures that a package is only assigned once per day, which we report as a conflict
+            match update(participants.filter(id.eq(current_participant_id)))
+                .set(present_identifier.eq(selected_package))
+                .execute(db_connection)
+            {
+                Ok(rows_updated) => {
+                    if rows_updated != 1 {
+                        error!("Tried to save the sub-packages {package} for the user {current_participant_id} but it failed and {rows_updated} rows were updated");
+                        return PackageSelectionOutcome::InternalServerError;
+                    }
+                }
+                Err(diesel::result::Error::DatabaseError(
+                    diesel::result::DatabaseErrorKind::UniqueViolation,
+                    _,
+                )) => {
+                    error!("Tried to select the package {package} for the user {current_participant_id} but the package was already assigned to another user for the date of this win");
+                    return PackageSelectionOutcome::Conflict;
+                }
+                Err(error) => {
+                    error!("Tried to save the sub-packages {package} for the user {current_participant_id} but it failed. The error was: {error}");
+                    return PackageSelectionOutcome::InternalServerError;
+                }
             }
-        }
-        Err(diesel::result::Error::DatabaseError(
-            diesel::result::DatabaseErrorKind::UniqueViolation,
-            _,
-        )) => {
-            error!("Tried to select the package {} for the user {} but the package was already assigned to another user for the date of this win", new_package_selection.package, current_participant_id);
-            return Status::Conflict;
-        }
-        Err(error) => {
-            error!("Tried to save the sub-packages {} for the user {} but it failed. The error was: {}", new_package_selection.package, current_participant_id, error);
-            return Status::InternalServerError;
-        }
-    }
 
-    // if we get here we successfully selected a package
-    if participant_won.present_identifier.is_none() {
-        log_action_rocket(
-            db_connection_pool,
-            authenticated_user.username.clone(),
-            Action::PackageSelected,
-            Some(format!(
-                "The participant with the id {} was assigned to package {}",
-                current_participant_id, new_package_selection.package,
-            )),
-        )
-        .await;
-    } else {
-        log_action_rocket(
-            db_connection_pool,
-            authenticated_user.username.clone(),
-            Action::PackageChanged,
-            Some(format!(
-                "The participant with the id {} was assigned a new package {}. The previous package was {}",
-                current_participant_id, new_package_selection.package, participant_won.present_identifier.clone().unwrap()
-            )),
-        )
-            .await;
+            // if we get here we successfully selected a package; log it with the same connection
+            if participant_won.present_identifier.is_none() {
+                log_action(
+                    db_connection,
+                    Some(username),
+                    Action::PackageSelected,
+                    Some(format!(
+                        "The participant with the id {} was assigned to package {package}",
+                        current_participant_id,
+                    )),
+                );
+            } else {
+                log_action(
+                    db_connection,
+                    Some(username),
+                    Action::PackageChanged,
+                    Some(format!(
+                        "The participant with the id {} was assigned a new package {package}. The previous package was {}",
+                        current_participant_id,
+                        participant_won.present_identifier.clone().unwrap()
+                    )),
+                );
+            }
+            PackageSelectionOutcome::Success
+        })
+        .await
+    {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            error!("Could not update the package selection for the participant with the id {current_participant_id}. The error was: {error}");
+            PackageSelectionOutcome::InternalServerError
+        }
+    };
+
+    match outcome {
+        PackageSelectionOutcome::Success => Status::NoContent,
+        PackageSelectionOutcome::NotFound => Status::NotFound,
+        PackageSelectionOutcome::Conflict => Status::Conflict,
+        PackageSelectionOutcome::UnprocessableEntity => Status::UnprocessableEntity,
+        PackageSelectionOutcome::InternalServerError => Status::InternalServerError,
     }
-    Status::NoContent
 }
 
 #[get("/participants/won/<date_as_str>")]
@@ -1200,42 +1207,38 @@ pub async fn get_audit_event_count(
     use diesel::{QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
+    // get the number of audit events currently stored in the database, on a blocking thread so
+    // the database work does not block the async runtime
+    let maybe_audit_event_count = match db_connection_pool
+        .run_blocking(|db_connection| {
+            db_connection
+                .build_transaction()
+                .read_only()
+                .run::<_, diesel::result::Error, _>(|connection| {
+                    match performed_actions.select(count_star()).first::<i64>(connection) {
+                        Err(error) => {
+                            error!("Could not get the numnber of events in the audit log. The error was: {error}");
+                            Err(error)
+                        }
+                        Ok(count) => {
+                            debug!("Got {count} events in the audit log");
+                            Ok(count)
+                        }
+                    }
+                })
+        })
+        .await
+    {
+        Ok(result) => result,
         Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
-            );
+            error!("Could not get the number of events in the audit log. The error was: {error}");
             return Err(Status::InternalServerError);
         }
     };
 
-    // try to get the number of audit events currenctly stored in the database
-    let maybe_audit_event_count = db_connection
-        .build_transaction()
-        .read_only()
-        .run::<_, diesel::result::Error, _>(|connection| {
-        match performed_actions
-            .select(count_star())
-            .first::<i64>(connection)
-        {
-            Err(error) => {
-                error!(
-                    "Could not get the numnber of events in the audit log. The error was: {error}"
-                );
-                Err(error)
-            }
-            Ok(count) => {
-                debug!("Got {count} events in the audit log");
-                Ok(Json(AuditEventCount { count }))
-            }
-        }
-    });
-
     // return the expected result
     match maybe_audit_event_count {
-        Ok(count) => Ok(count),
+        Ok(count) => Ok(Json(AuditEventCount { count })),
         Err(_) => Err(Status::InternalServerError),
     }
 }
@@ -1290,34 +1293,39 @@ pub async fn check_backend_health(
     use diesel::{QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(pool_error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {pool_error}"
-            );
-            return Err(unhealthy_response(config, false, false));
+    // check if the connection to the database is working or not, on a blocking thread so the
+    // database work does not block the async runtime
+    let database_is_healthy = match db_connection_pool
+        .run_blocking(|db_connection| {
+            db_connection
+                .build_transaction()
+                .read_only()
+                .run::<_, diesel::result::Error, _>(|connection| {
+                    if let Err(query_error) =
+                        participants.select(count_star()).first::<i64>(connection)
+                    {
+                        error!("The health check of the database connection failed with the following error: {query_error}");
+                        return Err(query_error);
+                    }
+                    debug!("Last health check was successful");
+                    Ok(())
+                })
+        })
+        .await
+    {
+        Ok(Ok(())) => true,
+        Ok(Err(query_error)) => {
+            error!("The health check of the database connection failed. The error was: {query_error}");
+            false
+        }
+        Err(error) => {
+            error!("Could not run the database health check on a blocking thread. The error was: {error}");
+            false
         }
     };
 
-    // check if the connection to the database is working or not
-    let database_is_healthy = db_connection
-        .build_transaction()
-        .read_only()
-        .run::<_, diesel::result::Error, _>(|connection| {
-            if let Err(query_error) = participants.select(count_star()).first::<i64>(connection) {
-                error!(
-                    "The health check of the database connection failed with the following error: {query_error}"
-                );
-                return Err(query_error);
-            }
-            debug!("Last health check was successful");
-            Ok(())
-        });
-
     // if the database is healthy, we can return the status immediately
-    if database_is_healthy.is_ok() {
+    if database_is_healthy {
         if !config.healthcheck_project.is_empty() {
             BACKOFF_HANDLER
                 .lock()
