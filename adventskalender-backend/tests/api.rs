@@ -908,6 +908,47 @@ fn too_many_wrong_current_passwords_are_rate_limited() {
 }
 
 #[test]
+fn a_rate_limited_password_change_exposes_the_retry_after_header_to_cross_origin_clients() {
+    let database = TestDatabase::start(0);
+    let client = logged_in_client(&database);
+
+    for _ in 0..5 {
+        change_password(
+            &client,
+            "wrong-current-password",
+            NEW_PASSWORD,
+            NEW_PASSWORD,
+        );
+    }
+
+    let response = client
+        .put("/v1/auth/password")
+        .header(ContentType::JSON)
+        .header(Header::new("Origin", "http://localhost:5173"))
+        .body(
+            json!({
+                "current_password": "wrong-current-password",
+                "first_time": NEW_PASSWORD,
+                "second_time": NEW_PASSWORD
+            })
+            .to_string(),
+        )
+        .dispatch();
+    assert_eq!(response.status(), Status::TooManyRequests);
+    assert!(response.headers().get_one("Retry-After").is_some());
+    let exposed_headers = response
+        .headers()
+        .get_one("Access-Control-Expose-Headers")
+        .expect("Access-Control-Expose-Headers must be set for cross-origin clients");
+    assert!(
+        exposed_headers
+            .split(',')
+            .any(|header| header.trim() == "Retry-After"),
+        "Retry-After must be exposed, got: {exposed_headers}"
+    );
+}
+
+#[test]
 fn refreshing_a_session_reissues_the_cookie_and_returns_the_new_remaining_lifetime() {
     let database = TestDatabase::start(0);
     let key_bytes = fresh_key_bytes();

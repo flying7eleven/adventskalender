@@ -15,7 +15,8 @@ use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
 
 /// Builds the CORS fairing used by the backend and its tests: only requests from the given
-/// origins are allowed, and preflight requests are answered by the fairing itself.
+/// origins are allowed, preflight requests are answered by the fairing itself, and custom
+/// response headers like `Retry-After` are exposed to cross-origin clients.
 pub fn cors_fairing<I, S>(allowed_origins: I) -> Result<rocket_cors::Cors, rocket_cors::Error>
 where
     I: IntoIterator<Item = S>,
@@ -36,6 +37,10 @@ where
         .collect(),
         allowed_headers: rocket_cors::AllowedHeaders::All,
         allow_credentials: true,
+        expose_headers: ["Retry-After"]
+            .iter()
+            .map(|header| (*header).to_string())
+            .collect(),
         ..Default::default()
     }
     .to_cors()
