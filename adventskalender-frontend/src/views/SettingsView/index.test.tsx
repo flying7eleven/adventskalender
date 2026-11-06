@@ -16,6 +16,7 @@ jest.mock('zxcvbn', () => ({
     default: jest.fn(() => ({ score: 4, feedback: { warning: '', suggestions: [] } })),
 }));
 
+import zxcvbn from 'zxcvbn';
 import { API_BACKEND_URL } from '../../api';
 
 const renderView = () =>
@@ -33,10 +34,11 @@ const fillPasswords = async (current = 'old-password') => {
     await waitFor(() => expect((screen.getByRole('button', { name: 'Change password' }) as HTMLButtonElement).disabled).toBe(false));
 };
 
-const mockFetch = (status: number, body?: object) => {
+const mockFetch = (status: number, body?: object, retryAfterSeconds?: number) => {
     global.fetch = jest.fn().mockResolvedValue({
         status,
         ok: status < 400,
+        headers: new Headers(retryAfterSeconds !== undefined ? { 'Retry-After': String(retryAfterSeconds) } : {}),
         json: () => (body === undefined ? Promise.reject(new Error('no body')) : Promise.resolve(body)),
     } as Response);
 };
@@ -44,6 +46,7 @@ const mockFetch = (status: number, body?: object) => {
 describe('SettingsView password change', () => {
     afterEach(() => {
         jest.restoreAllMocks();
+        (zxcvbn as jest.Mock).mockClear();
     });
 
     test('sends the current password and both new passwords on submit', async () => {
@@ -104,5 +107,22 @@ describe('SettingsView password change', () => {
         fireEvent.submit(screen.getByRole('button', { name: 'Change password' }).closest('form')!);
 
         await waitFor(() => expect(screen.getByText('Password change failed')).toBeInTheDocument());
+    });
+
+    test('computes the password strength only once per password', async () => {
+        renderView();
+        await fillPasswords();
+
+        await waitFor(() => expect(zxcvbn).toHaveBeenCalledTimes(28));
+    });
+
+    test('shows a rate limit message with the retry time on a 429 response', async () => {
+        mockFetch(429, undefined, 42);
+        renderView();
+        await fillPasswords();
+
+        fireEvent.submit(screen.getByRole('button', { name: 'Change password' }).closest('form')!);
+
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('42 seconds'), expect.anything()));
     });
 });

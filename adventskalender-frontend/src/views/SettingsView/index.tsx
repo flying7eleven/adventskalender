@@ -27,7 +27,7 @@ export const SettingsView = () => {
     const [isPasswordChangeFailedDialogOpen, setIsPasswordChangeFailedDialogOpen] = useState<boolean>(false);
     const [isPasswordNotEqualFirst, setIsPasswordNotEqualFirst] = useState<boolean>(false);
     const [isPasswordNotEqualSecond, setIsPasswordNotEqualSecond] = useState<boolean>(false);
-    const [passwordStrength, setPasswordStrength] = useState<number>(0);
+    const [passwordStrength, setPasswordStrength] = useState<number | null>(null);
 
     const handleCurrentPasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
         setCurrentPassword(event.target.value);
@@ -36,6 +36,9 @@ export const SettingsView = () => {
     const handleChangeOfFirstPassword = (event: ChangeEvent<HTMLInputElement>) => {
         const newPassword = event.target.value;
         setFirstPassword(newPassword);
+        if (!newPassword) {
+            setPasswordStrength(null);
+        }
 
         import('zxcvbn')
             .then(({ default: zxcvbn }) => {
@@ -67,7 +70,7 @@ export const SettingsView = () => {
         event.preventDefault();
 
         // ensure the passwords are long enough, strong enough, and exactly the same
-        if (firstPassword.length < 8 || passwordStrength < 2 || firstPassword !== secondPassword) {
+        if (firstPassword.length < 8 || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword) {
             return;
         }
 
@@ -107,6 +110,14 @@ export const SettingsView = () => {
                                 duration: 6000,
                             });
                         });
+                }
+
+                if (response.status === 429) {
+                    const retryAfterSeconds = response.headers.get('Retry-After') ?? '0';
+                    toast.error(localizationContext.translate('settings.cards.password.errors.rate_limited').replace('{0}', retryAfterSeconds), {
+                        duration: 6000,
+                    });
+                    return;
                 }
 
                 // in all other cases, we expect that there was an unknown error. We indicate that to the user by
@@ -151,7 +162,7 @@ export const SettingsView = () => {
                                         </p>
                                     )}
                                 </div>
-                                <PasswordStrengthMeter password={firstPassword} />
+                                <PasswordStrengthMeter score={passwordStrength} />
                                 <div className="space-y-2">
                                     <Label htmlFor="second-password-input">{localizationContext.translate('settings.cards.password.labels.password_repeated')}</Label>
                                     <Input
@@ -169,7 +180,7 @@ export const SettingsView = () => {
                                         </p>
                                     )}
                                 </div>
-                                <Button type="submit" variant="default" disabled={firstPassword.length < 8 || passwordStrength < 2 || firstPassword !== secondPassword} className="w-full">
+                                <Button type="submit" variant="default" disabled={firstPassword.length < 8 || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword} className="w-full">
                                     <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
                                 </Button>
                             </div>

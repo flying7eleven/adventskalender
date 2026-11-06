@@ -84,6 +84,7 @@
                     "passwords_do_not_match": "The passwords do not match.",
                     "password_too_short": "The password must be at least 8 characters long.",
                     "password_too_weak": "The password must be at least 8 characters long and strong enough.",
+                    "rate_limited": "Too many attempts. Please wait {0} seconds before trying again.",
                     "unknown": "The password could not be changed."
                 }
             }

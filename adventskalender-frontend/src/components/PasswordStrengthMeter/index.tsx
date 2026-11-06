@@ -1,43 +1,17 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { LocalizationContext } from '../../provider/LocalizationContext';
-import type { ZXCVBNResult } from 'zxcvbn';
 
 interface Props {
-    password: string;
+    score: number | null;
 }
-export const PasswordStrengthMeter = ({ password }: Props) => {
+
+export const PasswordStrengthMeter = ({ score }: Props) => {
     const localizationContext = useContext(LocalizationContext);
-    const [result, setResult] = useState<ZXCVBNResult | null>(null);
 
-    useEffect(() => {
-        if (!password) {
-            setResult(null);
-            return;
-        }
-
-        let cancelled = false;
-        import('zxcvbn')
-            .then(({ default: zxcvbn }) => {
-                if (!cancelled) {
-                    setResult(zxcvbn(password));
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setResult(null);
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [password]);
-
-    if (!password || !result) {
+    if (score === null) {
         return null;
     }
-
-    const score = result.score; // 0-4
 
     const getColorClass = () => {
         switch (score) {
@@ -96,8 +70,6 @@ export const PasswordStrengthMeter = ({ password }: Props) => {
                 {localizationContext.translate('settings.cards.password.strength.label')} {getLabel()}
             </p>
             <Progress value={progress} className="h-1.5" indicatorClassName={getProgressIndicatorClass()} />
-            {result.feedback.warning && <p className="text-xs text-destructive block mt-1">{result.feedback.warning}</p>}
-            {result.feedback.suggestions.length > 0 && <p className="text-xs text-muted-foreground block mt-1">{result.feedback.suggestions[0]}</p>}
         </div>
     );
 };
