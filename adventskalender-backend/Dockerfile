@@ -1,5 +1,5 @@
 # Build stage using Debian with Rust (for compatibility)
-FROM rust:1.84-bookworm AS build
+FROM rust:1.88-bookworm AS build
 
 # Install only essential build dependencies
 RUN apt-get update && \
