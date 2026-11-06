@@ -688,59 +688,75 @@ pub async fn count_won_participants_on_day(
     Err(Status::InternalServerError)
 }
 
-pub async fn pick_random_participants_from_database(
+#[derive(Debug)]
+pub enum PickWinnersError {
+    NotEnoughParticipants,
+    UnknownUser,
+    NoDatabaseConnection(r2d2::Error),
+    Database(diesel::result::Error),
+}
+
+impl From<diesel::result::Error> for PickWinnersError {
+    fn from(error: diesel::result::Error) -> Self {
+        PickWinnersError::Database(error)
+    }
+}
+
+/// Randomly picks `count` participants who did not win yet and marks them as won in one
+/// transaction. The open participants stay row-locked until the commit, so a parallel pick waits
+/// and only draws from the participants who are still open afterwards.
+pub async fn pick_winners(
     db_connection_pool: &AdventskalenderDatabaseConnection,
     count: usize,
-) -> Option<Vec<Participant>> {
-    use crate::models::Participant as DatabaseParticipant;
-    use crate::schema::participants::dsl::{participants, won_on};
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-    use log::error;
+    picked_for_date: NaiveDate,
+    user_who_picked: &str,
+) -> Result<Vec<Participant>, PickWinnersError> {
+    use crate::lookup_user_by_name;
+    use crate::models::{Participant as DatabaseParticipant, ParticipantPicking};
+    use crate::schema::participants::dsl::{id, participants, won_on};
+    use chrono::Utc;
+    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
 
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
-            );
-            return None;
-        }
-    };
+    let db_connection = &mut db_connection_pool
+        .get()
+        .map_err(PickWinnersError::NoDatabaseConnection)?;
 
-    //
-    let maybe_result = db_connection
+    db_connection
         .build_transaction()
-        .read_only()
-        .run::<_, diesel::result::Error, _>(move |connection| {
-            match participants
-                .filter(won_on.is_null())
-                .load::<DatabaseParticipant>(connection)
-            {
-                Ok(participants_in_raffle) => {
-                    let mut participants_vec = vec![];
-                    for current_participant in
-                        participants_in_raffle.choose_multiple(&mut rand::rng(), count)
-                    {
-                        participants_vec.push(Participant {
-                            id: current_participant.id,
-                            first_name: current_participant.first_name.clone(),
-                            last_name: current_participant.last_name.clone(),
-                            present_identifier: None,
-                        });
-                    }
-                    Ok(participants_vec)
-                }
-                Err(error) => Err(error),
-            }
-        });
+        .read_write()
+        .run(|connection| {
+            let user = lookup_user_by_name(connection, user_who_picked.to_string())
+                .map_err(|_| PickWinnersError::UnknownUser)?;
 
-    //
-    if let Ok(result) = maybe_result {
-        return Some(result);
-    }
-    None
+            let participants_in_raffle = participants
+                .filter(won_on.is_null())
+                .for_update()
+                .load::<DatabaseParticipant>(connection)?;
+            if participants_in_raffle.len() < count {
+                return Err(PickWinnersError::NotEnoughParticipants);
+            }
+
+            let winners: Vec<Participant> = participants_in_raffle
+                .choose_multiple(&mut rand::rng(), count)
+                .map(|winner| Participant {
+                    id: winner.id,
+                    first_name: winner.first_name.clone(),
+                    last_name: winner.last_name.clone(),
+                    present_identifier: None,
+                })
+                .collect();
+
+            update(participants.filter(id.eq_any(winners.iter().map(|winner| winner.id))))
+                .set(&ParticipantPicking {
+                    won_on: Some(picked_for_date),
+                    picking_time: Some(Utc::now().naive_utc()),
+                    picked_by: Some(user.id),
+                    present_identifier: None,
+                })
+                .execute(connection)?;
+
+            Ok(winners)
+        })
 }
 
 #[get("/participants/pick/<count>/for/<date>")]
@@ -755,65 +771,54 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
     use std::str::FromStr;
 
     // if we cannot parse the input date, we received a bad parameter and we have to react to it
-    let maybe_date = NaiveDate::from_str(date);
-    if maybe_date.is_err() {
+    let Ok(picked_for_date) = NaiveDate::from_str(date) else {
         return Err(Status::BadRequest);
-    }
+    };
 
-    // try to get the number of random picks from the database (they are not marked as won after this call!!!)
-    let maybe_result = pick_random_participants_from_database(db_connection_pool, count).await;
-
-    // if we could fetch a result from the database, return the requested information
-    if let Some(result) = maybe_result {
-        // ensure that we got exactly one result for this call. Otherwise something went wrong
-        if result.len() != count {
-            error!("Got {} participants who won from the database but we expected to receive {} winners", result.len(), count);
+    let winners = match pick_winners(
+        db_connection_pool,
+        count,
+        picked_for_date,
+        &authenticated_user.username,
+    )
+    .await
+    {
+        Ok(winners) => winners,
+        Err(PickWinnersError::NotEnoughParticipants) => {
+            error!(
+                "The user {} tried to pick {} new winners but there are not enough participants left",
+                authenticated_user.username, count
+            );
+            return Err(Status::NotFound);
+        }
+        Err(error) => {
+            error!(
+                "The user {} tried to pick {} new winners but it failed. The error was: {:?}",
+                authenticated_user.username, count, error
+            );
             return Err(Status::InternalServerError);
         }
+    };
 
-        // after we have all participants we wanted to select, we have to mark them as won before we can
-        // return them
-        let won_participant_ids: Vec<i32> = result.iter().map(|p| p.id).collect();
-        if mark_participant_as_won(
+    // log the picked winners and return them
+    for winner in &winners {
+        log_action_rocket(
             db_connection_pool,
-            won_participant_ids.clone(),
-            maybe_date.unwrap(),
             authenticated_user.username.clone(),
+            Action::PickedWinner,
+            Some(format!(
+                "The participant with the id {} was marked as won",
+                winner.id
+            )),
         )
-        .await
-        .is_err()
-        {
-            error!("Failed to mark all picked participants as won. Returning an error since it is not guaranteed that the pick would be genuine.");
-            return Err(Status::InternalServerError);
-        }
-
-        // log the picked winners and return them
-        for current_participant_id in won_participant_ids.clone() {
-            log_action_rocket(
-                db_connection_pool,
-                authenticated_user.username.clone(),
-                Action::PickedWinner,
-                Some(format!(
-                    "The participant with the id {} was marked as won",
-                    current_participant_id
-                )),
-            )
-            .await;
-        }
-        debug!(
-            "The user {} picked the participants with the ids {:?} as new winners",
-            authenticated_user.username, won_participant_ids
-        );
-        return Ok(Json(result.clone()));
+        .await;
     }
-
-    // if we could not get a result, it seems that all participants where picked at some point. Return
-    // NOT FOUND to indicate that
-    error!(
-        "The user {} tried to pick a new winner but we could not find one",
-        authenticated_user.username
+    debug!(
+        "The user {} picked the participants with the ids {:?} as new winners",
+        authenticated_user.username,
+        winners.iter().map(|winner| winner.id).collect::<Vec<_>>()
     );
-    Err(Status::NotFound)
+    Ok(Json(winners))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -822,79 +827,6 @@ pub struct PickingInformation {
     participant_id: i32,
     /// The date for which the winner was picked
     picked_for_date: NaiveDate,
-}
-
-pub async fn mark_participant_as_won(
-    db_connection_pool: &AdventskalenderDatabaseConnection,
-    participant_ids: Vec<i32>,
-    picked_for_date: NaiveDate,
-    user_who_picked: String,
-) -> Result<(), ()> {
-    use crate::lookup_user_by_name;
-    use crate::models::ParticipantPicking;
-    use crate::schema::participants::dsl::{id, participants};
-    use chrono::Utc;
-    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
-    use log::{debug, error};
-
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {}",
-                error
-            );
-            return Err(());
-        }
-    };
-
-    //
-    let maybe_result= db_connection
-        .build_transaction()
-        .read_write()
-            .run::<_, diesel::result::Error, _>(move |connection| {
-                // look up the user object who initiated the call
-                match lookup_user_by_name(connection, user_who_picked.clone()) {
-                Ok(user_obj) =>
-                    {
-                        // create the struct with the update information for the picked user
-                        let participant_info = ParticipantPicking {
-                            won_on: Some(picked_for_date),
-                            picking_time: Some(Utc::now().naive_utc()),
-                            picked_by: Some(user_obj.id),
-                            present_identifier: None
-                        };
-
-                        // do the actual update of the database
-                        if let Ok(rows_updated) = update(participants.filter(id.eq_any(participant_ids.clone())))
-                            .set(&participant_info)
-                            .execute(connection)
-                        {
-                            // ensure that all rows were successfully updated. If not, we have to assume an error and log it before exit here
-                            if rows_updated != participant_ids.len() {
-                                error!("There should be {} row updates but {} rows were actually updated. The following IDs should not be marked as won: {:?}", participant_ids.len(), rows_updated, participant_ids);
-                                return Err(diesel::result::Error::NotFound); // TODO: not the actual error
-                            }
-
-                            debug!("The user {} marked the users with the ids {:?} as 'won on {}'", user_who_picked, participant_ids, picked_for_date);
-                            return Ok(());
-                        }
-                        error!("The user {} tried to mark the users with the ids {:?} as 'won on {}' but we failed to do so", user_who_picked, participant_ids, picked_for_date);
-                        Err(diesel::result::Error::NotFound) // TODO: not the actual error
-                    },
-                    Err(_) => {
-                        // it seems that we could not look up the user who initiated the call
-                        Err(diesel::result::Error::NotFound) // TODO: not the actual error
-                    }
-                }
-            });
-
-    //
-    if maybe_result.is_err() {
-        return Err(());
-    }
-    Ok(())
 }
 
 pub async fn mark_participant_as_not_won(
