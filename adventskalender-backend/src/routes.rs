@@ -299,11 +299,9 @@ pub async fn get_all_winners(
             }
         });
 
-    //
-    if let Ok(result) = maybe_result {
-        return Ok(result);
-    }
-    Err(())
+    maybe_result.map_err(|error| {
+        error!("Could not load all winners from the database. The error was: {error}");
+    })
 }
 
 pub async fn get_won_participants_on_day(
@@ -348,11 +346,9 @@ pub async fn get_won_participants_on_day(
             }
         });
 
-    //
-    if let Ok(result) = maybe_result {
-        return Ok(result);
-    }
-    Err(())
+    maybe_result.map_err(|error| {
+        error!("Could not load the winners on {date} from the database. The error was: {error}");
+    })
 }
 
 #[options("/participants/won")]
