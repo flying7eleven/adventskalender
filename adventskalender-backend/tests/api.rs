@@ -246,13 +246,43 @@ fn listing_winners_reports_a_server_error_if_the_participants_cannot_be_read() {
     assert_eq!(response.status(), Status::InternalServerError);
 }
 
-fn change_password(client: &Client, first_time: &str, second_time: &str) -> Status {
+fn change_password(client: &Client, current: &str, first_time: &str, second_time: &str) -> Status {
     client
         .put("/v1/auth/password")
         .header(ContentType::JSON)
-        .body(json!({ "first_time": first_time, "second_time": second_time }).to_string())
+        .body(
+            json!({
+                "current_password": current,
+                "first_time": first_time,
+                "second_time": second_time
+            })
+            .to_string(),
+        )
         .dispatch()
         .status()
+}
+
+fn change_password_reason(
+    client: &Client,
+    current: &str,
+    first_time: &str,
+    second_time: &str,
+) -> (Status, Option<Value>) {
+    let response = client
+        .put("/v1/auth/password")
+        .header(ContentType::JSON)
+        .body(
+            json!({
+                "current_password": current,
+                "first_time": first_time,
+                "second_time": second_time
+            })
+            .to_string(),
+        )
+        .dispatch();
+    let status = response.status();
+    let body = Option::from(response.into_json::<Value>());
+    (status, body)
 }
 
 const NEW_PASSWORD: &str = "Tr0ub4dor&3-horse-Battery";
@@ -263,7 +293,7 @@ fn a_changed_password_replaces_the_old_one() {
     let client = logged_in_client(&database);
 
     assert_eq!(
-        change_password(&client, NEW_PASSWORD, NEW_PASSWORD),
+        change_password(&client, PICKING_USER_PASSWORD, NEW_PASSWORD, NEW_PASSWORD),
         Status::NoContent
     );
     assert_eq!(
@@ -277,14 +307,67 @@ fn a_changed_password_replaces_the_old_one() {
 }
 
 #[test]
-fn changing_the_password_with_differing_repetitions_is_rejected() {
+fn changing_the_password_with_a_wrong_current_password_is_rejected_with_a_reason() {
     let database = TestDatabase::start(0);
     let client = logged_in_client(&database);
 
-    assert_eq!(
-        change_password(&client, NEW_PASSWORD, "something-else"),
-        Status::UnprocessableEntity
+    let (status, body) = change_password_reason(
+        &client,
+        "definitely-not-the-password",
+        NEW_PASSWORD,
+        NEW_PASSWORD,
     );
+    assert_eq!(status, Status::UnprocessableEntity);
+    assert_eq!(body.unwrap()["reason"], json!("wrong_current_password"));
+    assert_eq!(
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
+        Status::NoContent
+    );
+}
+
+#[test]
+fn changing_the_password_with_differing_repetitions_is_rejected_with_a_reason() {
+    let database = TestDatabase::start(0);
+    let client = logged_in_client(&database);
+
+    let (status, body) = change_password_reason(
+        &client,
+        PICKING_USER_PASSWORD,
+        NEW_PASSWORD,
+        "something-else",
+    );
+    assert_eq!(status, Status::UnprocessableEntity);
+    assert_eq!(body.unwrap()["reason"], json!("passwords_do_not_match"));
+    assert_eq!(
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
+        Status::NoContent
+    );
+}
+
+#[test]
+fn changing_the_password_to_a_too_short_one_is_rejected_with_a_reason() {
+    let database = TestDatabase::start(0);
+    let client = logged_in_client(&database);
+
+    let (status, body) = change_password_reason(&client, PICKING_USER_PASSWORD, "Sh0r!t", "Sh0r!t");
+    assert_eq!(status, Status::UnprocessableEntity);
+    assert_eq!(body.unwrap()["reason"], json!("password_too_short"));
+    assert_eq!(
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
+        Status::NoContent
+    );
+}
+
+#[test]
+fn changing_the_password_to_a_too_weak_one_is_rejected_with_a_reason() {
+    let database = TestDatabase::start(0);
+    let client = logged_in_client(&database);
+
+    let weak_password = "aaaaaaaa";
+    let (status, body) =
+        change_password_reason(&client, PICKING_USER_PASSWORD, weak_password, weak_password);
+    assert_eq!(status, Status::UnprocessableEntity);
+    assert_eq!(body.unwrap()["reason"], json!("password_too_weak"));
     assert_eq!(
         login(&client, &database.picking_user, PICKING_USER_PASSWORD),
         Status::NoContent
@@ -299,7 +382,7 @@ fn changing_the_password_of_a_deleted_user_is_a_server_error() {
     database.execute("DELETE FROM users");
 
     assert_eq!(
-        change_password(&client, NEW_PASSWORD, NEW_PASSWORD),
+        change_password(&client, PICKING_USER_PASSWORD, NEW_PASSWORD, NEW_PASSWORD),
         Status::InternalServerError
     );
 }

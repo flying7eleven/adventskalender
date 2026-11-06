@@ -416,10 +416,58 @@ pub async fn get_all_won_participants(
 
 #[derive(Serialize, Deserialize)]
 pub struct NewPassword {
+    /// The password the user currently uses.
+    current_password: String,
     /// The new password the user wants to set.
     first_time: String,
     /// The repeated password from the user (check if it is the equal to `first_time`).
     second_time: String,
+}
+
+/// The reason why a requested password change was rejected, answered with a 422 and a JSON body
+/// of the shape `{"reason": "..."}`.
+pub enum PasswordChangeError {
+    WrongCurrentPassword,
+    PasswordsDoNotMatch,
+    PasswordTooShort,
+    PasswordTooWeak,
+    InternalServerError,
+}
+
+impl PasswordChangeError {
+    fn reason(&self) -> &'static str {
+        match self {
+            PasswordChangeError::WrongCurrentPassword => "wrong_current_password",
+            PasswordChangeError::PasswordsDoNotMatch => "passwords_do_not_match",
+            PasswordChangeError::PasswordTooShort => "password_too_short",
+            PasswordChangeError::PasswordTooWeak => "password_too_weak",
+            PasswordChangeError::InternalServerError => "internal_server_error",
+        }
+    }
+}
+
+impl<'r> Responder<'r, 'static> for PasswordChangeError {
+    fn respond_to(
+        self,
+        _request: &'r rocket::Request<'_>,
+    ) -> Result<rocket::response::Response<'static>, Status> {
+        use rocket::response::Response;
+
+        let mut response = Response::new();
+        match self {
+            PasswordChangeError::InternalServerError => {
+                response.set_status(Status::InternalServerError)
+            }
+            _ => {
+                response.set_status(Status::UnprocessableEntity);
+                response.set_sized_body(
+                    json!({ "reason": self.reason() }).to_string().len(),
+                    std::io::Cursor::new(json!({ "reason": self.reason() }).to_string()),
+                );
+            }
+        }
+        Ok(response)
+    }
 }
 
 #[put("/auth/password", data = "<new_password>")]
@@ -427,16 +475,59 @@ pub async fn update_user_password(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
     new_password: Json<NewPassword>,
-) -> Status {
+) -> Result<NoContent, PasswordChangeError> {
     use crate::log_action_rocket;
+    use crate::lookup_user_by_name;
     use crate::schema::users::dsl::{password_hash, username, users};
-    use bcrypt::hash;
+    use bcrypt::{hash, verify};
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::{debug, error};
 
+    // get a connection to the database for dealing with the request
+    let db_connection = &mut match db_connection_pool.get() {
+        Ok(connection) => connection,
+        Err(error) => {
+            error!(
+                "Could not get a connection from the database connection pool. The error was: {error}"
+            );
+            return Err(PasswordChangeError::InternalServerError);
+        }
+    };
+
+    // load the currently logged in user. Only if the user still exists, the supplied current
+    // password can be verified against the stored one
+    let current_user = match lookup_user_by_name(db_connection, &authenticated_user.username) {
+        Ok(user) => user,
+        Err(error) => {
+            error!(
+                "Could not find the user '{}' for a password change. The error was: {error}",
+                authenticated_user.username
+            );
+            return Err(PasswordChangeError::InternalServerError);
+        }
+    };
+
+    match verify(
+        &new_password.current_password,
+        current_user.password_hash.as_str(),
+    ) {
+        Ok(true) => {}
+        Ok(false) => {
+            debug!(
+                "Password change rejected: the supplied current password is wrong for user '{}'",
+                authenticated_user.username
+            );
+            return Err(PasswordChangeError::WrongCurrentPassword);
+        }
+        Err(error) => {
+            error!("Could not verify the supplied current password. The error was: {error}");
+            return Err(PasswordChangeError::InternalServerError);
+        }
+    }
+
     // check if the passwords are the same. If not, return an corresonding error
     if new_password.first_time.ne(&new_password.second_time) {
-        return Status::UnprocessableEntity;
+        return Err(PasswordChangeError::PasswordsDoNotMatch);
     }
 
     // validate password strength using the passwords crate
@@ -446,7 +537,7 @@ pub async fn update_user_password(
     // enforce minimum length of 8 characters
     if new_password.first_time.len() < 8 {
         debug!("Password rejected: too short (minimum 8 characters)");
-        return Status::UnprocessableEntity;
+        return Err(PasswordChangeError::PasswordTooShort);
     }
 
     // analyze password strength
@@ -458,7 +549,7 @@ pub async fn update_user_password(
     // score ~40 represents "Fair" strength
     if score < 40.0 {
         debug!("Password rejected: too weak (score: {score}, minimum required: 40)");
-        return Status::UnprocessableEntity;
+        return Err(PasswordChangeError::PasswordTooWeak);
     }
 
     // create a hashed version of the password which we then can store in the database. if we fail, we
@@ -469,44 +560,33 @@ pub async fn update_user_password(
             "Could not generate an hash of a supplied password. The error was: {}",
             maybe_hashed_password.unwrap_err()
         );
-        return Status::InternalServerError;
+        return Err(PasswordChangeError::InternalServerError);
     }
     let hashed_password = maybe_hashed_password.unwrap();
-    let current_user = authenticated_user.username.clone();
-
-    // get a connection to the database for dealing with the request
-    let db_connection = &mut match db_connection_pool.get() {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(
-                "Could not get a connection from the database connection pool. The error was: {error}"
-            );
-            return Status::InternalServerError;
-        }
-    };
 
     // update the corresponding row in the database
-    match update(users.filter(username.eq(&current_user)))
+    match update(users.filter(username.eq(&authenticated_user.username)))
         .set(password_hash.eq(hashed_password))
         .execute(db_connection)
     {
         Ok(1) => {}
         Ok(_) => {
             error!(
-                "Could not update the password since the user '{current_user}' does not exist anymore"
+                "Could not update the password since the user '{}' does not exist anymore",
+                authenticated_user.username
             );
-            return Status::InternalServerError;
+            return Err(PasswordChangeError::InternalServerError);
         }
         Err(error) => {
             error!("Could not update the password in the database. The error was: {error}");
-            return Status::InternalServerError;
+            return Err(PasswordChangeError::InternalServerError);
         }
     }
 
     // log that the user changed the own password
     log_action_rocket(
         db_connection_pool,
-        current_user,
+        authenticated_user.username,
         Action::PasswordChanged,
         None,
     )
@@ -514,7 +594,7 @@ pub async fn update_user_password(
 
     // if we get here, the password was successfully updated
     debug!("Password was successfully updated",);
-    Status::NoContent
+    Ok(NoContent)
 }
 
 #[derive(Serialize, Deserialize)]
