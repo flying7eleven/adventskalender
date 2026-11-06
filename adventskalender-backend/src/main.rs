@@ -265,14 +265,26 @@ async fn main() {
     };
     let decoding_key = DecodingKey::from_ed_der(&public_key_bytes);
 
+    // precompute the parameter set used to validate incoming tokens
+    let mut token_validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::EdDSA);
+    token_validation.leeway = 5; // allow a time difference of max. 5 seconds
+    token_validation.validate_exp = true;
+    token_validation.validate_nbf = true;
+    token_validation.validate_aud = true;
+    token_validation.aud = Some(token_audience_hash_set.clone());
+    let mut issuer_set = std::collections::HashSet::new();
+    issuer_set.insert(api_host.clone());
+    token_validation.iss = Some(issuer_set);
+
     let backend_config = BackendConfiguration {
         api_host,
         jwks_uri,
-        encoding_key: Some(encoding_key),
-        decoding_key: Some(decoding_key),
-        ed25519_key_bytes: Some(ed25519_key_bytes.clone()),
+        encoding_key,
+        decoding_key,
+        ed25519_key_bytes: ed25519_key_bytes.clone(),
         token_audience: token_audience_hash_set,
         healthcheck_project: healthcheck_io_project.to_string(),
+        token_validation,
     };
 
     // create a db connection pool manager and the corresponding pool with retry logic

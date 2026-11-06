@@ -99,17 +99,8 @@ pub async fn get_jwks(config: &State<BackendConfiguration>) -> Result<Json<JwksR
     use log::error;
     use ring::signature::{Ed25519KeyPair, KeyPair};
 
-    // get the Ed25519 key bytes from config
-    let key_bytes = match &config.ed25519_key_bytes {
-        Some(bytes) => bytes,
-        None => {
-            error!("Ed25519 key bytes not available in configuration");
-            return Err(Status::InternalServerError);
-        }
-    };
-
     // parse the PKCS8 key to extract the public key
-    let key_pair = match Ed25519KeyPair::from_pkcs8(key_bytes) {
+    let key_pair = match Ed25519KeyPair::from_pkcs8(&config.ed25519_key_bytes) {
         Ok(kp) => kp,
         Err(e) => {
             error!("Failed to parse Ed25519 key pair: {e}");
@@ -971,7 +962,7 @@ pub fn issue_session_cookie(
         username,
         config.token_audience.clone(),
         config.api_host.clone(),
-        &config.encoding_key.clone().unwrap(),
+        &config.encoding_key,
     )?;
 
     // create httpOnly cookie with the token

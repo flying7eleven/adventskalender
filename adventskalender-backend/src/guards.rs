@@ -43,7 +43,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
     ) -> Outcome<AuthenticatedUser, AuthorizationError> {
         use crate::fairings::BackendConfiguration;
         use crate::Claims;
-        use jsonwebtoken::{decode, Algorithm, Validation};
+        use jsonwebtoken::decode;
         use log::error;
         use rocket::http::Status;
 
@@ -88,38 +88,23 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             }
         };
 
-        // get the current backend configuration for the token signature psk
-        let backend_config = request.rocket().state::<BackendConfiguration>().map_or(
-            BackendConfiguration {
-                api_host: "".to_string(),
-                jwks_uri: "".to_string(),
-                encoding_key: None,
-                decoding_key: None,
-                ed25519_key_bytes: None,
-                healthcheck_project: "".to_string(),
-                token_audience: [].into(),
-            },
-            |config| config.clone(),
-        );
-
-        // specify the parameter for the validation of the token
-        let mut validation_parameter = Validation::new(Algorithm::EdDSA);
-        validation_parameter.leeway = 5; // allow a time difference of max. 5 seconds
-        validation_parameter.validate_exp = true;
-        validation_parameter.validate_nbf = true;
-        validation_parameter.validate_aud = true;
-        validation_parameter.aud = Some(backend_config.token_audience.clone());
-
-        // set issuer for validation
-        let mut issuer_set = std::collections::HashSet::new();
-        issuer_set.insert(backend_config.api_host.clone());
-        validation_parameter.iss = Some(issuer_set);
+        // get the current backend configuration for the token validation
+        let backend_config = match request.rocket().state::<BackendConfiguration>() {
+            Some(config) => config,
+            None => {
+                error!("The backend configuration is missing from the managed state");
+                return Outcome::Error((
+                    Status::InternalServerError,
+                    AuthorizationError::CannotValidateToken,
+                ));
+            }
+        };
 
         // verify the validity of the token supplied in the header or cookie
         let decoded_token = match decode::<Claims>(
             &token_str,
-            &backend_config.decoding_key.unwrap(),
-            &validation_parameter,
+            &backend_config.decoding_key,
+            &backend_config.token_validation,
         ) {
             Ok(token) => token,
             Err(error) => {

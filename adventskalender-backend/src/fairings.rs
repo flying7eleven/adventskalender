@@ -12,15 +12,17 @@ pub struct BackendConfiguration {
     /// The precomputed URL under which the JWKS with the public key is served.
     pub jwks_uri: String,
     /// The key which is used to encode a token signature.
-    pub encoding_key: Option<EncodingKey>,
+    pub encoding_key: EncodingKey,
     /// The key which is used to decode a token signature.
-    pub decoding_key: Option<DecodingKey>,
+    pub decoding_key: DecodingKey,
     /// The raw Ed25519 key bytes in PKCS8 format (for JWKS endpoint).
-    pub ed25519_key_bytes: Option<Vec<u8>>,
+    pub ed25519_key_bytes: Vec<u8>,
     /// The UUID used for the health check on  healthcheck.io.
     pub healthcheck_project: String,
     /// A list of URLs which represent the audience for this token.
     pub token_audience: HashSet<String>,
+    /// The precomputed parameter set which is used to validate incoming tokens.
+    pub token_validation: jsonwebtoken::Validation,
 }
 
 /// TODO
