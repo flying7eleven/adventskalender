@@ -30,7 +30,7 @@ pub fn run_migrations(
             }
             Ok(())
         }
-        Err(error) => Err(error.into()),
+        Err(error) => Err(error),
     }
 }
 

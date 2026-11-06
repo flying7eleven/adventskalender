@@ -543,7 +543,7 @@ fn change_password_reason(
         )
         .dispatch();
     let status = response.status();
-    let body = Option::from(response.into_json::<Value>());
+    let body = response.into_json::<Value>();
     (status, body)
 }
 

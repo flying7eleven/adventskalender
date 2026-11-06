@@ -1117,8 +1117,7 @@ impl Response {
             response.remove_header("Access-Control-Allow-Methods");
         }
 
-        if self.max_age.is_some() {
-            let max_age = self.max_age.unwrap();
+        if let Some(max_age) = self.max_age {
             let _ = response.set_raw_header("Access-Control-Max-Age", max_age.to_string());
         } else {
             response.remove_header("Access-Control-Max-Age");
@@ -2060,7 +2059,7 @@ mod tests {
     #[test]
     fn all_allowed_headers_are_validated_correctly() {
         let allowed_headers = AllOrSome::All;
-        let requested_headers = vec!["Bar", "Foo"];
+        let requested_headers = ["Bar", "Foo"];
 
         not_err!(validate_allowed_headers(
             &FromStr::from_str(&requested_headers.join(",")).unwrap(),
@@ -2072,8 +2071,8 @@ mod tests {
     /// echoes back the list that is actually requested for and not the whole list
     #[test]
     fn allowed_headers_are_validated_correctly() {
-        let allowed_headers = vec!["Bar", "Baz", "Foo"];
-        let requested_headers = vec!["Bar", "Foo"];
+        let allowed_headers = ["Bar", "Baz", "Foo"];
+        let requested_headers = ["Bar", "Foo"];
 
         not_err!(validate_allowed_headers(
             &FromStr::from_str(&requested_headers.join(",")).unwrap(),
@@ -2089,8 +2088,8 @@ mod tests {
     #[test]
     #[should_panic(expected = "HeadersNotAllowed")]
     fn allowed_headers_errors_on_non_subset() {
-        let allowed_headers = vec!["Bar", "Baz", "Foo"];
-        let requested_headers = vec!["Bar", "Foo", "Unknown"];
+        let allowed_headers = ["Bar", "Baz", "Foo"];
+        let requested_headers = ["Bar", "Foo", "Unknown"];
 
         validate_allowed_headers(
             &FromStr::from_str(&requested_headers.join(",")).unwrap(),

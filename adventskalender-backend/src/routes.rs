@@ -480,15 +480,13 @@ pub async fn update_user_password(
 
     // create a hashed version of the password which we then can store in the database. if we fail, we
     // return an error
-    let maybe_hashed_password = hash(&new_password.first_time, crate::PASSWORD_HASH_COST);
-    if maybe_hashed_password.is_err() {
-        error!(
-            "Could not generate an hash of a supplied password. The error was: {}",
-            maybe_hashed_password.unwrap_err()
-        );
-        return Err(PasswordChangeError::InternalServerError);
-    }
-    let hashed_password = maybe_hashed_password.unwrap();
+    let hashed_password = match hash(&new_password.first_time, crate::PASSWORD_HASH_COST) {
+        Ok(hashed_password) => hashed_password,
+        Err(error) => {
+            error!("Could not generate an hash of a supplied password. The error was: {error}");
+            return Err(PasswordChangeError::InternalServerError);
+        }
+    };
 
     // update the corresponding row in the database
     match update(users.filter(username.eq(&authenticated_user.username)))
