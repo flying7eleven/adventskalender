@@ -209,3 +209,42 @@ fn the_advertised_json_web_key_set_is_served() {
     let key_set: Value = response.into_json().unwrap();
     assert_eq!(key_set["keys"].as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn picking_without_logging_in_is_forbidden_and_marks_nobody() {
+    let database = TestDatabase::start(1);
+    let client = client(&database);
+
+    let response = client
+        .post("/v1/participants/pick/1/for/2026-12-24")
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Forbidden);
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
+        0
+    );
+}
+
+#[test]
+fn logins_are_audited_with_the_user_only_if_they_succeed() {
+    let database = TestDatabase::start(0);
+    let client = logged_in_client(&database);
+    login(&client, "unknown", PICKING_USER_PASSWORD);
+
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM performed_actions a JOIN users u ON a.user_id = u.id \
+             WHERE a.action = 'successful_login' AND u.username = '{}'",
+            database.picking_user
+        )),
+        1
+    );
+    assert_eq!(
+        database.count(
+            "SELECT COUNT(*) AS count FROM performed_actions \
+             WHERE action = 'failed_login' AND user_id IS NULL"
+        ),
+        1
+    );
+}
