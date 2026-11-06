@@ -1057,7 +1057,7 @@ pub async fn get_login_token(
     config: &State<BackendConfiguration>,
     client_ip: ClientIp,
     cookies: &CookieJar<'_>,
-) -> Result<NoContent, LoginError> {
+) -> Result<Json<UserInfo>, LoginError> {
     use crate::log_action;
     use crate::lookup_user_by_name;
     use crate::rate_limiter::{
@@ -1193,13 +1193,18 @@ pub async fn get_login_token(
 
     // the user is known and the supplied password was valid, we can generate a new access
     // token and return it to the calling party
-    if issue_session_cookie(&login_information.username, config, cookies).is_some() {
+    if let Some(expires_at) = issue_session_cookie(&login_information.username, config, cookies) {
         if let Some(ip) = client_ip {
             reset_rate_limit(&format!("ip:{ip}"));
         }
         reset_rate_limit(&format!("user:{}", login_information.username));
 
-        return Ok(NoContent);
+        let now = crate::unix_time_now_or_fail() as u64;
+        let expires_in = expires_at.saturating_sub(now);
+        return Ok(Json(UserInfo {
+            username: login_information.username.clone(),
+            expires_in,
+        }));
     }
 
     // it seems that we failed to generate a valid token. This should never happen, something

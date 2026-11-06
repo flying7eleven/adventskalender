@@ -50,13 +50,19 @@ fn client(database: &TestDatabase) -> Client {
     client_with_key_bytes(database, &fresh_key_bytes())
 }
 
-fn login(client: &Client, username: &str, password: &str) -> Status {
-    client
+fn login(client: &Client, username: &str, password: &str) -> (Status, Option<Value>) {
+    let response = client
         .post("/v1/auth/token")
         .header(ContentType::JSON)
         .body(json!({ "username": username, "password": password }).to_string())
-        .dispatch()
-        .status()
+        .dispatch();
+    let status = response.status();
+    let body = if status == Status::Ok {
+        Some(response.into_json().unwrap())
+    } else {
+        None
+    };
+    (status, body)
 }
 
 fn logged_in_client(database: &TestDatabase) -> Client {
@@ -65,9 +71,11 @@ fn logged_in_client(database: &TestDatabase) -> Client {
 
 fn logged_in_client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
     let client = client_with_key_bytes(database, key_bytes);
+    let (status, body) = login(&client, &database.picking_user, PICKING_USER_PASSWORD);
+    assert_eq!(status, Status::Ok);
     assert_eq!(
-        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
-        Status::NoContent
+        body.expect("a successful login must return a body")["username"],
+        json!(database.picking_user.clone())
     );
     client
 }
@@ -408,7 +416,7 @@ fn login_with_an_unknown_user_is_unauthorized() {
     let client = client(&database);
 
     assert_eq!(
-        login(&client, "unknown", PICKING_USER_PASSWORD),
+        login(&client, "unknown", PICKING_USER_PASSWORD).0,
         Status::Unauthorized
     );
 }
@@ -483,7 +491,7 @@ fn login_reports_a_server_error_if_the_users_cannot_be_read() {
     database.execute("ALTER TABLE users RENAME TO unreadable_users");
 
     assert_eq!(
-        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD).0,
         Status::InternalServerError
     );
 }
@@ -549,12 +557,14 @@ fn a_changed_password_replaces_the_old_one() {
         change_password(&client, PICKING_USER_PASSWORD, NEW_PASSWORD, NEW_PASSWORD),
         Status::NoContent
     );
+    let (status, body) = login(&client, &database.picking_user, NEW_PASSWORD);
+    assert_eq!(status, Status::Ok);
     assert_eq!(
-        login(&client, &database.picking_user, NEW_PASSWORD),
-        Status::NoContent
+        body.expect("a successful login must return a body")["username"],
+        json!(database.picking_user.clone())
     );
     assert_eq!(
-        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD).0,
         Status::Unauthorized
     );
 }
@@ -573,8 +583,8 @@ fn changing_the_password_with_a_wrong_current_password_is_rejected_with_a_reason
     assert_eq!(status, Status::UnprocessableEntity);
     assert_eq!(body.unwrap()["reason"], json!("wrong_current_password"));
     assert_eq!(
-        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
-        Status::NoContent
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD).0,
+        Status::Ok
     );
 }
 
@@ -592,8 +602,8 @@ fn changing_the_password_with_differing_repetitions_is_rejected_with_a_reason() 
     assert_eq!(status, Status::UnprocessableEntity);
     assert_eq!(body.unwrap()["reason"], json!("passwords_do_not_match"));
     assert_eq!(
-        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
-        Status::NoContent
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD).0,
+        Status::Ok
     );
 }
 
@@ -606,8 +616,8 @@ fn changing_the_password_to_a_too_short_one_is_rejected_with_a_reason() {
     assert_eq!(status, Status::UnprocessableEntity);
     assert_eq!(body.unwrap()["reason"], json!("password_too_short"));
     assert_eq!(
-        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
-        Status::NoContent
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD).0,
+        Status::Ok
     );
 }
 
@@ -622,8 +632,8 @@ fn changing_the_password_to_a_too_weak_one_is_rejected_with_a_reason() {
     assert_eq!(status, Status::UnprocessableEntity);
     assert_eq!(body.unwrap()["reason"], json!("password_too_weak"));
     assert_eq!(
-        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
-        Status::NoContent
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD).0,
+        Status::Ok
     );
 }
 
@@ -1018,8 +1028,8 @@ fn a_password_shorter_than_eight_characters_is_rejected_even_if_it_has_eight_byt
     assert_eq!(status, Status::UnprocessableEntity);
     assert_eq!(body.unwrap()["reason"], json!("password_too_short"));
     assert_eq!(
-        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
-        Status::NoContent
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD).0,
+        Status::Ok
     );
 }
 
@@ -1170,8 +1180,8 @@ fn a_login_cookie_expires_together_with_its_token() {
     let client = client(&database);
 
     assert_eq!(
-        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
-        Status::NoContent
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD).0,
+        Status::Ok
     );
 
     let cookies = client.cookies();
