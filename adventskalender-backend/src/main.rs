@@ -14,9 +14,11 @@ use url::Url;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
-pub fn run_migrations(connection: &mut PgConnection) {
+pub fn run_migrations(
+    connection: &mut PgConnection,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use diesel_migrations::MigrationHarness;
-    use log::{error, info};
+    use log::info;
     match connection.run_pending_migrations(MIGRATIONS) {
         Ok(ran_migrations) => {
             if !ran_migrations.is_empty() {
@@ -27,10 +29,9 @@ pub fn run_migrations(connection: &mut PgConnection) {
             } else {
                 info!("No migrations had to be run since the database is up to date");
             }
+            Ok(())
         }
-        Err(error) => {
-            error!("Failed to run the database migrations. The error was: {error}")
-        }
+        Err(error) => Err(error.into()),
     }
 }
 
@@ -336,7 +337,10 @@ async fn main() {
         error!("Could not get a database connection from the connection pool. The error was: {e}");
         std::process::exit(-1);
     });
-    run_migrations(&mut db_connection);
+    if let Err(error) = run_migrations(&mut db_connection) {
+        error!("Failed to run the database migrations. The error was: {error}");
+        std::process::exit(-1);
+    }
     info!("Database preparations finished");
 
     // configure the database pool based on the supplied connection URL
