@@ -470,29 +470,25 @@ pub async fn update_user_password(
     };
 
     // update the corresponding row in the database
-    if let Err(error) = db_connection
-        .build_transaction()
-        .read_write()
-        .run::<_, diesel::result::Error, _>(move |connection| {
-            if let Ok(rows_updated) = update(users.filter(username.eq(authenticated_user.username.clone())))
-                .set(password_hash.eq(hashed_password))
-                .execute(connection)
-            {
-                if rows_updated != 1 {
-                    error!("Expected to update exactly one row but none or more than one row were updated. This should never happen!");
-                    return Err(diesel::result::Error::NotFound); // TODO: not the real error
-                }
-                return Ok(());
-            }
-            error!("Failed to update the corresponding entry");
-            Err(diesel::result::Error::NotFound) // TODO: not the real error
-        })
+    match update(users.filter(username.eq(&current_user)))
+        .set(password_hash.eq(hashed_password))
+        .execute(db_connection)
     {
-        error!(
-            "Could not update the password in the database. The error was: {}",
-            error
-        );
-        return Status::InternalServerError;
+        Ok(1) => {}
+        Ok(_) => {
+            error!(
+                "Could not update the password since the user '{}' does not exist anymore",
+                current_user
+            );
+            return Status::InternalServerError;
+        }
+        Err(error) => {
+            error!(
+                "Could not update the password in the database. The error was: {}",
+                error
+            );
+            return Status::InternalServerError;
+        }
     }
 
     // log that the user changed the own password
@@ -951,38 +947,17 @@ pub async fn get_login_token(
     };
 
     // try to get the user record for the supplied username
-    let supplied_username = login_information.username.clone();
-    let maybe_user_result = db_connection
-        .build_transaction()
-        .read_only()
-        .run::<_, diesel::result::Error, _>(move |connection| {
-            if let Ok(found_users) = users
-                .filter(username.eq(supplied_username))
-                .load::<User>(connection)
-            {
-                // if we did not get exactly one user, return an 'error'
-                if found_users.len() != 1 {
-                    return Err(diesel::result::Error::NotFound);
-                }
-
-                // return the found user
-                return Ok(found_users[0].clone());
-            }
-
-            //
-            Err(diesel::result::Error::NotFound) // TODO: not the real error
-        });
-
-    // try to get the actual user object or delay a bit and then return with the corresponding error
-    let user = match maybe_user_result {
+    let user = match users
+        .filter(username.eq(&login_information.username))
+        .first::<User>(db_connection)
+    {
         Ok(user) => user,
-        Err(_) => {
+        Err(error) => {
             // ensure that we know what happened
             error!(
-                "Could not get the user record for '{}'",
-                login_information.username
+                "Could not get the user record for '{}'. The error was: {}",
+                login_information.username, error
             );
-
             // just slow down the process to prevent easy checking if a username exists or not
             let _ = verify(
                 "some_password",
