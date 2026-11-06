@@ -352,6 +352,9 @@ async fn main() {
     let rocket_configuration_figment = RocketConfig::figment()
         .merge(("port", 5479))
         .merge(("address", std::net::Ipv4Addr::new(0, 0, 0, 0)))
+        // the client IP is taken from the reverse proxy header, so its name is part of the
+        // configuration to document the dependency on the proxy
+        .merge(("ip_header", "X-Real-IP"))
         .merge((
             "shutdown",
             Shutdown {
