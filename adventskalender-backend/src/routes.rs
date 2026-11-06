@@ -1,14 +1,13 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
 use crate::guards::{AuthenticatedUser, ClientIp};
-use crate::rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use crate::{Action, BACKOFF_HANDLER};
 use chrono::{DateTime, NaiveDate};
 use rand::prelude::IndexedRandom;
-use rocket::http::{Cookie, CookieJar, Method, SameSite, Status};
+use rocket::http::{Cookie, CookieJar, SameSite, Status};
 use rocket::response::status::NoContent;
 use rocket::response::Responder;
 use rocket::serde::json::{json, Json};
-use rocket::{delete, get, options, post, put, routes, Build, Rocket, State};
+use rocket::{delete, get, post, put, routes, Build, Rocket, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -20,21 +19,17 @@ pub fn mount_routes(rocket: Rocket<Build>) -> Rocket<Build> {
             "/v1",
             routes![
                 get_login_token,
-                get_login_token_options,
                 logout,
                 refresh_session,
                 get_current_user,
                 get_number_of_participants_who_already_won,
-                get_number_of_participants_who_already_won_options,
                 pick_multiple_random_participant_from_raffle_list,
-                participants_won_options,
                 get_all_won_participants,
                 count_won_participants_on_day,
                 update_participant_values,
                 remove_participant_from_winner_list,
                 check_backend_health,
                 get_backend_version,
-                get_backend_version_options,
                 update_user_password,
                 get_audit_event_count,
                 get_won_participants_on_day_route,
@@ -58,22 +53,6 @@ pub struct OpenIdConfiguration {
     pub issuer: String,
     pub jwks_uri: String,
     pub id_token_signing_alg_values_supported: Vec<String>,
-}
-
-pub fn cors_options() -> CorsOptions {
-    // Use AllowedOrigins::all() for OPTIONS handlers since the actual CORS validation
-    // is performed by the global CORS fairing attached in main.rs which reads from
-    // ADVENTSKALENDER_CORS_ORIGINS environment variable. The OPTIONS handlers just need
-    // to respond to preflight requests without being overly restrictive.
-    let allowed_origins = AllowedOrigins::all();
-
-    CorsOptions {
-        allowed_origins,
-        allowed_methods: vec![Method::Get].into_iter().map(From::from).collect(),
-        allowed_headers: AllowedHeaders::all(), // AllowedHeaders::some(&["Authorization", "Accept"]),
-        allow_credentials: true,
-        ..Default::default()
-    }
 }
 
 #[derive(Serialize)]
@@ -135,16 +114,6 @@ pub async fn get_openid_configuration(
         jwks_uri: config.jwks_uri.clone(),
         id_token_signing_alg_values_supported: vec!["EdDSA".to_string()],
     }))
-}
-
-#[options("/participants/count")]
-pub async fn get_number_of_participants_who_already_won_options<'r, 'o: 'r>(
-) -> impl Responder<'r, 'o> {
-    let mut options = cors_options();
-    options.allowed_methods = vec![Method::Get].into_iter().map(From::from).collect();
-
-    let cors = options.to_cors()?;
-    cors.respond_owned(|guard| guard.responder(()))
 }
 
 #[get("/participants/count")]
@@ -320,18 +289,6 @@ pub async fn get_won_participants_on_day(
     maybe_result.map_err(|error| {
         error!("Could not load the winners on {date} from the database. The error was: {error}");
     })
-}
-
-#[options("/participants/won")]
-pub async fn participants_won_options<'r, 'o: 'r>() -> impl Responder<'r, 'o> {
-    let mut options = cors_options();
-    options.allowed_methods = vec![Method::Get, Method::Delete]
-        .into_iter()
-        .map(From::from)
-        .collect();
-
-    let cors = options.to_cors()?;
-    cors.respond_owned(|guard| guard.responder(()))
 }
 
 #[delete("/participants/won/<participant_id>")]
@@ -989,15 +946,6 @@ pub fn issue_session_cookie(
     Some(expires_at.max(issued_at + 60 * 60))
 }
 
-#[options("/auth/token")]
-pub async fn get_login_token_options<'r, 'o: 'r>() -> impl Responder<'r, 'o> {
-    let mut options = cors_options();
-    options.allowed_methods = vec![Method::Post].into_iter().map(From::from).collect();
-
-    let cors = options.to_cors()?;
-    cors.respond_owned(|guard| guard.responder(()))
-}
-
 pub enum LoginError {
     Unauthorized,
     TooManyRequests { retry_after_seconds: u64 },
@@ -1237,15 +1185,6 @@ pub async fn get_backend_version() -> Json<VersionInformation> {
             .format("%H:%M:%S")
             .to_string(),
     })
-}
-
-#[options("/version")]
-pub async fn get_backend_version_options<'r, 'o: 'r>() -> impl Responder<'r, 'o> {
-    let mut options = cors_options();
-    options.allowed_methods = vec![Method::Get].into_iter().map(From::from).collect();
-
-    let cors = options.to_cors()?;
-    cors.respond_owned(|guard| guard.responder(()))
 }
 
 #[derive(Serialize)]

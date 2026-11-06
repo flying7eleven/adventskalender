@@ -46,7 +46,11 @@ fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
     let rocket = mount_routes(
         rocket::build()
             .manage(configuration)
-            .manage(database.new_connection_pool()),
+            .manage(database.new_connection_pool())
+            .attach(
+                adventskalender_backend::cors_fairing(["http://localhost:5173".to_string()])
+                    .unwrap(),
+            ),
     );
     Client::tracked(rocket).unwrap()
 }
@@ -100,6 +104,87 @@ fn an_unreachable_database_is_reported_as_unavailable() {
     let body = response.into_json::<rocket::serde::json::Value>().unwrap();
     assert_eq!(body["database_healthy"], false);
     assert_eq!(body["backend_healthy"], false);
+}
+
+#[test]
+fn a_preflight_request_from_an_allowed_origin_is_answered_by_the_cors_fairing() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    for uri in ["/v1/auth/token", "/v1/participants/count"] {
+        let response = client
+            .req(rocket::http::Method::Options, uri)
+            .header(Header::new("Origin", "http://localhost:5173"))
+            .header(Header::new(
+                "Access-Control-Request-Method",
+                if uri == "/v1/auth/token" {
+                    "POST"
+                } else {
+                    "GET"
+                },
+            ))
+            .dispatch();
+        assert_eq!(response.status(), Status::NoContent, "preflight to {uri}");
+        assert_eq!(
+            response
+                .headers()
+                .get_one("Access-Control-Allow-Origin")
+                .unwrap_or_default(),
+            "http://localhost:5173",
+            "preflight to {uri}"
+        );
+        assert_eq!(
+            response
+                .headers()
+                .get_one("Access-Control-Allow-Credentials")
+                .unwrap_or_default(),
+            "true",
+            "preflight to {uri}"
+        );
+    }
+}
+
+#[test]
+fn a_preflight_request_from_a_disallowed_origin_is_rejected() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client
+        .req(rocket::http::Method::Options, "/v1/auth/token")
+        .header(Header::new("Origin", "http://evil.example"))
+        .header(Header::new("Access-Control-Request-Method", "POST"))
+        .dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+    assert_eq!(
+        response.headers().get_one("Access-Control-Allow-Origin"),
+        None
+    );
+}
+
+#[test]
+fn a_normal_request_from_an_allowed_origin_gets_the_cors_headers() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client
+        .get("/v1/health")
+        .header(Header::new("Origin", "http://localhost:5173"))
+        .dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    assert_eq!(
+        response
+            .headers()
+            .get_one("Access-Control-Allow-Origin")
+            .unwrap_or_default(),
+        "http://localhost:5173"
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get_one("Access-Control-Allow-Credentials")
+            .unwrap_or_default(),
+        "true"
+    );
 }
 
 #[test]

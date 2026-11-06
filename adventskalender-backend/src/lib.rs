@@ -16,6 +16,33 @@ use std::fmt::{Display, Formatter};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
 
+/// Builds the CORS fairing used by the backend and its tests: only requests from the given
+/// origins are allowed, and preflight requests are answered by the fairing itself.
+pub fn cors_fairing<I, S>(allowed_origins: I) -> Result<rocket_cors::Cors, rocket_cors::Error>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let exact_origins: Vec<S> = allowed_origins.into_iter().collect();
+    let allowed_origins = rocket_cors::AllowedOrigins::some_exact(&exact_origins);
+    rocket_cors::CorsOptions {
+        allowed_origins,
+        allowed_methods: vec![
+            rocket::http::Method::Get,
+            rocket::http::Method::Post,
+            rocket::http::Method::Put,
+            rocket::http::Method::Delete,
+        ]
+        .into_iter()
+        .map(From::from)
+        .collect(),
+        allowed_headers: rocket_cors::AllowedHeaders::All,
+        allow_credentials: true,
+        ..Default::default()
+    }
+    .to_cors()
+}
+
 pub mod fairings;
 pub mod guards;
 pub mod models;

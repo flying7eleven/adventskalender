@@ -1,4 +1,3 @@
-use adventskalender_backend::rocket_cors::AllowedOrigins;
 use adventskalender_backend::routes::mount_routes;
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
@@ -158,7 +157,6 @@ async fn main() {
         AdventskalenderDatabaseConnection, BackendConfiguration, SecurityHeaders,
     };
     use log::{error, info};
-    use rocket::http::Method;
     use rocket::Config as RocketConfig;
     use std::env;
 
@@ -382,20 +380,10 @@ async fn main() {
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
-    let origins_refs: Vec<&str> = origins_list.iter().map(|s| s.as_str()).collect();
-    let allowed_origins = AllowedOrigins::some_exact(&origins_refs);
-    let cors_header = adventskalender_backend::rocket_cors::CorsOptions {
-        allowed_origins,
-        allowed_methods: vec![Method::Get, Method::Post, Method::Put, Method::Delete]
-            .into_iter()
-            .map(From::from)
-            .collect(),
-        allowed_headers: adventskalender_backend::rocket_cors::AllowedHeaders::All,
-        allow_credentials: true,
-        ..Default::default()
-    }
-    .to_cors()
-    .unwrap();
+    let cors_header = adventskalender_backend::cors_fairing(origins_list).unwrap_or_else(|error| {
+        error!("Could not build the CORS fairing. The error was: {error}");
+        std::process::exit(-1);
+    });
 
     // log the startup of the backend service
     log_action(
