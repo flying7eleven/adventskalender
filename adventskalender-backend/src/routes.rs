@@ -719,7 +719,8 @@ impl From<diesel::result::Error> for PickWinnersError {
 
 /// Randomly picks `count` participants who did not win yet and marks them as won in one
 /// transaction. The open participants stay row-locked until the commit, so a parallel pick waits
-/// and only draws from the participants who are still open afterwards.
+/// and, since READ COMMITTED re-checks the filter after the wait, only draws from the participants
+/// who are still open afterwards.
 pub async fn pick_winners(
     db_connection_pool: &AdventskalenderDatabaseConnection,
     count: usize,
@@ -738,6 +739,7 @@ pub async fn pick_winners(
 
     db_connection
         .build_transaction()
+        .read_committed()
         .read_write()
         .run(|connection| {
             let user = match lookup_user_by_name(connection, user_who_picked) {
