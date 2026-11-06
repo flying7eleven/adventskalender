@@ -620,12 +620,14 @@ pub async fn update_participant_values(
                 return PackageSelectionOutcome::Conflict;
             }
 
-            // a package is exactly one uppercase letter; an empty string clears the selection and is
+            // a package is one of the letters the UI offers: A up to the letter matching the
+            // maximum number of winners per day; an empty string clears the selection and is
             // stored as NULL
+            let highest_package_letter = b'A' + MAX_WINNERS_PER_DAY as u8 - 1;
             let selected_package: Option<String> = if package.is_empty() {
                 None
             } else if package.len() == 1
-                && package.chars().all(|character| character.is_ascii_uppercase())
+                && (b'A'..=highest_package_letter).contains(&package.as_bytes()[0])
             {
                 Some(package.clone())
             } else {

@@ -949,6 +949,24 @@ fn a_rate_limited_password_change_exposes_the_retry_after_header_to_cross_origin
 }
 
 #[test]
+fn only_the_packages_the_ui_offers_are_valid() {
+    let database = TestDatabase::start(1);
+    let client = logged_in_client(&database);
+    let winner_id = pick_winners(&client, 1, "2026-12-24")[0];
+
+    assert_eq!(
+        select_package(&client, winner_id, "F"),
+        Status::UnprocessableEntity
+    );
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM participants WHERE id = {winner_id} AND present_identifier IS NULL"
+        )),
+        1
+    );
+}
+
+#[test]
 fn refreshing_a_session_reissues_the_cookie_and_returns_the_new_remaining_lifetime() {
     let database = TestDatabase::start(0);
     let key_bytes = fresh_key_bytes();
