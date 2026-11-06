@@ -39,7 +39,7 @@ export const WinnerCard = (props: Props) => {
 
     const getWinningEntries = () => {
         const elements = [];
-        const sortedWinners = props.listOfWinner.sort((winnerA, winnerB) => {
+        const sortedWinners = [...props.listOfWinner].sort((winnerA, winnerB) => {
             return winnerA.lastName.localeCompare(winnerB.lastName);
         });
         const winningDayFromDate = Number.parseInt(props.winningDate.substring(8)); // TODO: ugly, we should parse the date here instead
