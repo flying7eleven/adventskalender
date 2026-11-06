@@ -1,20 +1,42 @@
+import { useContext, useEffect, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
-import zxcvbn from 'zxcvbn';
-import { useContext } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
+import type { ZXCVBNResult } from 'zxcvbn';
 
 interface Props {
     password: string;
 }
-
 export const PasswordStrengthMeter = ({ password }: Props) => {
     const localizationContext = useContext(LocalizationContext);
+    const [result, setResult] = useState<ZXCVBNResult | null>(null);
 
-    if (!password) {
+    useEffect(() => {
+        if (!password) {
+            setResult(null);
+            return;
+        }
+
+        let cancelled = false;
+        import('zxcvbn')
+            .then(({ default: zxcvbn }) => {
+                if (!cancelled) {
+                    setResult(zxcvbn(password));
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setResult(null);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [password]);
+
+    if (!password || !result) {
         return null;
     }
 
-    const result = zxcvbn(password);
     const score = result.score; // 0-4
 
     const getColorClass = () => {
