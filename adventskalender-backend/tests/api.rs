@@ -803,56 +803,81 @@ fn unix_now() -> u64 {
 }
 
 #[test]
-fn me_reports_the_username_and_the_token_expiry() {
+fn me_reports_the_username_and_the_remaining_token_lifetime() {
     let database = TestDatabase::start(0);
     let logged_in = logged_in_client(&database);
-    let before = unix_now();
 
     let response = logged_in.get("/v1/auth/me").dispatch();
 
     assert_eq!(response.status(), Status::Ok);
     let body: Value = response.into_json().unwrap();
     assert_eq!(body["username"], json!(database.picking_user.clone()));
-    let expires_at = body["expires_at"]
+    let expires_in = body["expires_in"]
         .as_u64()
-        .expect("expires_at must be a number");
+        .expect("expires_in must be a number");
     assert!(
-        expires_at >= before,
-        "the token cannot expire before it was issued"
-    );
-    assert!(
-        expires_at <= before + 3601,
-        "the token expires one hour after it was issued"
+        expires_in <= 3601 && expires_in > 3590,
+        "the token is valid for roughly one more hour, got {expires_in}"
     );
 }
 
 #[test]
-fn refreshing_a_session_reissues_the_cookie_and_returns_the_new_expiry() {
+fn refreshing_a_session_after_the_absolute_session_lifetime_is_forbidden() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let client = client_with_key_bytes(&database, &key_bytes);
+    let encoding_key = EncodingKey::from_ed_der(&key_bytes);
+
+    // craft a token whose original login lies one second past the absolute session lifetime
+    let auth_time =
+        unix_now() - (adventskalender_backend::session_lifetime_in_seconds() as u64 + 1);
+    let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
+        &database.picking_user,
+        HashSet::from(["http://localhost:5173".to_string()]),
+        "http://localhost:5479".to_string(),
+        &encoding_key,
+        auth_time as usize,
+    )
+    .expect("token creation must succeed");
+
+    let response = client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", token))
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Forbidden);
+}
+
+#[test]
+fn refreshing_the_session_of_a_deleted_user_is_forbidden() {
+    let database = TestDatabase::start(0);
+    let logged_in = logged_in_client(&database);
+    database.execute("DELETE FROM performed_actions");
+    database.execute("DELETE FROM users");
+
+    let response = logged_in.post("/v1/auth/refresh").dispatch();
+
+    assert_eq!(response.status(), Status::Forbidden);
+}
+
+#[test]
+fn refreshing_a_session_reissues_the_cookie_and_returns_the_new_remaining_lifetime() {
     let database = TestDatabase::start(0);
     let key_bytes = fresh_key_bytes();
     let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
-    let old_expiry = logged_in
-        .get("/v1/auth/me")
-        .dispatch()
-        .into_json::<Value>()
-        .unwrap()["expires_at"]
-        .as_u64()
-        .unwrap();
-    let before = unix_now();
 
     let response = logged_in.post("/v1/auth/refresh").dispatch();
 
     assert_eq!(response.status(), Status::Ok);
     let body: Value = response.into_json().unwrap();
     assert_eq!(body["username"], json!(database.picking_user.clone()));
-    let new_expiry = body["expires_at"]
+    let expires_in = body["expires_in"]
         .as_u64()
-        .expect("expires_at must be a number");
+        .expect("expires_in must be a number");
     assert!(
-        new_expiry >= old_expiry,
-        "the refreshed token cannot expire earlier than the old one"
+        expires_in <= 3601 && expires_in > 3590,
+        "the refreshed token is valid for roughly one more hour, got {expires_in}"
     );
-    assert!(new_expiry >= before);
 
     let new_token = logged_in
         .cookies()
@@ -868,5 +893,9 @@ fn refreshing_a_session_reissues_the_cookie_and_returns_the_new_expiry() {
     assert_eq!(response.status(), Status::Ok);
     let body: Value = response.into_json().unwrap();
     assert_eq!(body["username"], json!(database.picking_user.clone()));
-    assert_eq!(body["expires_at"].as_u64().unwrap(), new_expiry);
+    let carried_expires_in = body["expires_in"].as_u64().unwrap();
+    assert!(
+        carried_expires_in <= 3601 && carried_expires_in > 3590,
+        "the cookie carries the refreshed token, got {carried_expires_in}"
+    );
 }

@@ -52,6 +52,8 @@ mod schema;
 lazy_static! {
     /// The time in seconds a token is valid.
     static ref TOKEN_LIFETIME_IN_SECONDS: usize = 60 * 60;
+    /// The absolute time in seconds a session may last, starting from the original login.
+    static ref SESSION_LIFETIME_IN_SECONDS: usize = 12 * 60 * 60;
 }
 
 pub static BACKOFF_HANDLER: LazyLock<Mutex<BackoffHandler>> =
@@ -70,6 +72,9 @@ struct Claims {
     exp: usize,
     iat: usize,
     nbf: usize,
+    /// The UNIX time (in seconds) of the original login of the session, which a refresh
+    /// preserves so that the absolute session lifetime can be enforced.
+    auth_time: usize,
     sub: String,
     iss: String,
     aud: HashSet<String>,
@@ -227,6 +232,25 @@ pub fn get_token_for_user(
     issuer: String,
     encoding_key: &EncodingKey,
 ) -> Option<(String, u64)> {
+    get_token_for_user_with_auth_time(
+        subject,
+        audience,
+        issuer,
+        encoding_key,
+        unix_time_now_or_fail(),
+    )
+}
+
+/// Issues a token for `subject` which keeps the supplied `auth_time` (the UNIX time in seconds of
+/// the original login of the session), so that a refresh cannot extend the absolute session
+/// lifetime. Returns the expiry of the new token (UNIX seconds).
+pub fn get_token_for_user_with_auth_time(
+    subject: &str,
+    audience: HashSet<String>,
+    issuer: String,
+    encoding_key: &EncodingKey,
+    auth_time: usize,
+) -> Option<(String, u64)> {
     use jsonwebtoken::{encode, Algorithm, Header};
     use log::error;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -248,6 +272,7 @@ pub fn get_token_for_user(
         exp: token_expires_at,
         iat: token_issued_at,
         nbf: token_issued_at + 1,
+        auth_time,
         sub: subject.to_owned(),
         iss: issuer,
         aud: audience,
@@ -262,6 +287,19 @@ pub fn get_token_for_user(
 
     // if we fail, return None
     None
+}
+
+/// The current UNIX time in seconds, or `None` if the system clock is before the epoch.
+pub fn unix_time_now_or_fail() -> usize {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as usize)
+        .unwrap_or(0)
+}
+
+/// The absolute lifetime of a session in seconds, starting from the original login.
+pub fn session_lifetime_in_seconds() -> usize {
+    *SESSION_LIFETIME_IN_SECONDS
 }
 
 #[cfg(test)]

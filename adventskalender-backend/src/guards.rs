@@ -20,6 +20,9 @@ pub struct AuthenticatedUser {
     pub username: String,
     /// The UNIX timestamp (in seconds) at which the validated token expires.
     pub expires_at: u64,
+    /// The UNIX timestamp (in seconds) of the original login of the session, preserved across
+    /// refreshs so that the absolute session lifetime can be enforced.
+    pub auth_time: u64,
 }
 
 #[derive(Debug)]
@@ -118,6 +121,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
         Outcome::Success(AuthenticatedUser {
             username: decoded_token.claims.sub,
             expires_at: decoded_token.claims.exp as u64,
+            auth_time: decoded_token.claims.auth_time as u64,
         })
     }
 }

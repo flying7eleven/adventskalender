@@ -1192,15 +1192,72 @@ pub async fn get_login_token(
 
 #[post("/auth/refresh")]
 pub async fn refresh_session(
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
     config: &State<BackendConfiguration>,
     cookies: &CookieJar<'_>,
 ) -> Result<Json<UserInfo>, Status> {
-    match issue_session_cookie(&authenticated_user.username, config, cookies) {
-        Some(expires_at) => Ok(Json(UserInfo {
-            username: authenticated_user.username,
-            expires_at,
-        })),
+    use crate::lookup_user_by_name;
+    use crate::{
+        get_token_for_user_with_auth_time, session_lifetime_in_seconds, unix_time_now_or_fail,
+    };
+    use log::error;
+
+    // a session has an absolute lifetime which starts at the original login; if it is exceeded,
+    // the session is terminated and the user has to log in again
+    let now = unix_time_now_or_fail() as u64;
+    if now.saturating_sub(authenticated_user.auth_time) >= session_lifetime_in_seconds() as u64 {
+        cookies.remove(Cookie::from("auth_token"));
+        return Err(Status::Forbidden);
+    }
+
+    // a refresh is only possible as long as the user still exists
+    let username = authenticated_user.username.clone();
+    let user_exists = match db_connection_pool
+        .run_blocking(move |db_connection| lookup_user_by_name(db_connection, &username).is_ok())
+        .await
+    {
+        Ok(user_exists) => user_exists,
+        Err(error) => {
+            error!(
+                "Could not check the existence of the user for a refresh. The error was: {error}"
+            );
+            return Err(Status::InternalServerError);
+        }
+    };
+    if !user_exists {
+        cookies.remove(Cookie::from("auth_token"));
+        return Err(Status::Forbidden);
+    }
+
+    // the refresh issues a new token which preserves the auth_time of the original login, so the
+    // absolute session lifetime cannot be extended by refreshing
+    match get_token_for_user_with_auth_time(
+        &authenticated_user.username,
+        config.token_audience.clone(),
+        config.api_host.clone(),
+        &config.encoding_key,
+        authenticated_user.auth_time as usize,
+    ) {
+        Some((token, expires_at)) => {
+            // create httpOnly cookie with the token
+            let mut cookie = Cookie::new("auth_token", token);
+            cookie.set_http_only(true);
+            cookie.set_same_site(SameSite::Strict);
+            cookie.set_path("/");
+            if config.api_host.starts_with("https://") {
+                cookie.set_secure(true);
+            }
+            let expiration = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
+            cookie.set_expires(expiration);
+            cookies.add(cookie);
+
+            let expires_in = expires_at.saturating_sub(now);
+            Ok(Json(UserInfo {
+                username: authenticated_user.username,
+                expires_in,
+            }))
+        }
         None => Err(Status::InternalServerError),
     }
 }
@@ -1214,15 +1271,18 @@ pub fn logout(cookies: &CookieJar<'_>) -> NoContent {
 #[derive(Serialize)]
 pub struct UserInfo {
     pub username: String,
-    /// The UNIX timestamp (in seconds) at which the token expires.
-    pub expires_at: u64,
+    /// The number of whole seconds until the current token expires, as computed by the server.
+    pub expires_in: u64,
 }
 
 #[get("/auth/me")]
 pub fn get_current_user(user: AuthenticatedUser) -> Json<UserInfo> {
+    let expires_in = user
+        .expires_at
+        .saturating_sub(crate::unix_time_now_or_fail() as u64);
     Json(UserInfo {
         username: user.username,
-        expires_at: user.expires_at,
+        expires_in,
     })
 }
 
