@@ -1,6 +1,19 @@
 use rocket::request::{FromRequest, Outcome};
 use rocket::Request;
 
+/// The client IP of the request, honouring the reverse proxy's `X-Real-IP` header via Rocket's
+/// `client_ip()`.
+pub struct ClientIp(pub Option<std::net::IpAddr>);
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for ClientIp {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        Outcome::Success(ClientIp(request.client_ip()))
+    }
+}
+
 /// The representation of an authenticated user. As soon as this is included in the parameters
 /// of a route, the call can be just made with an valid token in the header.
 pub struct AuthenticatedUser {

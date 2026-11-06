@@ -25,7 +25,13 @@ impl Default for RateLimitConfig {
     }
 }
 
-pub fn is_rate_limited(key: &str, config: &RateLimitConfig) -> bool {
+#[derive(Debug, PartialEq, Eq)]
+pub enum RateLimitDecision {
+    Allowed,
+    RateLimited { retry_after_seconds: u64 },
+}
+
+pub fn check_rate_limit(key: &str, config: &RateLimitConfig) -> RateLimitDecision {
     let now = Utc::now();
 
     let mut entry = RATE_LIMITER
@@ -40,15 +46,18 @@ pub fn is_rate_limited(key: &str, config: &RateLimitConfig) -> bool {
         // Reset window
         entry.attempts = 1;
         entry.window_start = now;
-        return false;
+        return RateLimitDecision::Allowed;
     }
 
     if entry.attempts >= config.max_attempts {
-        return true;
+        let retry_after = window_duration - (now - entry.window_start);
+        return RateLimitDecision::RateLimited {
+            retry_after_seconds: retry_after.num_seconds().max(1) as u64,
+        };
     }
 
     entry.attempts += 1;
-    false
+    RateLimitDecision::Allowed
 }
 
 pub fn reset_rate_limit(key: &str) {

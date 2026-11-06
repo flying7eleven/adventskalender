@@ -6,7 +6,7 @@ use common::{TestDatabase, PICKING_USER_PASSWORD};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use ring::rand::SystemRandom;
 use ring::signature::{Ed25519KeyPair, KeyPair};
-use rocket::http::{ContentType, Status};
+use rocket::http::{ContentType, Header, Status};
 use rocket::local::blocking::Client;
 use rocket::serde::json::{json, Value};
 use std::collections::HashSet;
@@ -122,6 +122,69 @@ fn login_with_an_unknown_user_is_unauthorized() {
         login(&client, "unknown", PICKING_USER_PASSWORD),
         Status::Unauthorized
     );
+}
+
+#[test]
+fn rate_limited_logins_carry_a_retry_after_header() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let mut last_response = None;
+    for _ in 0..6 {
+        let response = client
+            .post("/v1/auth/token")
+            .header(ContentType::JSON)
+            .header(Header::new("X-Real-IP", "192.0.2.10"))
+            .body(json!({ "username": &database.picking_user, "password": "wrong" }).to_string())
+            .dispatch();
+        last_response = Some(response);
+    }
+
+    let response = last_response.unwrap();
+    assert_eq!(response.status(), Status::TooManyRequests);
+    let retry_after = response
+        .headers()
+        .get_one("Retry-After")
+        .expect("the response must carry a Retry-After header");
+    assert!(
+        retry_after.parse::<u64>().is_ok(),
+        "Retry-After must be an integer number of seconds, got {retry_after}"
+    );
+}
+
+#[test]
+fn rate_limits_are_keyed_by_the_real_client_ip() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    for attempt in 0..5 {
+        let response = client
+            .post("/v1/auth/token")
+            .header(ContentType::JSON)
+            .header(Header::new("X-Real-IP", "192.0.2.11"))
+            .body(
+                json!({ "username": format!("rate-limit-ip-user-{attempt}"), "password": "wrong" })
+                    .to_string(),
+            )
+            .dispatch();
+        assert_eq!(response.status(), Status::Unauthorized);
+    }
+
+    let response = client
+        .post("/v1/auth/token")
+        .header(ContentType::JSON)
+        .header(Header::new("X-Real-IP", "192.0.2.12"))
+        .body(json!({ "username": "rate-limit-ip-user-other", "password": "wrong" }).to_string())
+        .dispatch();
+    assert_eq!(response.status(), Status::Unauthorized);
+
+    let response = client
+        .post("/v1/auth/token")
+        .header(ContentType::JSON)
+        .header(Header::new("X-Real-IP", "192.0.2.11"))
+        .body(json!({ "username": "rate-limit-ip-user-final", "password": "wrong" }).to_string())
+        .dispatch();
+    assert_eq!(response.status(), Status::TooManyRequests);
 }
 
 #[test]

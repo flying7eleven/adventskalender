@@ -1,5 +1,5 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
-use crate::guards::AuthenticatedUser;
+use crate::guards::{AuthenticatedUser, ClientIp};
 use crate::rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use crate::{Action, BACKOFF_HANDLER};
 use chrono::{DateTime, NaiveDate};
@@ -922,38 +922,82 @@ pub async fn get_login_token_options<'r, 'o: 'r>() -> impl Responder<'r, 'o> {
     cors.respond_owned(|guard| guard.responder(()))
 }
 
+pub enum LoginError {
+    Unauthorized,
+    TooManyRequests { retry_after_seconds: u64 },
+    InternalServerError,
+}
+
+impl<'r> Responder<'r, 'static> for LoginError {
+    fn respond_to(
+        self,
+        _request: &'r rocket::Request<'_>,
+    ) -> Result<rocket::response::Response<'static>, Status> {
+        use rocket::response::Response;
+
+        let mut response = Response::new();
+        match self {
+            LoginError::Unauthorized => response.set_status(Status::Unauthorized),
+            LoginError::TooManyRequests {
+                retry_after_seconds,
+            } => {
+                response.set_status(Status::TooManyRequests);
+                response.set_raw_header("Retry-After", retry_after_seconds.to_string());
+            }
+            LoginError::InternalServerError => response.set_status(Status::InternalServerError),
+        }
+        Ok(response)
+    }
+}
+
 #[post("/auth/token", data = "<login_information>")]
 pub async fn get_login_token(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     login_information: Json<LoginInformation>,
     config: &State<BackendConfiguration>,
-    remote_addr: Option<std::net::SocketAddr>,
+    client_ip: ClientIp,
     cookies: &CookieJar<'_>,
-) -> Result<NoContent, Status> {
+) -> Result<NoContent, LoginError> {
     use crate::get_token_for_user;
     use crate::log_action_rocket;
     use crate::lookup_user_by_name;
-    use crate::rate_limiter::{is_rate_limited, reset_rate_limit, RateLimitConfig};
+    use crate::rate_limiter::{
+        check_rate_limit, reset_rate_limit, RateLimitConfig, RateLimitDecision,
+    };
     use bcrypt::verify;
     use log::{error, warn};
 
     let rate_limit_config = RateLimitConfig::default();
+    let client_ip = client_ip.0;
+    let ip_for_logging = client_ip
+        .map(|ip| ip.to_string())
+        .unwrap_or("unknown".to_string());
 
-    if let Some(addr) = remote_addr {
-        let ip_key = format!("ip:{}", addr.ip());
-        if is_rate_limited(&ip_key, &rate_limit_config) {
-            warn!("Rate limit exceeded for IP: {}", addr.ip());
-            return Err(Status::TooManyRequests);
+    if let Some(ip) = client_ip {
+        let ip_key = format!("ip:{ip}");
+        if let RateLimitDecision::RateLimited {
+            retry_after_seconds,
+        } = check_rate_limit(&ip_key, &rate_limit_config)
+        {
+            warn!("Rate limit exceeded for IP: {ip}");
+            return Err(LoginError::TooManyRequests {
+                retry_after_seconds,
+            });
         }
     }
 
     let username_key = format!("user:{}", login_information.username);
-    if is_rate_limited(&username_key, &rate_limit_config) {
+    if let RateLimitDecision::RateLimited {
+        retry_after_seconds,
+    } = check_rate_limit(&username_key, &rate_limit_config)
+    {
         warn!(
             "Rate limit exceeded for username: {}",
             login_information.username
         );
-        return Err(Status::TooManyRequests);
+        return Err(LoginError::TooManyRequests {
+            retry_after_seconds,
+        });
     }
 
     // get a connection to the database for dealing with the request
@@ -963,7 +1007,7 @@ pub async fn get_login_token(
             error!(
                 "Could not get a connection from the database connection pool. The error was: {error}"
             );
-            return Err(Status::InternalServerError);
+            return Err(LoginError::InternalServerError);
         }
     };
 
@@ -988,23 +1032,20 @@ pub async fn get_login_token(
                 "anonymous".to_string(),
                 Action::FailedLogin,
                 Some(format!(
-                    "Failed login attempt - invalid credentials from IP: {}",
-                    remote_addr
-                        .map(|addr| addr.ip().to_string())
-                        .unwrap_or("unknown".to_string())
+                    "Failed login attempt - invalid credentials from IP: {ip_for_logging}"
                 )),
             )
             .await;
 
             // finally we can tell teh user that he/she is not authorized
-            return Err(Status::Unauthorized);
+            return Err(LoginError::Unauthorized);
         }
         Err(error) => {
             error!(
                 "Could not look up the user record for '{}'. The error was: {error}",
                 login_information.username
             );
-            return Err(Status::InternalServerError);
+            return Err(LoginError::InternalServerError);
         }
     };
 
@@ -1018,19 +1059,16 @@ pub async fn get_login_token(
                     user.username.clone(),
                     Action::FailedLogin,
                     Some(format!(
-                        "Failed login attempt - invalid credentials from IP: {}",
-                        remote_addr
-                            .map(|addr| addr.ip().to_string())
-                            .unwrap_or("unknown".to_string())
+                        "Failed login attempt - invalid credentials from IP: {ip_for_logging}"
                     )),
                 )
                 .await;
-                return Err(Status::Unauthorized);
+                return Err(LoginError::Unauthorized);
             }
         }
         Err(error) => {
             error!("Could not verify the supplied password with the one stored in the database. The error was: {error}");
-            return Err(Status::InternalServerError);
+            return Err(LoginError::InternalServerError);
         }
     }
 
@@ -1042,8 +1080,8 @@ pub async fn get_login_token(
         config.api_host.clone(),
         &config.encoding_key.clone().unwrap(),
     ) {
-        if let Some(addr) = remote_addr {
-            reset_rate_limit(&format!("ip:{}", addr.ip()));
+        if let Some(ip) = client_ip {
+            reset_rate_limit(&format!("ip:{ip}"));
         }
         reset_rate_limit(&format!("user:{}", login_information.username));
 
@@ -1080,7 +1118,7 @@ pub async fn get_login_token(
 
     // it seems that we failed to generate a valid token. This should never happen, something
     // seems REALLY wrong
-    Err(Status::InternalServerError)
+    Err(LoginError::InternalServerError)
 }
 
 #[post("/auth/logout")]
