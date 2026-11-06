@@ -1,9 +1,5 @@
 use adventskalender_backend::rocket_cors::AllowedOrigins;
-use adventskalender_backend::routes::{
-    get_backend_version_options, get_login_token_options,
-    get_number_of_participants_who_already_won_options, get_openid_configuration,
-    participants_won_options,
-};
+use adventskalender_backend::routes::{api_routes, get_jwks, get_openid_configuration};
 use adventskalender_backend::{log_action, Action};
 use chrono::DateTime;
 use diesel::PgConnection;
@@ -153,13 +149,6 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
 async fn main() {
     use adventskalender_backend::fairings::{
         AdventskalenderDatabaseConnection, BackendConfiguration, SecurityHeaders,
-    };
-    use adventskalender_backend::routes::{
-        check_backend_health, count_won_participants_on_day, get_all_won_participants,
-        get_audit_event_count, get_backend_version, get_current_user, get_jwks, get_login_token,
-        get_number_of_participants_who_already_won, get_won_participants_on_day_route, logout,
-        pick_multiple_random_participant_from_raffle_list, remove_participant_from_winner_list,
-        update_participant_values, update_user_password,
     };
     use log::{debug, error, info};
     use rocket::figment::{
@@ -438,29 +427,7 @@ async fn main() {
         .manage(backend_config)
         .manage(AdventskalenderDatabaseConnection::from(db_connection_pool))
         .mount("/.well-known", routes![get_openid_configuration, get_jwks])
-        .mount(
-            "/v1",
-            routes![
-                get_login_token,
-                get_login_token_options,
-                logout,
-                get_current_user,
-                get_number_of_participants_who_already_won,
-                get_number_of_participants_who_already_won_options,
-                pick_multiple_random_participant_from_raffle_list,
-                participants_won_options,
-                get_all_won_participants,
-                count_won_participants_on_day,
-                update_participant_values,
-                remove_participant_from_winner_list,
-                check_backend_health,
-                get_backend_version,
-                get_backend_version_options,
-                update_user_password,
-                get_audit_event_count,
-                get_won_participants_on_day_route,
-            ],
-        )
+        .mount("/v1", api_routes())
         .launch()
         .await;
 
