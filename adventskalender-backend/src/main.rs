@@ -269,7 +269,7 @@ async fn main() {
     };
     let decoding_key = DecodingKey::from_ed_der(&public_key_bytes);
 
-    let backend_config = match BackendConfiguration::new(
+    let backend_config = BackendConfiguration::new(
         api_host,
         jwks_uri,
         encoding_key,
@@ -277,13 +277,7 @@ async fn main() {
         ed25519_key_bytes.clone(),
         healthcheck_io_project.to_string(),
         token_audience_hash_set,
-    ) {
-        Ok(configuration) => configuration,
-        Err(error) => {
-            error!("Could not build the backend configuration. The error was: {error}");
-            return;
-        }
-    };
+    );
 
     // create a db connection pool manager and the corresponding pool with retry logic
     info!("Connecting to database with retry logic...");

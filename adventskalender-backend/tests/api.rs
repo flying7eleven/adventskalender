@@ -32,8 +32,7 @@ fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
         key_bytes.to_vec(),
         "".to_string(),
         HashSet::from(["http://localhost:5173".to_string()]),
-    )
-    .unwrap();
+    );
     let rocket = mount_routes(
         rocket::build()
             .manage(configuration)

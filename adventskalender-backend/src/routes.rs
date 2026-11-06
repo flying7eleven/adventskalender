@@ -1208,7 +1208,7 @@ pub async fn get_login_token(
         }
         reset_rate_limit(&format!("user:{}", login_information.username));
 
-        let now = crate::unix_time_now_or_fail() as u64;
+        let now = crate::unix_time_now() as u64;
         let expires_in = expires_at.saturating_sub(now);
         return Ok(Json(UserInfo {
             username: login_information.username.clone(),
@@ -1229,14 +1229,12 @@ pub async fn refresh_session(
     cookies: &CookieJar<'_>,
 ) -> Result<Json<UserInfo>, Status> {
     use crate::lookup_user_by_name;
-    use crate::{
-        get_token_for_user_with_auth_time, session_lifetime_in_seconds, unix_time_now_or_fail,
-    };
+    use crate::{get_token_for_user_with_auth_time, session_lifetime_in_seconds, unix_time_now};
     use log::error;
 
     // a session has an absolute lifetime which starts at the original login; if it is exceeded,
     // the session is terminated and the user has to log in again
-    let now = unix_time_now_or_fail() as u64;
+    let now = unix_time_now() as u64;
     if now.saturating_sub(authenticated_user.auth_time) >= session_lifetime_in_seconds() as u64 {
         cookies.remove(Cookie::from("auth_token"));
         return Err(Status::Forbidden);
@@ -1311,7 +1309,7 @@ pub struct UserInfo {
 pub fn get_current_user(user: AuthenticatedUser) -> Json<UserInfo> {
     let expires_in = user
         .expires_at
-        .saturating_sub(crate::unix_time_now_or_fail() as u64);
+        .saturating_sub(crate::unix_time_now() as u64);
     Json(UserInfo {
         username: user.username,
         expires_in,

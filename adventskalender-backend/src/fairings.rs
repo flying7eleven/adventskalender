@@ -39,7 +39,7 @@ impl BackendConfiguration {
         ed25519_key_bytes: Vec<u8>,
         healthcheck_project: String,
         token_audience: HashSet<String>,
-    ) -> Result<Self, String> {
+    ) -> Self {
         let mut token_validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::EdDSA);
         // allow a time difference of max. 5 seconds
         token_validation.leeway = 5;
@@ -51,7 +51,7 @@ impl BackendConfiguration {
         issuer_set.insert(api_host.clone());
         token_validation.iss = Some(issuer_set);
 
-        Ok(BackendConfiguration {
+        BackendConfiguration {
             api_host,
             jwks_uri,
             encoding_key,
@@ -60,7 +60,7 @@ impl BackendConfiguration {
             healthcheck_project,
             token_audience,
             token_validation,
-        })
+        }
     }
 }
 

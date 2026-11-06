@@ -237,13 +237,7 @@ pub fn get_token_for_user(
     issuer: String,
     encoding_key: &EncodingKey,
 ) -> Option<(String, u64)> {
-    get_token_for_user_with_auth_time(
-        subject,
-        audience,
-        issuer,
-        encoding_key,
-        unix_time_now_or_fail(),
-    )
+    get_token_for_user_with_auth_time(subject, audience, issuer, encoding_key, unix_time_now())
 }
 
 /// Issues a token for `subject` which keeps the supplied `auth_time` (the UNIX time in seconds of
@@ -296,8 +290,8 @@ pub fn get_token_for_user_with_auth_time(
     None
 }
 
-/// The current UNIX time in seconds, or `None` if the system clock is before the epoch.
-pub fn unix_time_now_or_fail() -> usize {
+/// The current UNIX time in seconds, or 0 if the system clock is before the epoch.
+pub fn unix_time_now() -> usize {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_secs() as usize)
