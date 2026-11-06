@@ -528,7 +528,7 @@ fn change_password_reason(
     current: &str,
     first_time: &str,
     second_time: &str,
-) -> (Status, Option<Value>) {
+) -> (Status, Option<ContentType>, Option<Value>) {
     let response = client
         .put("/v1/auth/password")
         .header(ContentType::JSON)
@@ -542,8 +542,9 @@ fn change_password_reason(
         )
         .dispatch();
     let status = response.status();
+    let content_type = response.content_type();
     let body = response.into_json::<Value>();
-    (status, body)
+    (status, content_type, body)
 }
 
 const NEW_PASSWORD: &str = "Tr0ub4dor&3-horse-Battery";
@@ -574,13 +575,14 @@ fn changing_the_password_with_a_wrong_current_password_is_rejected_with_a_reason
     let database = TestDatabase::start(0);
     let client = logged_in_client(&database);
 
-    let (status, body) = change_password_reason(
+    let (status, content_type, body) = change_password_reason(
         &client,
         "definitely-not-the-password",
         NEW_PASSWORD,
         NEW_PASSWORD,
     );
     assert_eq!(status, Status::UnprocessableEntity);
+    assert_eq!(content_type, Some(ContentType::JSON));
     assert_eq!(body.unwrap()["reason"], json!("wrong_current_password"));
     assert_eq!(
         login(&client, &database.picking_user, PICKING_USER_PASSWORD).0,
@@ -593,7 +595,7 @@ fn changing_the_password_with_differing_repetitions_is_rejected_with_a_reason() 
     let database = TestDatabase::start(0);
     let client = logged_in_client(&database);
 
-    let (status, body) = change_password_reason(
+    let (status, _, body) = change_password_reason(
         &client,
         PICKING_USER_PASSWORD,
         NEW_PASSWORD,
@@ -612,7 +614,8 @@ fn changing_the_password_to_a_too_short_one_is_rejected_with_a_reason() {
     let database = TestDatabase::start(0);
     let client = logged_in_client(&database);
 
-    let (status, body) = change_password_reason(&client, PICKING_USER_PASSWORD, "Sh0r!t", "Sh0r!t");
+    let (status, _, body) =
+        change_password_reason(&client, PICKING_USER_PASSWORD, "Sh0r!t", "Sh0r!t");
     assert_eq!(status, Status::UnprocessableEntity);
     assert_eq!(body.unwrap()["reason"], json!("password_too_short"));
     assert_eq!(
@@ -627,7 +630,7 @@ fn changing_the_password_to_a_too_weak_one_is_rejected_with_a_reason() {
     let client = logged_in_client(&database);
 
     let weak_password = "aaaaaaaa";
-    let (status, body) =
+    let (status, _, body) =
         change_password_reason(&client, PICKING_USER_PASSWORD, weak_password, weak_password);
     assert_eq!(status, Status::UnprocessableEntity);
     assert_eq!(body.unwrap()["reason"], json!("password_too_weak"));
@@ -953,6 +956,19 @@ fn too_many_wrong_current_passwords_are_rate_limited() {
             > 0
     );
 
+    let (status, content_type, body) = change_password_reason(
+        &client,
+        "wrong-current-password",
+        NEW_PASSWORD,
+        NEW_PASSWORD,
+    );
+    assert_eq!(status, Status::TooManyRequests);
+    assert_eq!(content_type, Some(ContentType::JSON));
+    assert_eq!(
+        body.expect("a rate limited password change must explain itself")["reason"],
+        json!("too_many_requests")
+    );
+
     // the rate limit also blocks a request with the correct current password
     assert_eq!(
         change_password(&client, PICKING_USER_PASSWORD, NEW_PASSWORD, NEW_PASSWORD),
@@ -1024,7 +1040,7 @@ fn a_password_shorter_than_eight_characters_is_rejected_even_if_it_has_eight_byt
     let database = TestDatabase::start(0);
     let client = logged_in_client(&database);
 
-    let (status, body) = change_password_reason(&client, PICKING_USER_PASSWORD, "äöüä", "äöüä");
+    let (status, _, body) = change_password_reason(&client, PICKING_USER_PASSWORD, "äöüä", "äöüä");
     assert_eq!(status, Status::UnprocessableEntity);
     assert_eq!(body.unwrap()["reason"], json!("password_too_short"));
     assert_eq!(

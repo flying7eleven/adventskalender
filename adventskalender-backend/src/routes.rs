@@ -3,7 +3,7 @@ use crate::guards::{AuthenticatedUser, ClientIp};
 use crate::{Action, ServiceStatus, BACKOFF_HANDLER};
 use chrono::{DateTime, NaiveDate};
 use rand::prelude::IndexedRandom;
-use rocket::http::{Cookie, CookieJar, SameSite, Status};
+use rocket::http::{ContentType, Cookie, CookieJar, SameSite, Status};
 use rocket::response::status::NoContent;
 use rocket::response::Responder;
 use rocket::serde::json::{json, Json};
@@ -358,7 +358,9 @@ impl<'r> Responder<'r, 'static> for PasswordChangeError {
     ) -> Result<rocket::response::Response<'static>, Status> {
         use rocket::response::Response;
 
+        let body = json!({ "reason": self.reason() }).to_string();
         let mut response = Response::new();
+        response.set_header(ContentType::JSON);
         match self {
             PasswordChangeError::InternalServerError => {
                 response.set_status(Status::InternalServerError)
@@ -368,17 +370,11 @@ impl<'r> Responder<'r, 'static> for PasswordChangeError {
             } => {
                 response.set_status(Status::TooManyRequests);
                 response.set_raw_header("Retry-After", retry_after_seconds.to_string());
-                response.set_sized_body(
-                    json!({ "reason": self.reason() }).to_string().len(),
-                    std::io::Cursor::new(json!({ "reason": self.reason() }).to_string()),
-                );
+                response.set_sized_body(body.len(), std::io::Cursor::new(body));
             }
             _ => {
                 response.set_status(Status::UnprocessableEntity);
-                response.set_sized_body(
-                    json!({ "reason": self.reason() }).to_string().len(),
-                    std::io::Cursor::new(json!({ "reason": self.reason() }).to_string()),
-                );
+                response.set_sized_body(body.len(), std::io::Cursor::new(body));
             }
         }
         Ok(response)
