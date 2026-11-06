@@ -402,6 +402,10 @@ async fn main() {
         )),
     );
 
+    // the connection was only held for the migrations and the startup audit log entry, so
+    // return it to the pool instead of blocking one of its connections for the whole uptime
+    drop(db_connection);
+
     // spawn background task for rate limiter cleanup
     rocket::tokio::spawn(async {
         use adventskalender_backend::rate_limiter::{cleanup_old_entries, RateLimitConfig};
@@ -422,13 +426,23 @@ async fn main() {
             .attach(cors_header)
             .attach(SecurityHeaders)
             .manage(backend_config)
-            .manage(AdventskalenderDatabaseConnection::from(db_connection_pool)),
+            .manage(AdventskalenderDatabaseConnection::from(
+                db_connection_pool.clone(),
+            )),
     )
     .launch()
     .await;
 
-    // log the shutdown of the backend service
-    log_action(&mut db_connection, None, Action::ServerTerminated, None);
+    // log the shutdown of the backend service, using a fresh connection from the pool since
+    // the one used during startup was already returned to the pool
+    match db_connection_pool.get() {
+        Ok(mut db_connection) => {
+            log_action(&mut db_connection, None, Action::ServerTerminated, None);
+        }
+        Err(error) => {
+            error!("Could not log the shutdown of the backend service. The error was: {error}")
+        }
+    }
 }
 
 #[cfg(all(test, unix))]
