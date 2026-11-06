@@ -40,11 +40,11 @@ pub fn mount_routes(rocket: Rocket<Build>) -> Rocket<Build> {
 #[derive(Serialize)]
 pub struct ParticipantCount {
     /// The overall count of all participants in the raffle database.
-    pub number_of_participants: u16,
+    pub number_of_participants: i64,
     /// The number of participants who already won and are not in the raffle anymore.
-    pub number_of_participants_won: u16,
+    pub number_of_participants_won: i64,
     /// The number of participants who are still in the raffle since they didn't win so far.
-    pub number_of_participants_still_in_raffle: u16,
+    pub number_of_participants_still_in_raffle: i64,
 }
 
 /// See https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata for more
@@ -156,11 +156,10 @@ pub async fn get_number_of_participants_who_already_won(
                         .first::<i64>(connection)
                     {
                         Ok(participants_won) => Ok(ParticipantCount {
-                            number_of_participants: all_participants as u16,
-                            number_of_participants_won: participants_won as u16,
-                            number_of_participants_still_in_raffle: (all_participants
-                                - participants_won)
-                                as u16,
+                            number_of_participants: all_participants,
+                            number_of_participants_won: participants_won,
+                            number_of_participants_still_in_raffle: all_participants
+                                - participants_won,
                         }),
                         Err(error) => Err(error),
                     }

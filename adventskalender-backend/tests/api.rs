@@ -206,6 +206,31 @@ fn winners_are_picked_with_post_only() {
 }
 
 #[test]
+fn the_participant_count_reflects_the_won_participants() {
+    let database = TestDatabase::start(5);
+    let client = logged_in_client(&database);
+
+    let response = client.get("/v1/participants/count").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let body: Value = response.into_json().unwrap();
+    assert_eq!(body["number_of_participants"], 5);
+    assert_eq!(body["number_of_participants_won"], 0);
+    assert_eq!(body["number_of_participants_still_in_raffle"], 5);
+
+    let response = client
+        .post("/v1/participants/pick/2/for/2026-12-24")
+        .dispatch();
+    assert_eq!(response.status(), Status::Ok);
+
+    let response = client.get("/v1/participants/count").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let body: Value = response.into_json().unwrap();
+    assert_eq!(body["number_of_participants"], 5);
+    assert_eq!(body["number_of_participants_won"], 2);
+    assert_eq!(body["number_of_participants_still_in_raffle"], 3);
+}
+
+#[test]
 fn picking_more_winners_than_participants_left_is_not_found() {
     let database = TestDatabase::start(1);
     let client = logged_in_client(&database);
