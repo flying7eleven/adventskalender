@@ -12,7 +12,11 @@ export const ParticipantSchema = z.object({
     id: z.number().int().positive(),
     first_name: z.string().min(1).max(100),
     last_name: z.string().min(1).max(100),
-    present_identifier: z.string().max(10).nullable().optional(),
+    present_identifier: z
+        .string()
+        .regex(/^[A-Z]$/)
+        .nullable()
+        .optional(),
 });
 
 // Schema for version information
@@ -40,7 +44,11 @@ export const WinnerInformation2Schema = z.object({
     id: z.number().int().positive(),
     first_name: z.string().min(1).max(100),
     last_name: z.string().min(1).max(100),
-    present_identifier: z.string().max(10).nullable().optional(),
+    present_identifier: z
+        .string()
+        .regex(/^[A-Z]$/)
+        .nullable()
+        .optional(),
 });
 
 // Schema for WinnersOnDateMap - a map of dates to arrays of winners
