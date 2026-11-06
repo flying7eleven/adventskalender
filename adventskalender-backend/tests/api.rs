@@ -967,6 +967,20 @@ fn only_the_packages_the_ui_offers_are_valid() {
 }
 
 #[test]
+fn a_password_shorter_than_eight_characters_is_rejected_even_if_it_has_eight_bytes() {
+    let database = TestDatabase::start(0);
+    let client = logged_in_client(&database);
+
+    let (status, body) = change_password_reason(&client, PICKING_USER_PASSWORD, "äöüä", "äöüä");
+    assert_eq!(status, Status::UnprocessableEntity);
+    assert_eq!(body.unwrap()["reason"], json!("password_too_short"));
+    assert_eq!(
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
+        Status::NoContent
+    );
+}
+
+#[test]
 fn refreshing_a_session_reissues_the_cookie_and_returns_the_new_remaining_lifetime() {
     let database = TestDatabase::start(0);
     let key_bytes = fresh_key_bytes();

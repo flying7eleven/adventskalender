@@ -491,7 +491,7 @@ pub async fn update_user_password(
             use passwords::scorer;
 
             // enforce minimum length of 8 characters
-            if first_time.len() < 8 {
+            if first_time.chars().count() < 8 {
                 debug!("Password rejected: too short (minimum 8 characters)");
                 return Err(PasswordChangeError::PasswordTooShort);
             }
