@@ -23,6 +23,7 @@ pub fn mount_routes(rocket: Rocket<Build>) -> Rocket<Build> {
                 get_login_token,
                 get_login_token_options,
                 logout,
+                refresh_session,
                 get_current_user,
                 get_number_of_participants_who_already_won,
                 get_number_of_participants_who_already_won_options,
@@ -906,11 +907,45 @@ pub struct LoginInformation {
     password: String,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TokenResponse {
-    /// The access token to use for API requests.
-    access_token: String,
+/// Issues a fresh token for `username` and sets it as the `auth_token` cookie, exactly like a
+/// successful login does. Returns the expiry of the new token (UNIX seconds).
+pub fn issue_session_cookie(
+    username: &str,
+    config: &BackendConfiguration,
+    cookies: &CookieJar<'_>,
+) -> Option<u64> {
+    use crate::get_token_for_user;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let (token, expires_at) = get_token_for_user(
+        username,
+        config.token_audience.clone(),
+        config.api_host.clone(),
+        &config.encoding_key.clone().unwrap(),
+    )?;
+
+    // create httpOnly cookie with the token
+    let mut cookie = Cookie::new("auth_token", token);
+    cookie.set_http_only(true);
+    cookie.set_same_site(SameSite::Strict);
+    cookie.set_path("/");
+
+    // only set secure-flag if we're using HTTPS (check API host)
+    if config.api_host.starts_with("https://") {
+        cookie.set_secure(true);
+    }
+
+    // set expiration to match JWT expiration (1 hour)
+    let expiration = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
+    cookie.set_expires(expiration);
+
+    cookies.add(cookie);
+
+    let issued_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_secs())?;
+    Some(expires_at.max(issued_at + 60 * 60))
 }
 
 #[options("/auth/token")]
@@ -958,7 +993,6 @@ pub async fn get_login_token(
     client_ip: ClientIp,
     cookies: &CookieJar<'_>,
 ) -> Result<NoContent, LoginError> {
-    use crate::get_token_for_user;
     use crate::log_action_rocket;
     use crate::lookup_user_by_name;
     use crate::rate_limiter::{
@@ -1071,12 +1105,7 @@ pub async fn get_login_token(
 
     // if we get here, we ensured that the user is known and that the supplied password
     // was valid, we can generate a new access token and return it to the calling party
-    if let Some(token) = get_token_for_user(
-        &login_information.username,
-        config.token_audience.clone(),
-        config.api_host.clone(),
-        &config.encoding_key.clone().unwrap(),
-    ) {
+    if issue_session_cookie(&login_information.username, config, cookies).is_some() {
         if let Some(ip) = client_ip {
             reset_rate_limit(&format!("ip:{ip}"));
         }
@@ -1093,29 +1122,27 @@ pub async fn get_login_token(
         )
         .await;
 
-        // create httpOnly cookie with the token
-        let mut cookie = Cookie::new("auth_token", token);
-        cookie.set_http_only(true);
-        cookie.set_same_site(SameSite::Strict);
-        cookie.set_path("/");
-
-        // only set secure-flag if we're using HTTPS (check API host)
-        if config.api_host.starts_with("https://") {
-            cookie.set_secure(true);
-        }
-
-        // set expiration to match JWT expiration (1 hour)
-        let expiration = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
-        cookie.set_expires(expiration);
-
-        cookies.add(cookie);
-
         return Ok(NoContent);
     }
 
     // it seems that we failed to generate a valid token. This should never happen, something
     // seems REALLY wrong
     Err(LoginError::InternalServerError)
+}
+
+#[post("/auth/refresh")]
+pub async fn refresh_session(
+    authenticated_user: AuthenticatedUser,
+    config: &State<BackendConfiguration>,
+    cookies: &CookieJar<'_>,
+) -> Result<Json<UserInfo>, Status> {
+    match issue_session_cookie(&authenticated_user.username, config, cookies) {
+        Some(expires_at) => Ok(Json(UserInfo {
+            username: authenticated_user.username,
+            expires_at,
+        })),
+        None => Err(Status::InternalServerError),
+    }
 }
 
 #[post("/auth/logout")]
@@ -1127,12 +1154,15 @@ pub fn logout(cookies: &CookieJar<'_>) -> NoContent {
 #[derive(Serialize)]
 pub struct UserInfo {
     pub username: String,
+    /// The UNIX timestamp (in seconds) at which the token expires.
+    pub expires_at: u64,
 }
 
 #[get("/auth/me")]
 pub fn get_current_user(user: AuthenticatedUser) -> Json<UserInfo> {
     Json(UserInfo {
         username: user.username,
+        expires_at: user.expires_at,
     })
 }
 

@@ -11,21 +11,24 @@ use rocket::local::blocking::Client;
 use rocket::serde::json::{json, Value};
 use std::collections::HashSet;
 
-fn client(database: &TestDatabase) -> Client {
-    let key_bytes = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new())
+fn fresh_key_bytes() -> Vec<u8> {
+    Ed25519KeyPair::generate_pkcs8(&SystemRandom::new())
         .unwrap()
         .as_ref()
-        .to_vec();
-    let public_key = Ed25519KeyPair::from_pkcs8(&key_bytes)
+        .to_vec()
+}
+
+fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
+    let public_key = Ed25519KeyPair::from_pkcs8(key_bytes)
         .unwrap()
         .public_key()
         .as_ref()
         .to_vec();
     let configuration = BackendConfiguration {
         api_host: "http://localhost:5479".to_string(),
-        encoding_key: Some(EncodingKey::from_ed_der(&key_bytes)),
+        encoding_key: Some(EncodingKey::from_ed_der(key_bytes)),
         decoding_key: Some(DecodingKey::from_ed_der(&public_key)),
-        ed25519_key_bytes: Some(key_bytes),
+        ed25519_key_bytes: Some(key_bytes.to_vec()),
         healthcheck_project: "".to_string(),
         token_audience: HashSet::from(["http://localhost:5173".to_string()]),
     };
@@ -35,6 +38,10 @@ fn client(database: &TestDatabase) -> Client {
             .manage(database.new_connection_pool()),
     );
     Client::tracked(rocket).unwrap()
+}
+
+fn client(database: &TestDatabase) -> Client {
+    client_with_key_bytes(database, &fresh_key_bytes())
 }
 
 fn login(client: &Client, username: &str, password: &str) -> Status {
@@ -47,7 +54,11 @@ fn login(client: &Client, username: &str, password: &str) -> Status {
 }
 
 fn logged_in_client(database: &TestDatabase) -> Client {
-    let client = client(database);
+    logged_in_client_with_key_bytes(database, &fresh_key_bytes())
+}
+
+fn logged_in_client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
+    let client = client_with_key_bytes(database, key_bytes);
     assert_eq!(
         login(&client, &database.picking_user, PICKING_USER_PASSWORD),
         Status::NoContent
@@ -351,4 +362,80 @@ fn logins_are_audited_with_the_user_only_if_they_succeed() {
         ),
         1
     );
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+#[test]
+fn me_reports_the_username_and_the_token_expiry() {
+    let database = TestDatabase::start(0);
+    let logged_in = logged_in_client(&database);
+    let before = unix_now();
+
+    let response = logged_in.get("/v1/auth/me").dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+    let body: Value = response.into_json().unwrap();
+    assert_eq!(body["username"], json!(database.picking_user.clone()));
+    let expires_at = body["expires_at"]
+        .as_u64()
+        .expect("expires_at must be a number");
+    assert!(
+        expires_at >= before,
+        "the token cannot expire before it was issued"
+    );
+    assert!(
+        expires_at <= before + 3601,
+        "the token expires one hour after it was issued"
+    );
+}
+
+#[test]
+fn refreshing_a_session_reissues_the_cookie_and_returns_the_new_expiry() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let old_expiry = logged_in
+        .get("/v1/auth/me")
+        .dispatch()
+        .into_json::<Value>()
+        .unwrap()["expires_at"]
+        .as_u64()
+        .unwrap();
+    let before = unix_now();
+
+    let response = logged_in.post("/v1/auth/refresh").dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+    let body: Value = response.into_json().unwrap();
+    assert_eq!(body["username"], json!(database.picking_user.clone()));
+    let new_expiry = body["expires_at"]
+        .as_u64()
+        .expect("expires_at must be a number");
+    assert!(
+        new_expiry >= old_expiry,
+        "the refreshed token cannot expire earlier than the old one"
+    );
+    assert!(new_expiry >= before);
+
+    let new_token = logged_in
+        .cookies()
+        .get("auth_token")
+        .expect("a fresh auth_token cookie must be set")
+        .value()
+        .to_string();
+    let cookieless_client = client_with_key_bytes(&database, &key_bytes);
+    let response = cookieless_client
+        .get("/v1/auth/me")
+        .cookie(("auth_token", new_token))
+        .dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let body: Value = response.into_json().unwrap();
+    assert_eq!(body["username"], json!(database.picking_user.clone()));
+    assert_eq!(body["expires_at"].as_u64().unwrap(), new_expiry);
 }

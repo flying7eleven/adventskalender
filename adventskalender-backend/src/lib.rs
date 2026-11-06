@@ -224,7 +224,7 @@ pub fn get_token_for_user(
     audience: HashSet<String>,
     issuer: String,
     encoding_key: &EncodingKey,
-) -> Option<String> {
+) -> Option<(String, u64)> {
     use jsonwebtoken::{encode, Algorithm, Header};
     use log::error;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -255,7 +255,7 @@ pub fn get_token_for_user(
     // the token
     let header = Header::new(Algorithm::EdDSA);
     if let Ok(token) = encode(&header, &token_claims, encoding_key) {
-        return Some(token);
+        return Some((token, token_expires_at as u64));
     }
 
     // if we fail, return None

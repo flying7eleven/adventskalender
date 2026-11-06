@@ -18,6 +18,8 @@ impl<'r> FromRequest<'r> for ClientIp {
 /// of a route, the call can be just made with an valid token in the header.
 pub struct AuthenticatedUser {
     pub username: String,
+    /// The UNIX timestamp (in seconds) at which the validated token expires.
+    pub expires_at: u64,
 }
 
 #[derive(Debug)]
@@ -129,6 +131,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
         // call the route
         Outcome::Success(AuthenticatedUser {
             username: decoded_token.claims.sub,
+            expires_at: decoded_token.claims.exp as u64,
         })
     }
 }
