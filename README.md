@@ -16,8 +16,12 @@ number of people are randomly selected for a day as winners.
 ## Running the tests
 The backend tests start their own PostgreSQL container, so Docker must be running before calling `cargo test` in `adventskalender-backend`.
 
-## Get an access token for the backend
-Just use `curl --verbose --header "Content-Type: application/json" --request POST --data '{"username":"demouser","password":"demopassword"}'  http://localhost:5479/auth/token` for getting a corresponding token
+## Authenticate against the backend
+The backend returns the token as the HTTP-only cookie `auth_token`. Store it in a cookie jar and pass that jar to all following requests:
+```shell
+curl --cookie-jar cookies.txt --header "Content-Type: application/json" --request POST --data '{"username":"demouser","password":"demopassword"}' http://localhost:5479/v1/auth/token
+curl --cookie cookies.txt http://localhost:5479/v1/participants/count
+```
 
 ## Create a password hash for database users
 The application uses bcrypt with a cost factor of 10 to hash passwords. To create a new user or update an existing user's password in the database, you need to generate a bcrypt hash.
@@ -54,10 +58,10 @@ psql -h localhost -U adventskalender -d adventskalender -c \
 The backend signs its tokens with an Ed25519 key stored at `ADVENTSKALENDER_KEY_FILE_PATH` (default `/data/adventskalender_ed25519.key`). If the file is missing or invalid, the backend generates a new key on startup and stores it there, which invalidates all previously issued tokens. Keep the file on a persistent volume.
 
 ## Things still to do
-- [ ] _Backend_: Ensure that there can not be two parallel requests for picking winners (we have to use mutexes here)
+- [x] _Backend_: Ensure that there can not be two parallel requests for picking winners
 - [ ] _Backend_: Use the new string formatting literals as soon as rust 1.58 is stable (should be mid-January 2022)
 - [x] _Frontend_: Have a better looking overview for the calendar view
 - [x] _Frontend_: Removing a winner re-sorts the remaining winners in the cards. Always order them alphabetically to prevent this
 - [x] _Frontend_: A warning if the user tries to pick winners for a day, where winners were already picked
-- [ ] _Front- and Backend_: Use the correct semantics for the REST routes
+- [x] _Front- and Backend_: Use the correct semantics for the REST routes
 - [x] _Front- and Backend_: Be able to change the own password on a settings page
