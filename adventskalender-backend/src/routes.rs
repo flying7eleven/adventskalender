@@ -759,7 +759,7 @@ pub async fn pick_winners(
         })
 }
 
-#[get("/participants/pick/<count>/for/<date>")]
+#[post("/participants/pick/<count>/for/<date>")]
 pub async fn pick_multiple_random_participant_from_raffle_list(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,

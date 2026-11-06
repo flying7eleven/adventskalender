@@ -174,7 +174,7 @@ export const DashboardView = () => {
 
         // try to pick a new winner from the backend
         fetch(`${API_BACKEND_URL}/participants/pick/${actualWinnersToPick}/for/${getSelectedDateAsString()}`, {
-            method: 'GET',
+            method: 'POST',
             headers: {
                 'Content-type': 'application/json; charset=UTF-8',
             },
