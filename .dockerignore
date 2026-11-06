@@ -21,6 +21,7 @@ adventskalender-frontend/.husky/
 .volumes/
 **/*.key
 **/*.pem
+real_data.sql
 
 # IDE and editor files
 .idea/
