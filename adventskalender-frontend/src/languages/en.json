@@ -62,7 +62,8 @@
                 "headline": "Change password",
                 "labels": {
                     "password_first": "New password",
-                    "password_repeated": "Repeat password"
+                    "password_repeated": "Repeat password",
+                    "password_current": "Current password"
                 },
                 "buttons": {
                     "change": "Change password"
@@ -74,6 +75,13 @@
                     "fair": "Fair",
                     "good": "Good",
                     "strong": "Strong"
+                },
+                "errors": {
+                    "wrong_current_password": "The current password is wrong.",
+                    "passwords_do_not_match": "The passwords do not match.",
+                    "password_too_short": "The password must be at least 8 characters long.",
+                    "password_too_weak": "The password must be at least 8 characters long and strong enough.",
+                    "unknown": "The password could not be changed."
                 }
             }
         },
@@ -146,8 +154,8 @@
             "new_winners": {
                 "title": "New winner",
                 "title2": "🎄🎄🎄 Door No. {0} 🎄🎄🎄",
-                "title2_special1": "\uD83C\uDF85\uD83C\uDFFB\uD83C\uDF85\uD83C\uDFFD\uD83C\uDF85\uD83C\uDFFE Door No. {0} \uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFE",
-                "title2_special2": "\uD83C\uDF84\uD83C\uDF81\uD83C\uDF85\uD83C\uDFFB\uD83C\uDF85\uD83C\uDFFD\uD83C\uDF85\uD83C\uDFFE Door No. {0} \uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFE\uD83C\uDF81\uD83C\uDF84",
+                "title2_special1": "🎅🏻🎅🏽🎅🏾 Door No. {0} 🤶🏻🤶🏻🤶🏾",
+                "title2_special2": "🎄🎁🎅🏻🎅🏽🎅🏾 Door No. {0} 🤶🏻🤶🏻🤶🏾🎁🎄",
                 "text": "The following participants won on the selected day. Please select the corresponding packages for the winner and click on 'continue':",
                 "winner_paragraph_template": "The winners for {0} are {1}.",
                 "winner_paragraph_prefix": "The winners for",

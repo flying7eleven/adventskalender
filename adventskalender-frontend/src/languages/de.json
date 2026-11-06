@@ -62,7 +62,8 @@
                 "headline": "Passwort ändern",
                 "labels": {
                     "password_first": "Neues Passwort",
-                    "password_repeated": "Passwort wiederholen"
+                    "password_repeated": "Passwort wiederholen",
+                    "password_current": "Aktuelles Passwort"
                 },
                 "buttons": {
                     "change": "Passwort ändern"
@@ -74,6 +75,13 @@
                     "fair": "Ausreichend",
                     "good": "Gut",
                     "strong": "Stark"
+                },
+                "errors": {
+                    "wrong_current_password": "Das aktuelle Passwort ist falsch.",
+                    "passwords_do_not_match": "Die Passwörter stimmen nicht überein.",
+                    "password_too_short": "Das Passwort muss mindestens 8 Zeichen lang sein.",
+                    "password_too_weak": "Das Passwort muss mindestens 8 Zeichen lang und ausreichend stark sein.",
+                    "unknown": "Das Passwort konnte nicht geändert werden."
                 }
             }
         },
@@ -146,8 +154,8 @@
             "new_winners": {
                 "title": "Neue Gewinner:innen",
                 "title2": "🎄🎄🎄 Türchen Nr. {0} 🎄🎄🎄",
-                "title2_special1": "\uD83C\uDF85\uD83C\uDFFB\uD83C\uDF85\uD83C\uDFFD\uD83C\uDF85\uD83C\uDFFE Türchen Nr. {0} (Nikolaus) \uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFE",
-                "title2_special2": "\uD83C\uDF84\uD83C\uDF81\uD83C\uDF85\uD83C\uDFFB\uD83C\uDF85\uD83C\uDFFD\uD83C\uDF85\uD83C\uDFFE Türchen Nr. {0} (Heiligabend) \uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFB\uD83E\uDD36\uD83C\uDFFE\uD83C\uDF81\uD83C\uDF84",
+                "title2_special1": "🎅🏻🎅🏽🎅🏾 Türchen Nr. {0} (Nikolaus) 🤶🏻🤶🏻🤶🏾",
+                "title2_special2": "🎄🎁🎅🏻🎅🏽🎅🏾 Türchen Nr. {0} (Heiligabend) 🤶🏻🤶🏻🤶🏾🎁🎄",
                 "text": "Die folgenden Personen haben an dem ausgewählten Datum gewonnen. Bitte wähle die entsprechenden Pakete für die Personen aus und klicke auf 'weiter':",
                 "winner_paragraph_template": "Die Gewinner:innen für {0} sind {1} 🎄.",
                 "winner_paragraph_prefix": "Die Gewinner:innen für",

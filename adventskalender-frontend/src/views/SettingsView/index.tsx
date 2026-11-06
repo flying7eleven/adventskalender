@@ -3,17 +3,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
-import { ChangeEvent, useContext, useState } from 'react';
+import { ChangeEvent, FormEvent, useContext, useState } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { API_BACKEND_URL } from '../../api';
 import { PasswordChangedDialog } from '../../dialogs/PasswordChangedDialog';
 import { PasswordNotChangedDialog } from '../../dialogs/PasswordNotChangedDialog';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 import { cn } from '@/lib/utils';
-import zxcvbn from 'zxcvbn';
+import { toast } from 'sonner';
+
+type PasswordChangeRejectReason = 'wrong_current_password' | 'passwords_do_not_match' | 'password_too_short' | 'password_too_weak';
+
+const isPasswordChangeRejectReason = (reason: unknown): reason is PasswordChangeRejectReason => {
+    return reason === 'wrong_current_password' || reason === 'passwords_do_not_match' || reason === 'password_too_short' || reason === 'password_too_weak';
+};
 
 export const SettingsView = () => {
     const localizationContext = useContext(LocalizationContext);
+    const [currentPassword, setCurrentPassword] = useState<string>('');
     const [firstPassword, setFirstPassword] = useState<string>('');
     const [secondPassword, setSecondPassword] = useState<string>('');
     const [isPasswordChangedDialogOpen, setIsPasswordChangedDialogOpen] = useState<boolean>(false);
@@ -22,20 +29,28 @@ export const SettingsView = () => {
     const [isPasswordNotEqualSecond, setIsPasswordNotEqualSecond] = useState<boolean>(false);
     const [passwordStrength, setPasswordStrength] = useState<number>(0);
 
+    const handleCurrentPasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
+        setCurrentPassword(event.target.value);
+    };
+
     const handleChangeOfFirstPassword = (event: ChangeEvent<HTMLInputElement>) => {
         const newPassword = event.target.value;
         setFirstPassword(newPassword);
 
-        // Calculate password strength using zxcvbn
-        const result = zxcvbn(newPassword);
-        setPasswordStrength(result.score);
+        import('zxcvbn')
+            .then(({ default: zxcvbn }) => {
+                // Calculate password strength using zxcvbn
+                const result = zxcvbn(newPassword);
+                setPasswordStrength(result.score);
 
-        // Enforce minimum strength of 2 (Fair) or minimum length of 8
-        if (newPassword.length > 0 && (newPassword.length < 8 || result.score < 2)) {
-            setIsPasswordNotEqualFirst(true);
-        } else {
-            setIsPasswordNotEqualFirst(false);
-        }
+                // Enforce minimum strength of 2 (Fair) or minimum length of 8
+                setIsPasswordNotEqualFirst(newPassword.length > 0 && (newPassword.length < 8 || result.score < 2));
+            })
+            .catch(() => {
+                // without a strength estimation we cannot give the user feedback, the backend still validates it
+                setIsPasswordNotEqualFirst(newPassword.length > 0 && newPassword.length < 8);
+                setPasswordStrength(0);
+            });
     };
 
     const handleChangeOfSecondPassword = (event: ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +62,10 @@ export const SettingsView = () => {
         }
     };
 
-    const changePassword = () => {
+    const changePassword = (event: FormEvent<HTMLFormElement>) => {
+        // ensure that we do not handle the actual submit event anymore
+        event.preventDefault();
+
         // ensure the passwords are long enough, strong enough, and exactly the same
         if (firstPassword.length < 8 || passwordStrength < 2 || firstPassword !== secondPassword) {
             return;
@@ -55,6 +73,7 @@ export const SettingsView = () => {
 
         // combine the password information into a single struct
         const requestData = {
+            current_password: currentPassword,
             first_time: firstPassword,
             second_time: secondPassword,
         };
@@ -69,13 +88,30 @@ export const SettingsView = () => {
             credentials: 'include',
         })
             .then((response) => {
-                if (response.status !== 204) {
-                    return Promise.reject();
+                if (response.status === 204) {
+                    setIsPasswordChangedDialogOpen(true);
+                    return;
                 }
-                return response;
-            })
-            .then(() => {
-                setIsPasswordChangedDialogOpen(true);
+
+                // the backend rejected the new password with a reason we can show to the user
+                if (response.status === 422) {
+                    return response
+                        .json()
+                        .catch(() => undefined)
+                        .then((body) => {
+                            const reason = isPasswordChangeRejectReason(body?.reason) ? body.reason : undefined;
+                            const localizedReason = reason
+                                ? localizationContext.translate(`settings.cards.password.errors.${reason}`)
+                                : localizationContext.translate('settings.cards.password.errors.unknown');
+                            toast.error(localizedReason, {
+                                duration: 6000,
+                            });
+                        });
+                }
+
+                // in all other cases, we expect that there was an unknown error. We indicate that to the user by
+                // showing a proper error dialog
+                setIsPasswordChangeFailedDialogOpen(true);
             })
             .catch(() => {
                 setIsPasswordChangeFailedDialogOpen(true);
@@ -86,7 +122,7 @@ export const SettingsView = () => {
         <>
             <PasswordChangedDialog isOpen={isPasswordChangedDialogOpen} setDialogOpenStateFunction={setIsPasswordChangedDialogOpen} />
             <PasswordNotChangedDialog isOpen={isPasswordChangeFailedDialogOpen} setDialogOpenStateFunction={setIsPasswordChangeFailedDialogOpen} />
-            <form>
+            <form onSubmit={changePassword}>
                 <div className="flex justify-center items-center p-4">
                     <Card className="w-full max-w-md">
                         <CardContent className="p-6">
@@ -94,6 +130,10 @@ export const SettingsView = () => {
                                 <p className="text-sm font-medium text-left">
                                     <LocalizedText translationKey={'settings.cards.password.headline'} />
                                 </p>
+                                <div className="space-y-2">
+                                    <Label htmlFor="current-password-input">{localizationContext.translate('settings.cards.password.labels.password_current')}</Label>
+                                    <Input id="current-password-input" type="password" autoComplete="current-password" onChange={handleCurrentPasswordChange} required className="w-full" />
+                                </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="first-password-input">{localizationContext.translate('settings.cards.password.labels.password_first')}</Label>
                                     <Input
@@ -107,7 +147,7 @@ export const SettingsView = () => {
                                     />
                                     {isPasswordNotEqualFirst && (
                                         <p id="first-password-error" className="text-sm text-destructive" role="alert">
-                                            Password must be at least 8 characters and have a strength of Fair or better
+                                            <LocalizedText translationKey={'settings.cards.password.errors.password_too_weak'} />
                                         </p>
                                     )}
                                 </div>
@@ -125,11 +165,11 @@ export const SettingsView = () => {
                                     />
                                     {isPasswordNotEqualSecond && (
                                         <p id="second-password-error" className="text-sm text-destructive" role="alert">
-                                            Passwords must match and be at least 8 characters
+                                            <LocalizedText translationKey={'settings.cards.password.errors.passwords_do_not_match'} />
                                         </p>
                                     )}
                                 </div>
-                                <Button variant="default" onClick={changePassword} disabled={firstPassword.length < 8 || passwordStrength < 2 || firstPassword !== secondPassword} className="w-full">
+                                <Button type="submit" variant="default" disabled={firstPassword.length < 8 || passwordStrength < 2 || firstPassword !== secondPassword} className="w-full">
                                     <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
                                 </Button>
                             </div>
