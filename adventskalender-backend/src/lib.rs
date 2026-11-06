@@ -32,6 +32,14 @@ lazy_static! {
 pub static BACKOFF_HANDLER: LazyLock<Mutex<BackoffHandler>> =
     LazyLock::new(|| Mutex::new(BackoffHandler::from(Duration::from_secs(600))));
 
+/// The bcrypt cost factor used when hashing passwords.
+pub const PASSWORD_HASH_COST: u32 = 10;
+
+/// A hash of a fixed dummy password. It is verified against user input when the username is
+/// unknown so that login timing does not reveal whether the username exists.
+pub static DUMMY_PASSWORD_HASH: LazyLock<String> =
+    LazyLock::new(|| bcrypt::hash("some_password", PASSWORD_HASH_COST).unwrap());
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     exp: usize,

@@ -462,7 +462,7 @@ pub async fn update_user_password(
 
     // create a hashed version of the password which we then can store in the database. if we fail, we
     // return an error
-    let maybe_hashed_password = hash(&new_password.first_time, 10);
+    let maybe_hashed_password = hash(&new_password.first_time, crate::PASSWORD_HASH_COST);
     if maybe_hashed_password.is_err() {
         error!(
             "Could not generate an hash of a supplied password. The error was: {}",
@@ -1021,10 +1021,7 @@ pub async fn get_login_token(
                 login_information.username
             );
             // just slow down the process to prevent easy checking if a username exists or not
-            let _ = verify(
-                "some_password",
-                "$2y$12$7xMzqvnHyizkumZYpIRXheGMAqDKVo8HKtpmQSn51JUfY0N2VN4ua",
-            );
+            let _ = verify("some_password", crate::DUMMY_PASSWORD_HASH.as_str());
 
             // log the failed attempt (use anonymous to avoid username enumeration)
             log_action_rocket(
