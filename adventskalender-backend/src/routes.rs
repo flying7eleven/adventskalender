@@ -637,6 +637,17 @@ pub async fn update_participant_values(
                         current_participant_id,
                     )),
                 );
+            } else if package.is_empty() {
+                log_action(
+                    db_connection,
+                    Some(username),
+                    Action::PackageChanged,
+                    Some(format!(
+                        "The package selection of the participant with the id {} was removed. The previous package was {}",
+                        current_participant_id,
+                        participant_won.present_identifier.clone().unwrap()
+                    )),
+                );
             } else {
                 log_action(
                     db_connection,

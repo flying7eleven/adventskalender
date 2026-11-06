@@ -317,6 +317,15 @@ fn assigning_a_package_stores_it_and_clearing_it_stores_null() {
         )),
         1
     );
+
+    assert_eq!(
+        database.count(
+            "SELECT COUNT(*) AS count FROM performed_actions \
+             WHERE action = 'package_changed' AND description LIKE '%was removed%'"
+        ),
+        1,
+        "clearing the package must be audited as a removal, not as a change to an empty package"
+    );
 }
 
 #[test]
