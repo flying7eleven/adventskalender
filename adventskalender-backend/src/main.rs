@@ -207,7 +207,7 @@ async fn main() {
     // get the API base host
     let api_host = env::var("ADVENTSKALENDER_API_HOST").unwrap_or("".to_string());
     if api_host.is_empty() {
-        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_API_HOST is set properly");
+        error!("Could not get the API host. Ensure ADVENTSKALENDER_API_HOST is set properly");
         return;
     }
 
@@ -223,14 +223,14 @@ async fn main() {
     let healthcheck_io_project =
         env::var("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT").unwrap_or("".to_string());
     if healthcheck_io_project.is_empty() {
-        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT is set properly");
+        error!("Could not get the healthchecks.io project UUID. Ensure ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT is set properly");
         return;
     }
 
     // get the audience for the token
     let token_audience_str = env::var("ADVENTSKALENDER_TOKEN_AUDIENCE").unwrap_or("".to_string());
     if token_audience_str.is_empty() {
-        error!("Could not get the token signature PSK. Ensure ADVENTSKALENDER_TOKEN_AUDIENCE is set properly");
+        error!("Could not get the token audience. Ensure ADVENTSKALENDER_TOKEN_AUDIENCE is set properly");
         return;
     }
     let token_audience_hash_set = token_audience_str
