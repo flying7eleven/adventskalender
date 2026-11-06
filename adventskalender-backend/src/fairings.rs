@@ -58,10 +58,10 @@ impl Error for BlockingDatabaseError {
     }
 }
 
-/// TODO
+/// A cheap handle to the database connection pool which provides the helpers to run database
+/// work on the blocking thread pool.
 pub struct AdventskalenderDatabaseConnection(Pool<ConnectionManager<PgConnection>>);
 
-/// TODO
 impl AdventskalenderDatabaseConnection {
     /// Runs the given closure with a pooled connection on the blocking thread pool so that
     /// neither the database work nor the bcrypt password hashing blocks one of Rocket's async
@@ -82,9 +82,7 @@ impl AdventskalenderDatabaseConnection {
     }
 }
 
-/// TODO
 impl From<Pool<ConnectionManager<PgConnection>>> for AdventskalenderDatabaseConnection {
-    /// TODO
     #[inline(always)]
     fn from(pool: Pool<ConnectionManager<PgConnection>>) -> Self {
         AdventskalenderDatabaseConnection(pool)

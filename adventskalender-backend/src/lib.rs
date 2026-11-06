@@ -86,42 +86,40 @@ pub enum ServiceStatus {
 
 #[derive(Clone)]
 pub struct BackoffHandler {
-    last_up_call: SystemTime,
-    last_down_call: SystemTime,
+    last_call: SystemTime,
+    last_status: Option<ServiceStatus>,
     backoff_time: Duration,
 }
 
 impl From<Duration> for BackoffHandler {
     fn from(backoff_duration: Duration) -> Self {
-        // set the last call times far enough in the past so that the first ping for each status
-        // is always sent immediately
-        let expired = SystemTime::now() - (backoff_duration * 2);
+        // set the last call time far enough in the past so that the first ping for a status is
+        // always sent immediately
         BackoffHandler {
-            last_up_call: expired,
-            last_down_call: expired,
+            last_call: SystemTime::now() - (backoff_duration * 2),
+            last_status: None,
             backoff_time: backoff_duration,
         }
     }
 }
 
 impl BackoffHandler {
-    /// Decides whether a ping for the given status should be sent now and records the decision,
-    /// so each status has its own backoff: after an "up" ping a "down" ping is still sent
-    /// immediately, while repeated pings for the same status within the backoff window are
-    /// suppressed.
+    /// Decides whether a ping for the given status should be sent now and records the decision:
+    /// a ping is always sent when the status changed, since only repeated pings of the same
+    /// status within the backoff window are suppressed. This way a flapping database (down, up,
+    /// down) always reports every status change.
     pub fn should_call(&mut self, status: ServiceStatus) -> bool {
-        let last_call = match status {
-            ServiceStatus::Up => &mut self.last_up_call,
-            ServiceStatus::Down => &mut self.last_down_call,
-        };
-        if *last_call + self.backoff_time < SystemTime::now() {
-            let datetime: DateTime<Utc> = (*last_call).into();
+        if self.last_status != Some(status)
+            || self.last_call + self.backoff_time < SystemTime::now()
+        {
+            let datetime: DateTime<Utc> = self.last_call.into();
             debug!(
                 "Calling method since the last call time was {} and the back off duration was {}s",
                 datetime.to_rfc3339(),
                 self.backoff_time.as_secs()
             );
-            *last_call = SystemTime::now();
+            self.last_status = Some(status);
+            self.last_call = SystemTime::now();
             true
         } else {
             false
@@ -275,7 +273,7 @@ mod tests {
     fn down_ping_is_sent_immediately_after_an_up_ping() {
         let mut handler = BackoffHandler::from(Duration::from_secs(600));
         assert!(handler.should_call(ServiceStatus::Up));
-        // the up ping must not suppress the down ping, since both have separate backoff states
+        // the up ping must not suppress the down ping, since a status change is always reported
         assert!(handler.should_call(ServiceStatus::Down));
     }
 
@@ -292,5 +290,24 @@ mod tests {
         let mut handler = BackoffHandler::from(Duration::from_secs(600));
         assert!(handler.should_call(ServiceStatus::Down));
         assert!(!handler.should_call(ServiceStatus::Down));
+    }
+
+    #[test]
+    fn a_status_change_is_always_reported_even_within_the_backoff_window() {
+        // simulate a flapping database: down, up, down within the backoff window
+        let mut handler = BackoffHandler::from(Duration::from_secs(600));
+        assert!(handler.should_call(ServiceStatus::Down));
+        assert!(handler.should_call(ServiceStatus::Up));
+        assert!(
+            handler.should_call(ServiceStatus::Down),
+            "the second down ping must be sent since the status changed"
+        );
+    }
+
+    #[test]
+    fn the_first_ping_of_a_status_is_sent_immediately() {
+        let mut handler = BackoffHandler::from(Duration::from_secs(600));
+        assert!(handler.should_call(ServiceStatus::Down));
+        assert!(handler.should_call(ServiceStatus::Up));
     }
 }
