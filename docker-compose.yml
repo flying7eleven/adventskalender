@@ -22,7 +22,7 @@ services:
     container_name: adventskalender_backend
     image: adventskalender-backend:local
     volumes:
-      - ./.volumes/backend_keys:/data:rw
+      - backend_keys:/data:rw
     environment:
       - ADVENTSKALENDER_LOGGING_LEVEL=trace
       - ADVENTSKALENDER_DB_CONNECTION=postgres://adventskalender:debugpassword@adventskalender_database/adventskalender
@@ -61,3 +61,5 @@ services:
 networks:
   adventskalender:
     driver: bridge
+volumes:
+  backend_keys:

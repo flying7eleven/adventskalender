@@ -40,6 +40,9 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -u 1001 -m -s /bin/bash adventskalender
 
+# Create the data directory for the token signing key so the volume adopts its ownership
+RUN mkdir /data && chown adventskalender:adventskalender /data
+
 # Copy the optimized binary from build stage
 COPY --from=build --chown=adventskalender:adventskalender \
     /usr/src/app/adventskalender-backend/target/release/adventskalender-backend \
