@@ -1266,6 +1266,7 @@ pub struct AuditEventCount {
 #[get("/audit/count")]
 pub async fn get_audit_event_count(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
+    _authenticated_user: AuthenticatedUser,
 ) -> Result<Json<AuditEventCount>, Status> {
     use crate::schema::performed_actions::dsl::performed_actions;
     use diesel::dsl::count_star;

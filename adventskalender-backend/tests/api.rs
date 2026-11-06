@@ -578,6 +578,21 @@ fn the_openid_configuration_advertises_only_the_supported_fields() {
 }
 
 #[test]
+fn the_audit_event_count_requires_an_authenticated_user() {
+    let database = TestDatabase::start(0);
+    let unauthenticated_client = client(&database);
+    let authenticated_client = logged_in_client(&database);
+
+    let response = unauthenticated_client.get("/v1/audit/count").dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+
+    let response = authenticated_client.get("/v1/audit/count").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let body: Value = response.into_json().unwrap();
+    assert!(body["count"].as_i64().unwrap() >= 1);
+}
+
+#[test]
 fn picking_without_logging_in_is_forbidden_and_marks_nobody() {
     let database = TestDatabase::start(1);
     let client = client(&database);
