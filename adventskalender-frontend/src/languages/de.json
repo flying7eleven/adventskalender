@@ -193,7 +193,8 @@
                 "title": "Fehler beim ziehen einer neuen Person",
                 "text": "Es konnte keine neue Person gezogen werden. Bitte die Webseite einfach noch einmal neu laden und es erneut ausprobieren",
                 "accept_button": "Okay"
-            }
+            },
+            "max_winners_per_day": "Die maximale Anzahl an Gewinnern für diesen Tag ist bereits erreicht."
         },
         "pick_winner_button": "Neue:n Gewinner:innen ziehen",
         "day_selection": "Tag des Gewinns",

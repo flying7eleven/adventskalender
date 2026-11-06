@@ -193,7 +193,8 @@
                 "title": "Error on picking a new winner",
                 "text": "We could not pick a new winner since an unknown error occurred. Please try reloading the page and try to pick a new winner.",
                 "accept_button": "Okay"
-            }
+            },
+            "max_winners_per_day": "The maximum number of winners for this day is already picked."
         },
         "pick_winner_button": "Pick new winners",
         "day_selection": "Day of the win",

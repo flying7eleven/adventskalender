@@ -2,12 +2,13 @@ import { OutlinedCard } from '../../components/OutlinedCard';
 import { WinningDaySelector } from '../../components/WinningDaySelector';
 import { PickNewWinner } from '../../components/PickNewWinner';
 import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, ParticipantCount, WinnerInformation } from '../../api';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router-dom';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { WinnerDialog } from '../../dialogs/WinnerDialog';
 import { UnknownErrorDialog } from '../../dialogs/UnknownErrorDialog';
+import { toast } from 'sonner';
 import { NoParticipantsErrorDialog } from '../../dialogs/NoParticipantsErrorDialog';
 import { CountSchema, ParticipantCountSchema, ParticipantArraySchema } from '../../schemas';
 
@@ -20,7 +21,7 @@ export const DashboardView = () => {
     const auth = useAuthentication();
     const navigate = useNavigate();
     const [selectedDay, setSelectedDay] = useState<number>(() => {
-        const today = new Date().getUTCDate();
+        const today = new Date().getDate();
         if (today < 1) {
             return 1;
         } else if (today > 24) {
@@ -35,6 +36,8 @@ export const DashboardView = () => {
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
     };
+
+    const winnerCounterRequestIdRef = useRef<number>(0);
 
     const handleDateSelectionChange = (newDay: number) => {
         setSelectedDay(newDay);
@@ -52,7 +55,9 @@ export const DashboardView = () => {
             return;
         }
 
-        // since we are authenticated, we can query the backend for the winner count for the selected day
+        // since we are authenticated, we can query the backend for the winner count for the selected day. Each
+        // request gets an ID so that a late response of an outdated request cannot overwrite the current value
+        const requestId = ++winnerCounterRequestIdRef.current;
         fetch(`${API_BACKEND_URL}/participants/won/${getSelectedDateAsString()}/count`, {
             method: 'GET',
             headers: {
@@ -74,11 +79,16 @@ export const DashboardView = () => {
                     return Promise.reject();
                 }
 
-                // there should never be other status codes which have to be handled, but just in case, we'll handle
-                // them here too
-                // TODO: this
+                // there should never be other status codes which have to be handled, but just in case, we'll stop
+                // processing the response here
+                return Promise.reject();
             })
             .then((data) => {
+                // a newer request was started in the meantime, so this response is stale and must not be applied
+                if (requestId !== winnerCounterRequestIdRef.current) {
+                    return;
+                }
+
                 // Validate the response data using Zod schema
                 const validated = CountSchema.parse(data);
                 setWinnersOnSelectedDay(validated);
@@ -120,9 +130,9 @@ export const DashboardView = () => {
                     return Promise.reject();
                 }
 
-                // there should never be other status codes which have to be handled, but just in case, we'll handle
-                // them here too
-                // TODO: this
+                // there should never be other status codes which have to be handled, but just in case, we'll stop
+                // processing the response here
+                return Promise.reject();
             })
             .then((data) => {
                 // Validate the response data using Zod schema
@@ -162,6 +172,7 @@ export const DashboardView = () => {
         // determine the number of winners which are missing for that day
         const winnersStillToPick = getNumberOfWinnersToPick(winnersOnThisDay);
         if (winnersStillToPick <= 0) {
+            setLoadingNewWinner(false);
             return;
         }
 
@@ -191,6 +202,17 @@ export const DashboardView = () => {
                 // the user should automatically be redirected to the login page
                 if (res.status === 401 || res.status === 403) {
                     logoutUser();
+                    return Promise.reject();
+                }
+
+                // if there are already the maximum number of winners on the day, the backend refuses to pick more
+                // winners. Show a message to the user and update the winner counter to reflect the actual value
+                if (res.status === 409) {
+                    toast.error(localizationContext.translate('dashboard.dialogs.max_winners_per_day'), {
+                        duration: 6000,
+                    });
+                    updateWinnerCounter();
+                    setLoadingNewWinner(false);
                     return Promise.reject();
                 }
 
