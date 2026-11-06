@@ -61,3 +61,9 @@ export const WinnerInformation2Schema = z.object({
 
 // Schema for WinnersOnDateMap - a map of dates to arrays of winners
 export const WinnersOnDateMapSchema = z.record(z.string(), z.array(WinnerInformation2Schema));
+
+// Schema for session information returned by /auth/me and /auth/refresh
+export const SessionExpiresAtSchema = z.object({
+    username: z.string().min(1),
+    expires_at: z.number().int().positive(),
+});
