@@ -149,6 +149,147 @@ fn picking_more_winners_than_the_day_allows_is_a_conflict() {
     );
 }
 
+fn select_package(client: &Client, participant_id: i32, package: &str) -> Status {
+    client
+        .put(format!("/v1/participants/{participant_id}"))
+        .header(ContentType::JSON)
+        .body(json!({ "package": package }).to_string())
+        .dispatch()
+        .status()
+}
+
+fn pick_winners(client: &Client, count: usize, date: &str) -> Vec<i32> {
+    client
+        .post(format!("/v1/participants/pick/{count}/for/{date}"))
+        .dispatch()
+        .into_json::<Vec<Value>>()
+        .unwrap()
+        .iter()
+        .map(|winner| winner["id"].as_i64().unwrap() as i32)
+        .collect()
+}
+
+#[test]
+fn assigning_a_package_stores_it_and_clearing_it_stores_null() {
+    let database = TestDatabase::start(2);
+    let client = logged_in_client(&database);
+    let winner_ids = pick_winners(&client, 2, "2026-12-24");
+
+    assert_eq!(
+        select_package(&client, winner_ids[0], "A"),
+        Status::NoContent
+    );
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM participants WHERE id = {} AND present_identifier = 'A'",
+            winner_ids[0]
+        )),
+        1
+    );
+
+    assert_eq!(
+        select_package(&client, winner_ids[0], ""),
+        Status::NoContent
+    );
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM participants WHERE id = {} AND present_identifier IS NULL",
+            winner_ids[0]
+        )),
+        1
+    );
+}
+
+#[test]
+fn the_same_package_can_only_be_assigned_once_per_day() {
+    let database = TestDatabase::start(2);
+    let client = logged_in_client(&database);
+    let winner_ids = pick_winners(&client, 2, "2026-12-24");
+
+    assert_eq!(
+        select_package(&client, winner_ids[0], "A"),
+        Status::NoContent
+    );
+    assert_eq!(
+        select_package(&client, winner_ids[1], "A"),
+        Status::Conflict
+    );
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM participants WHERE id = {} AND present_identifier IS NULL",
+            winner_ids[1]
+        )),
+        1
+    );
+}
+
+#[test]
+fn the_same_package_can_be_assigned_on_different_days() {
+    let database = TestDatabase::start(2);
+    let client = logged_in_client(&database);
+    let first_day_winner = pick_winners(&client, 1, "2026-12-24")[0];
+    let second_day_winner = pick_winners(&client, 1, "2026-12-25")[0];
+
+    assert_eq!(
+        select_package(&client, first_day_winner, "A"),
+        Status::NoContent
+    );
+    assert_eq!(
+        select_package(&client, second_day_winner, "A"),
+        Status::NoContent
+    );
+}
+
+#[test]
+fn only_a_single_uppercase_letter_is_a_valid_package() {
+    let database = TestDatabase::start(1);
+    let client = logged_in_client(&database);
+    let winner_id = pick_winners(&client, 1, "2026-12-24")[0];
+
+    assert_eq!(
+        select_package(&client, winner_id, "AB"),
+        Status::UnprocessableEntity
+    );
+    assert_eq!(
+        select_package(&client, winner_id, "a"),
+        Status::UnprocessableEntity
+    );
+    assert_eq!(
+        select_package(&client, winner_id, "1"),
+        Status::UnprocessableEntity
+    );
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM participants WHERE id = {winner_id} AND present_identifier IS NULL"
+        )),
+        1
+    );
+}
+
+#[test]
+fn clearing_both_packages_of_one_day_is_possible_after_an_assignment() {
+    let database = TestDatabase::start(2);
+    let client = logged_in_client(&database);
+    let winner_ids = pick_winners(&client, 2, "2026-12-24");
+
+    assert_eq!(
+        select_package(&client, winner_ids[0], "A"),
+        Status::NoContent
+    );
+    assert_eq!(
+        select_package(&client, winner_ids[1], "B"),
+        Status::NoContent
+    );
+    assert_eq!(
+        select_package(&client, winner_ids[0], ""),
+        Status::NoContent
+    );
+    assert_eq!(
+        select_package(&client, winner_ids[1], ""),
+        Status::NoContent
+    );
+}
+
 #[test]
 fn login_with_an_unknown_user_is_unauthorized() {
     let database = TestDatabase::start(0);

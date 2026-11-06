@@ -615,7 +615,7 @@ pub async fn update_participant_values(
 ) -> Status {
     use crate::log_action_rocket;
     use crate::models::Participant as DatabaseParticipant;
-    use crate::schema::participants::dsl::{id, participants, present_identifier, won_on};
+    use crate::schema::participants::dsl::{id, participants, present_identifier};
     use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
@@ -653,58 +653,49 @@ pub async fn update_participant_values(
         error!("Tried to select a package for the participant with the id {current_participant_id} but the participant was not picked before");
         return Status::Conflict;
     }
-    let date_of_win = participant_won.won_on.unwrap();
 
-    // variable to store a previously selected package
-    let mut old_package: Option<String> = None;
-
-    // get the already selected packages for the given date
-    let already_selected_packages: Vec<String> = match participants
-        .filter(won_on.eq(date_of_win))
-        .load::<DatabaseParticipant>(db_connection)
+    // a package is exactly one uppercase letter; an empty string clears the selection and is
+    // stored as NULL
+    let selected_package: Option<String> = if new_package_selection.package.is_empty() {
+        None
+    } else if new_package_selection.package.len() == 1
+        && new_package_selection
+            .package
+            .chars()
+            .all(|character| character.is_ascii_uppercase())
     {
-        Ok(users) => users
-            .iter()
-            .filter(|user| {
-                if user.id == current_participant_id {
-                    old_package = user.present_identifier.clone();
-                }
-                user.present_identifier.is_some()
-            })
-            .map(|user| user.present_identifier.clone().unwrap())
-            .collect(),
-        Err(error) => {
-            error!("Tried to fetch the already selected sub-packages for the date {date_of_win} from the database but an error occurred. The error was: {error}");
-            return Status::InternalServerError;
-        }
+        Some(new_package_selection.package.clone())
+    } else {
+        return Status::UnprocessableEntity;
     };
 
-    // check if the package was already assigned to another user
-    if already_selected_packages.contains(&new_package_selection.package) {
-        error!("Tried to select the package {} for the user {} but the package was already assigned to another user for the date of {}", new_package_selection.package, current_participant_id, date_of_win);
-        return Status::Conflict;
-    }
-
-    // set the selected package for a user
+    // set the selected package for the participant. A unique partial index on the database
+    // ensures that a package is only assigned once per day, which we report as a conflict
     match update(participants.filter(id.eq(current_participant_id)))
-        .set(present_identifier.eq(new_package_selection.package.clone()))
+        .set(present_identifier.eq(selected_package))
         .execute(db_connection)
     {
-        // TODO: use enum?!
         Ok(rows_updated) => {
             if rows_updated != 1 {
-                error!("Tried to save the sub-packages {} for the user {} on {} but it failed and {} rows were updated", new_package_selection.package, current_participant_id, date_of_win, rows_updated);
+                error!("Tried to save the sub-packages {} for the user {} but it failed and {} rows were updated", new_package_selection.package, current_participant_id, rows_updated);
                 return Status::InternalServerError;
             }
         }
+        Err(diesel::result::Error::DatabaseError(
+            diesel::result::DatabaseErrorKind::UniqueViolation,
+            _,
+        )) => {
+            error!("Tried to select the package {} for the user {} but the package was already assigned to another user for the date of this win", new_package_selection.package, current_participant_id);
+            return Status::Conflict;
+        }
         Err(error) => {
-            error!("Tried to save the sub-packages {} for the user {} on {} but it failed. The error was: {}", new_package_selection.package, current_participant_id, date_of_win, error);
+            error!("Tried to save the sub-packages {} for the user {} but it failed. The error was: {}", new_package_selection.package, current_participant_id, error);
             return Status::InternalServerError;
         }
     }
 
     // if we get here we successfully selected a package
-    if old_package.is_none() {
+    if participant_won.present_identifier.is_none() {
         log_action_rocket(
             db_connection_pool,
             authenticated_user.username.clone(),
@@ -722,7 +713,7 @@ pub async fn update_participant_values(
             Action::PackageChanged,
             Some(format!(
                 "The participant with the id {} was assigned a new package {}. The previous package was {}",
-                current_participant_id, new_package_selection.package, old_package.unwrap()
+                current_participant_id, new_package_selection.package, participant_won.present_identifier.clone().unwrap()
             )),
         )
             .await;
