@@ -269,8 +269,10 @@ pub fn get_token_for_user_with_auth_time(
         }
     };
 
-    // calculate the time when the token expires
-    let token_expires_at = token_issued_at + 1 + *TOKEN_LIFETIME_IN_SECONDS;
+    // calculate the time when the token expires, but never later than the absolute session
+    // lifetime which started at the original login
+    let token_expires_at = (token_issued_at + 1 + *TOKEN_LIFETIME_IN_SECONDS)
+        .min(auth_time + *SESSION_LIFETIME_IN_SECONDS);
 
     // define the content of the actual token
     let token_claims = Claims {

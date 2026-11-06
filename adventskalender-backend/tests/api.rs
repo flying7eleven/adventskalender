@@ -1062,3 +1062,134 @@ fn refreshing_a_session_reissues_the_cookie_and_returns_the_new_remaining_lifeti
         "the cookie carries the refreshed token, got {carried_expires_in}"
     );
 }
+
+#[derive(serde::Deserialize)]
+struct Claims {
+    auth_time: u64,
+    exp: u64,
+}
+
+fn decoding_key_of(key_bytes: &[u8]) -> DecodingKey {
+    DecodingKey::from_ed_der(
+        Ed25519KeyPair::from_pkcs8(key_bytes)
+            .unwrap()
+            .public_key()
+            .as_ref(),
+    )
+}
+
+#[test]
+fn a_refresh_near_the_session_cap_returns_a_short_lived_token_which_keeps_the_original_auth_time() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let client = client_with_key_bytes(&database, &key_bytes);
+    let encoding_key = EncodingKey::from_ed_der(&key_bytes);
+    let audience = HashSet::from(["http://localhost:5173".to_string()]);
+    let issuer = "http://localhost:5479".to_string();
+
+    let now = unix_now();
+    let auth_time = now - (adventskalender_backend::session_lifetime_in_seconds() as u64 - 60);
+    let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
+        &database.picking_user,
+        audience.clone(),
+        issuer.to_string(),
+        &encoding_key,
+        auth_time as usize,
+    )
+    .expect("token creation must succeed");
+
+    let response = client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", token))
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+    let body: Value = response.into_json().unwrap();
+    let expires_in = body["expires_in"]
+        .as_u64()
+        .expect("expires_in must be a number");
+    assert!(
+        expires_in <= 61,
+        "the refreshed token must not outlive the session cap, got {expires_in}"
+    );
+
+    let new_token = client
+        .cookies()
+        .get("auth_token")
+        .expect("a fresh auth_token cookie must be set")
+        .value()
+        .to_string();
+    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::EdDSA);
+    validation.leeway = 5;
+    validation.aud = Some(audience.clone());
+    validation.iss = Some(HashSet::from([issuer.to_string()]));
+    let claims =
+        jsonwebtoken::decode::<Claims>(&new_token, &decoding_key_of(&key_bytes), &validation)
+            .expect("the refreshed token must be decodable")
+            .claims;
+    assert_eq!(claims.auth_time, auth_time);
+    assert_eq!(
+        claims.exp,
+        auth_time + adventskalender_backend::session_lifetime_in_seconds() as u64,
+        "the refreshed token must expire exactly at the session cap"
+    );
+
+    let cookies = client.cookies();
+    let cookie = cookies
+        .get("auth_token")
+        .expect("a fresh auth_token cookie must be set");
+    let cookie_expires_at = match cookie.expires() {
+        Some(rocket::http::private::cookie::Expiration::DateTime(datetime)) => {
+            datetime.unix_timestamp() as u64
+        }
+        _ => panic!("the auth_token cookie must carry an expiry"),
+    };
+    assert_eq!(
+        cookie_expires_at, claims.exp,
+        "the cookie must expire together with the capped token"
+    );
+
+    let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
+        &database.picking_user,
+        audience,
+        "http://localhost:5479".to_string(),
+        &encoding_key,
+        now as usize - adventskalender_backend::session_lifetime_in_seconds(),
+    )
+    .expect("token creation must succeed");
+    let response = client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", token))
+        .dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+}
+
+#[test]
+fn a_login_cookie_expires_together_with_its_token() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    assert_eq!(
+        login(&client, &database.picking_user, PICKING_USER_PASSWORD),
+        Status::NoContent
+    );
+
+    let cookies = client.cookies();
+    let cookie = cookies
+        .get("auth_token")
+        .expect("a login must set the auth_token cookie");
+    let now = unix_now();
+    let expires_at = match cookie.expires() {
+        Some(rocket::http::private::cookie::Expiration::DateTime(datetime)) => {
+            datetime.unix_timestamp() as u64
+        }
+        Some(rocket::http::private::cookie::Expiration::Session) => {
+            panic!("the auth_token cookie must carry an expiry")
+        }
+        None => panic!("the auth_token cookie must carry an expiry"),
+    };
+    assert!(
+        expires_at > now && expires_at <= now + 3602,
+        "the cookie must expire together with the roughly one hour token, got {expires_at} at {now}"
+    );
+}

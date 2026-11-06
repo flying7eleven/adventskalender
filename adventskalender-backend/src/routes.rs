@@ -993,7 +993,6 @@ pub fn issue_session_cookie(
     cookies: &CookieJar<'_>,
 ) -> Option<u64> {
     use crate::get_token_for_user;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     let (token, expires_at) = get_token_for_user(
         username,
@@ -1013,17 +1012,14 @@ pub fn issue_session_cookie(
         cookie.set_secure(true);
     }
 
-    // set expiration to match JWT expiration (1 hour)
-    let expiration = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
-    cookie.set_expires(expiration);
+    // the cookie expires together with the token
+    if let Ok(expiration) = time::OffsetDateTime::from_unix_timestamp(expires_at as i64) {
+        cookie.set_expires(expiration);
+    }
 
     cookies.add(cookie);
 
-    let issued_at = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .map(|duration| duration.as_secs())?;
-    Some(expires_at.max(issued_at + 60 * 60))
+    Some(expires_at)
 }
 
 pub enum LoginError {
@@ -1269,8 +1265,9 @@ pub async fn refresh_session(
             if config.api_host.starts_with("https://") {
                 cookie.set_secure(true);
             }
-            let expiration = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
-            cookie.set_expires(expiration);
+            if let Ok(expiration) = time::OffsetDateTime::from_unix_timestamp(expires_at as i64) {
+                cookie.set_expires(expiration);
+            }
             cookies.add(cookie);
 
             let expires_in = expires_at.saturating_sub(now);
