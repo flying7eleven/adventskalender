@@ -128,5 +128,5 @@ default-features = false
 features = ["common-password"]
 
 [dev-dependencies.testcontainers-modules]
-version = "0.12.0"
+version = "0.15.0"
 features = ["postgres", "blocking"]
