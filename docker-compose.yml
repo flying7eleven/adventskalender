@@ -39,7 +39,7 @@ services:
     ports:
       - "127.0.0.1:5479:5479" # just needs to be exported for debugging purposes
     healthcheck:
-      test: [ "CMD-SHELL", "curl --user-agent docker-health-check/1.0 --fail http://127.0.0.1:5479/v1/health" ]
+      test: [ "CMD", "adventskalender-backend", "healthcheck" ]
       interval: 10s
       timeout: 5s
       retries: 5
