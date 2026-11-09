@@ -17,7 +17,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Install the dependencies
-      run: npm ci --legacy-peer-deps
+      run: npm ci
       working-directory: adventskalender-frontend
     - name: Build the frontend
       run: npm run build
