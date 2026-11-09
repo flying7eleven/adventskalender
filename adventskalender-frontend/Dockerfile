@@ -1,5 +1,5 @@
 # Build stage using official Node.js image
-FROM node:22-bookworm-slim AS build
+FROM node:26-trixie-slim AS build
 
 # Set working directory
 WORKDIR /usr/src/app
@@ -20,7 +20,7 @@ COPY . .
 RUN npm run build
 
 # Runtime stage using minimal nginx alpine image
-FROM nginx:1.27-alpine
+FROM nginx:1.30-alpine
 
 # Install dumb-init for proper signal handling (optional but recommended)
 RUN apk add --no-cache dumb-init
