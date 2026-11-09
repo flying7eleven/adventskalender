@@ -97,6 +97,20 @@ describe('WinnerDialog', () => {
         expect(screen.getByRole('button', { name: 'Finish' })).toBeInTheDocument();
     });
 
+    test('escape does not un-pick the winners on the first step', async () => {
+        const setDialogOpenStateFunction = jest.fn();
+        renderDialog(setDialogOpenStateFunction);
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect((global.fetch as jest.Mock).mock.calls.filter(([url]) => url.includes('/participants/won/'))).toHaveLength(0);
+        expect(setDialogOpenStateFunction).not.toHaveBeenCalledWith(false);
+        expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+    });
+
     test('stores an empty package when clearing the selection and still allows continuing', async () => {
         const setDialogOpenStateFunction = jest.fn();
         renderDialog(setDialogOpenStateFunction);
