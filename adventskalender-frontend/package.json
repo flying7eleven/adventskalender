@@ -41,7 +41,7 @@
         "@types/zxcvbn": "^4.4.5",
         "@typescript-eslint/eslint-plugin": "^8.72.1",
         "@typescript-eslint/parser": "^8.72.1",
-        "@vitejs/plugin-react": "^5.2.0",
+        "@vitejs/plugin-react": "^6.3.0",
         "autoprefixer": "^10.6.2",
         "browserslist-to-esbuild": "^2.1.1",
         "eslint": "^10.14.0",
@@ -57,13 +57,7 @@
         "tailwindcss": "^4.3.5",
         "ts-jest": "^29.4.15",
         "typescript": "^5.9.3",
-        "vite": "^7.3.7",
-        "vite-tsconfig-paths": "^5.1.4"
-    },
-    "overrides": {
-        "vite": {
-            "rollup": "npm:@rollup/wasm-node"
-        }
+        "vite": "^8.3.6"
     },
     "scripts": {
         "start": "vite",

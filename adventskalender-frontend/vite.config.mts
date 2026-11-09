@@ -1,7 +1,5 @@
-import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import viteTsconfigPaths from 'vite-tsconfig-paths';
 import browserslistToEsbuild from 'browserslist-to-esbuild';
 
 export default defineConfig(() => {
@@ -13,8 +11,9 @@ export default defineConfig(() => {
         },
         resolve: {
             alias: {
-                '@': path.resolve(__dirname, './src'),
+                '@': new URL('./src', import.meta.url).pathname,
             },
+            tsconfigPaths: true,
         },
         build: {
             outDir: 'build',
@@ -23,7 +22,6 @@ export default defineConfig(() => {
         },
         plugins: [
             react(),
-            viteTsconfigPaths(),
             // Add security headers in development mode
             {
                 name: 'security-headers',
