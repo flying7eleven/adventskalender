@@ -185,9 +185,17 @@ pub struct Participant {
     pub present_identifier: Option<String>,
 }
 
+#[derive(Debug)]
+pub enum WinnersError {
+    NoDatabaseConnection(r2d2::Error),
+    BlockingThread(rocket::tokio::task::JoinError),
+    Database(diesel::result::Error),
+}
+
 pub async fn get_all_winners(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
-) -> Result<HashMap<String, Vec<Participant>>, ()> {
+) -> Result<HashMap<String, Vec<Participant>>, WinnersError> {
+    use crate::fairings::BlockingDatabaseError;
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
@@ -195,7 +203,7 @@ pub async fn get_all_winners(
 
     // try to get all days on which at least one person won, on a blocking thread so the database
     // work does not block the async runtime
-    let maybe_result = match db_connection_pool
+    match db_connection_pool
         .run_blocking(|db_connection| {
             db_connection
                 .build_transaction()
@@ -222,22 +230,26 @@ pub async fn get_all_winners(
         })
         .await
     {
-        Ok(result) => result,
-        Err(error) => {
-            error!("Could not load all winners from the database. The error was: {error}");
-            return Err(());
+        Ok(result) => result
+            .inspect_err(|error| {
+                error!("Could not load all winners from the database. The error was: {error}")
+            })
+            .map_err(WinnersError::Database),
+        Err(BlockingDatabaseError::NoConnection(error)) => {
+            Err(WinnersError::NoDatabaseConnection(error))
         }
-    };
-
-    maybe_result.map_err(|error| {
-        error!("Could not load all winners from the database. The error was: {error}");
-    })
+        Err(BlockingDatabaseError::Join(error)) => {
+            error!("Could not load all winners on a blocking thread. The error was: {error}");
+            Err(WinnersError::BlockingThread(error))
+        }
+    }
 }
 
 pub async fn get_won_participants_on_day(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     date: NaiveDate,
-) -> Result<Vec<Participant>, ()> {
+) -> Result<Vec<Participant>, WinnersError> {
+    use crate::fairings::BlockingDatabaseError;
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
@@ -245,7 +257,7 @@ pub async fn get_won_participants_on_day(
 
     // try to get all participants who won on a specific day from the database, on a blocking
     // thread so the database work does not block the async runtime
-    let maybe_result = match db_connection_pool
+    match db_connection_pool
         .run_blocking(move |db_connection| {
             db_connection
                 .build_transaction()
@@ -267,16 +279,15 @@ pub async fn get_won_participants_on_day(
         })
         .await
     {
-        Ok(result) => result,
-        Err(error) => {
-            error!("Could not load the winners from the database. The error was: {error}");
-            return Err(());
+        Ok(result) => result
+            .inspect_err(|error| error!("Could not load the winners on {date} from the database. The error was: {error}"))
+            .map_err(WinnersError::Database),
+        Err(BlockingDatabaseError::NoConnection(error)) => Err(WinnersError::NoDatabaseConnection(error)),
+        Err(BlockingDatabaseError::Join(error)) => {
+            error!("Could not load the winners on a blocking thread. The error was: {error}");
+            Err(WinnersError::BlockingThread(error))
         }
-    };
-
-    maybe_result.map_err(|error| {
-        error!("Could not load the winners on {date} from the database. The error was: {error}");
-    })
+    }
 }
 
 #[delete("/participants/won/<participant_id>")]

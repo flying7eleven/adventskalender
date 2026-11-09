@@ -111,7 +111,7 @@ impl fmt::Display for Error {
                  not allowed to request",
                 origin
             ),
-            Error::MethodNotAllowed(method) => write!(f, "Method '{}' is not allowed", &method),
+            Error::MethodNotAllowed(method) => write!(f, "Method '{}' is not allowed", method),
             Error::HeadersNotAllowed => write!(f, "Headers are not allowed"),
             Error::CredentialsWithWildcardOrigin => write!(
                 f,
