@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
-import { ChangeEvent, FormEvent, useContext, useState } from 'react';
+import { ChangeEvent, FormEvent, useContext, useRef, useState } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { API_BACKEND_URL } from '../../api';
 import { PasswordChangedDialog } from '../../dialogs/PasswordChangedDialog';
@@ -18,6 +18,10 @@ const isPasswordChangeRejectReason = (reason: unknown): reason is PasswordChange
     return reason === 'wrong_current_password' || reason === 'passwords_do_not_match' || reason === 'password_too_short' || reason === 'password_too_weak';
 };
 
+const MINIMUM_PASSWORD_LENGTH = 8;
+
+const isTooShort = (password: string) => password.length < MINIMUM_PASSWORD_LENGTH;
+
 export const SettingsView = () => {
     const localizationContext = useContext(LocalizationContext);
     const [currentPassword, setCurrentPassword] = useState<string>('');
@@ -28,6 +32,7 @@ export const SettingsView = () => {
     const [isPasswordNotEqualFirst, setIsPasswordNotEqualFirst] = useState<boolean>(false);
     const [isPasswordNotEqualSecond, setIsPasswordNotEqualSecond] = useState<boolean>(false);
     const [passwordStrength, setPasswordStrength] = useState<number | null>(null);
+    const latestFirstPassword = useRef<string>('');
 
     const handleCurrentPasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
         setCurrentPassword(event.target.value);
@@ -35,34 +40,37 @@ export const SettingsView = () => {
 
     const handleChangeOfFirstPassword = (event: ChangeEvent<HTMLInputElement>) => {
         const newPassword = event.target.value;
+        latestFirstPassword.current = newPassword;
         setFirstPassword(newPassword);
         if (!newPassword) {
             setPasswordStrength(null);
+            setIsPasswordNotEqualFirst(false);
+            return;
         }
 
+        // loaded on demand to keep the large zxcvbn dictionary out of the entry bundle
         import('zxcvbn')
             .then(({ default: zxcvbn }) => {
-                // Calculate password strength using zxcvbn
+                if (latestFirstPassword.current !== newPassword) {
+                    return;
+                }
                 const result = zxcvbn(newPassword);
                 setPasswordStrength(result.score);
-
-                // Enforce minimum strength of 2 (Fair) or minimum length of 8
-                setIsPasswordNotEqualFirst(newPassword.length > 0 && (newPassword.length < 8 || result.score < 2));
+                setIsPasswordNotEqualFirst(isTooShort(newPassword) || result.score < 2);
             })
             .catch(() => {
+                if (latestFirstPassword.current !== newPassword) {
+                    return;
+                }
                 // without a strength estimation we cannot give the user feedback, the backend still validates it
-                setIsPasswordNotEqualFirst(newPassword.length > 0 && newPassword.length < 8);
+                setIsPasswordNotEqualFirst(isTooShort(newPassword));
                 setPasswordStrength(0);
             });
     };
 
     const handleChangeOfSecondPassword = (event: ChangeEvent<HTMLInputElement>) => {
         setSecondPassword(event.target.value);
-        if (event.target.value.length < 8 || firstPassword !== event.target.value) {
-            setIsPasswordNotEqualSecond(true);
-        } else {
-            setIsPasswordNotEqualSecond(false);
-        }
+        setIsPasswordNotEqualSecond(isTooShort(event.target.value) || firstPassword !== event.target.value);
     };
 
     const changePassword = (event: FormEvent<HTMLFormElement>) => {
@@ -70,7 +78,7 @@ export const SettingsView = () => {
         event.preventDefault();
 
         // ensure the passwords are long enough, strong enough, and exactly the same
-        if (firstPassword.length < 8 || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword) {
+        if (isTooShort(firstPassword) || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword) {
             return;
         }
 
@@ -180,7 +188,7 @@ export const SettingsView = () => {
                                         </p>
                                     )}
                                 </div>
-                                <Button type="submit" variant="default" disabled={firstPassword.length < 8 || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword} className="w-full">
+                                <Button type="submit" variant="default" disabled={isTooShort(firstPassword) || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword} className="w-full">
                                     <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
                                 </Button>
                             </div>

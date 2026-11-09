@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { SettingsView } from './index';
@@ -114,6 +114,27 @@ describe('SettingsView password change', () => {
         await fillPasswords();
 
         await waitFor(() => expect(zxcvbn).toHaveBeenCalledTimes(28));
+    });
+
+    test('hides the strength meter when the new password is cleared', async () => {
+        renderView();
+        fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'correct horse battery staple' } });
+        await waitFor(() => expect(screen.getByText('Strength: Strong')).toBeInTheDocument());
+
+        fireEvent.change(screen.getByLabelText('New password'), { target: { value: '' } });
+
+        await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+        expect(screen.queryByText(/Strength:/)).not.toBeInTheDocument();
+    });
+
+    test('ignores a strength estimate that arrives after the password was cleared', async () => {
+        renderView();
+
+        fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'correct horse battery staple' } });
+        fireEvent.change(screen.getByLabelText('New password'), { target: { value: '' } });
+
+        await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+        expect(screen.queryByText(/Strength:/)).not.toBeInTheDocument();
     });
 
     test('shows a rate limit message with the retry time on a 429 response', async () => {
