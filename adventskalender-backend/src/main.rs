@@ -163,6 +163,30 @@ async fn main() {
     use rocket::Config as RocketConfig;
     use std::env;
 
+    // handle the healthcheck subcommand and exit with the corresponding code instead of starting
+    // the server, which allows the distroless container to probe its health without curl
+    let arguments: Vec<String> = env::args().skip(1).collect();
+    if !arguments.is_empty() {
+        if arguments != ["healthcheck"] {
+            eprintln!("Unknown arguments: {arguments:?}");
+            std::process::exit(2);
+        }
+        match healthcheck("127.0.0.1", "5479", "/v1/health") {
+            Ok(()) => std::process::exit(0),
+            Err(HealthcheckError::Unhealthy) => {
+                eprintln!("The backend is not healthy");
+                std::process::exit(1);
+            }
+            Err(HealthcheckError::RequestFailed { status }) => {
+                eprintln!("The health endpoint answered with: {status}");
+                std::process::exit(1);
+            }
+            Err(HealthcheckError::ConnectionFailed { reason }) => {
+                eprintln!("Could not reach the backend: {reason}");
+                std::process::exit(1);
+            }
+        }
+    }
     // select the logging level from a set environment variable
     let logging_level = match env::var("ADVENTSKALENDER_LOGGING_LEVEL") {
         Ok(value) => match value.to_lowercase().as_str() {
@@ -446,8 +470,215 @@ async fn main() {
     }
 }
 
+/// The error variants of a failed healthcheck, the subcommand exits with the code 1 for all of
+/// them and only the message differs.
+#[derive(Debug)]
+enum HealthcheckError {
+    /// The backend answered, but reported itself as unhealthy.
+    Unhealthy,
+    /// The backend answered with a status code which is not a plain success.
+    RequestFailed { status: String },
+    /// The backend could not be reached at all.
+    ConnectionFailed { reason: String },
+}
+
+/// Perform a single healthcheck request against the health endpoint of the backend over plain
+/// HTTP. The implementation uses only the standard library, which keeps the subcommand free of
+/// any additional shared library the distroless container would have to ship.
+fn healthcheck(host: &str, port: &str, path: &str) -> Result<(), HealthcheckError> {
+    use std::io::{Read, Write};
+    use std::net::{TcpStream, ToSocketAddrs};
+    use std::time::Duration;
+
+    // parse the port up front so an invalid configuration surfaces as a connection failure
+    let port: u16 = port
+        .parse()
+        .map_err(|error| HealthcheckError::ConnectionFailed {
+            reason: format!("invalid port: {error}"),
+        })?;
+
+    // resolve the address and connect with a timeout so a hanging backend counts as unreachable
+    let address = (host, port)
+        .to_socket_addrs()
+        .map_err(|error| HealthcheckError::ConnectionFailed {
+            reason: error.to_string(),
+        })?
+        .next()
+        .ok_or(HealthcheckError::ConnectionFailed {
+            reason: "the address could not be resolved".to_string(),
+        })?;
+    let mut stream =
+        TcpStream::connect_timeout(&address, Duration::from_secs(2)).map_err(|error| {
+            HealthcheckError::ConnectionFailed {
+                reason: error.to_string(),
+            }
+        })?;
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .map_err(|error| HealthcheckError::ConnectionFailed {
+            reason: error.to_string(),
+        })?;
+    stream
+        .set_write_timeout(Some(Duration::from_secs(2)))
+        .map_err(|error| HealthcheckError::ConnectionFailed {
+            reason: error.to_string(),
+        })?;
+
+    // send a minimal HTTP/1.1 request, using the same user agent as the former curl healthcheck
+    let request = format!(
+        "GET {path} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: docker-health-check/1.0\r\nConnection: close\r\n\r\n"
+    );
+    stream
+        .write_all(request.as_bytes())
+        .map_err(|error| HealthcheckError::ConnectionFailed {
+            reason: error.to_string(),
+        })?;
+
+    // read until the end of the response head so the status line cannot end up split across
+    // two reads, the body is of no interest
+    let mut response = Vec::new();
+    let mut buffer = [0u8; 1024];
+    loop {
+        let bytes =
+            stream
+                .read(&mut buffer)
+                .map_err(|error| HealthcheckError::ConnectionFailed {
+                    reason: error.to_string(),
+                })?;
+        if bytes == 0 {
+            return Err(HealthcheckError::ConnectionFailed {
+                reason: "the backend closed the connection before answering".to_string(),
+            });
+        }
+        response.extend_from_slice(&buffer[..bytes]);
+        if contains_end_of_headers(&response) {
+            break;
+        }
+    }
+    let response = String::from_utf8_lossy(&response);
+    let status_line = response.lines().next().unwrap_or_default().to_string();
+
+    // parse the numeric status code of the response line, only 200 counts as healthy
+    let status_code = status_line
+        .split(' ')
+        .nth(1)
+        .unwrap_or_default()
+        .to_string();
+    match status_code.as_str() {
+        "200" => Ok(()),
+        "503" => Err(HealthcheckError::Unhealthy),
+        _ => Err(HealthcheckError::RequestFailed {
+            status: status_line,
+        }),
+    }
+}
+
+/// Check whether the buffered response contains the empty line which ends the HTTP headers.
+fn contains_end_of_headers(response: &[u8]) -> bool {
+    response.windows(4).any(|window| window == b"\r\n\r\n")
+}
 #[cfg(all(test, unix))]
 mod tests {
+    use super::{healthcheck, HealthcheckError};
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+    use std::thread;
+
+    fn serve_responses(
+        responses: Vec<String>,
+    ) -> (String, String, thread::JoinHandle<Option<String>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("test listener");
+        let port = listener
+            .local_addr()
+            .expect("test listener address")
+            .port()
+            .to_string();
+        let handler = thread::spawn(move || {
+            let mut first_request_line = None;
+            for response in responses {
+                let (mut stream, _) = listener.accept().expect("test connection");
+                let mut reader = BufReader::new(&mut stream);
+                let mut request_line = String::new();
+                reader.read_line(&mut request_line).expect("request line");
+                if first_request_line.is_none() {
+                    first_request_line = Some(request_line.trim_end().to_string());
+                }
+                loop {
+                    let mut line = String::new();
+                    let bytes = reader.read_line(&mut line).expect("header line");
+                    if bytes == 0 || line == "\r\n" {
+                        break;
+                    }
+                }
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("test response");
+            }
+            first_request_line
+        });
+        ("127.0.0.1".to_string(), port, handler)
+    }
+
+    #[test]
+    fn the_healthcheck_succeeds_on_a_healthy_backend() {
+        let (host, port, handler) = serve_responses(vec![
+            "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n".to_string(),
+        ]);
+
+        let result = healthcheck(&host, &port, "/v1/health");
+
+        assert!(matches!(result, Ok(())));
+        let request_line = handler.join().expect("test server thread");
+        assert_eq!(request_line, Some("GET /v1/health HTTP/1.1".to_string()));
+    }
+
+    #[test]
+    fn the_healthcheck_reports_the_backend_as_unhealthy_on_a_503_response() {
+        let (host, port, handler) = serve_responses(vec![
+            "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n".to_string(),
+        ]);
+
+        let result = healthcheck(&host, &port, "/v1/health");
+
+        assert!(matches!(result, Err(HealthcheckError::Unhealthy)));
+        handler.join().expect("test server thread");
+    }
+
+    #[test]
+    fn the_healthcheck_reports_the_backend_as_unreachable_when_it_does_not_answer() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("test listener");
+        let host = "127.0.0.1".to_string();
+        let port = listener
+            .local_addr()
+            .expect("test listener address")
+            .port()
+            .to_string();
+        drop(listener);
+
+        let result = healthcheck(&host, &port, "/v1/health");
+
+        assert!(matches!(
+            result,
+            Err(HealthcheckError::ConnectionFailed { .. })
+        ));
+    }
+
+    #[test]
+    fn the_healthcheck_reports_other_failure_statuses_as_request_failures() {
+        let (host, port, handler) = serve_responses(vec![
+            "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n".to_string(),
+        ]);
+
+        let result = healthcheck(&host, &port, "/v1/health");
+
+        assert!(matches!(
+            result,
+            Err(HealthcheckError::RequestFailed { .. })
+        ));
+        handler.join().expect("test server thread");
+    }
+
+    // the tests of the key file handling live in this module as well
     use super::load_or_generate_keypair;
     use std::os::unix::fs::PermissionsExt;
 
