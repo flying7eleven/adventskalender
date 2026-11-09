@@ -1,5 +1,5 @@
 # Build stage using Debian with Rust (for compatibility)
-FROM rust:1.88-bookworm AS build
+FROM rust:1.99.1-trixie AS build
 
 # Install only essential build dependencies
 RUN apt-get update && \
@@ -26,7 +26,7 @@ ENV CARGO_PROFILE_RELEASE_STRIP=true
 RUN cargo build --release
 
 # Runtime stage using minimal Debian slim image
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 # Install only runtime dependencies
 # - libpq5: PostgreSQL client library (runtime only)
