@@ -809,7 +809,7 @@ pub async fn pick_winners(
                     }
 
                     let winners: Vec<Participant> = participants_in_raffle
-                        .choose_multiple(&mut rand::rng(), count)
+                        .sample(&mut rand::rng(), count)
                         .map(|winner| Participant {
                             id: winner.id,
                             first_name: winner.first_name.clone(),
