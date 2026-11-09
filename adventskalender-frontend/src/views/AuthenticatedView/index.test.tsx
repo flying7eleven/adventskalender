@@ -1,4 +1,5 @@
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { AuthenticatedView } from './index';
 import { MemoryRouter } from 'react-router-dom';
@@ -7,12 +8,12 @@ import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
 import { API_BACKEND_URL } from '../../api';
 
-jest.useFakeTimers();
+vi.useFakeTimers({ shouldAdvanceTime: true });
 
 const now = Date.now();
 
 const mockFetchWith = (impl: (url: string) => { status: number; ok: boolean; json: () => Promise<unknown>; headers?: Record<string, string> }) => {
-    global.fetch = jest.fn().mockImplementation((url: string) => Promise.resolve(impl(url) as unknown as Response));
+    global.fetch = vi.fn().mockImplementation((url: string) => Promise.resolve(impl(url) as unknown as Response));
 };
 
 const renderView = () =>
@@ -29,13 +30,13 @@ const renderView = () =>
 const settleAuthentication = async () => {
     await waitFor(() => expect(screen.getByText('page content')).toBeInTheDocument());
     await act(async () => {
-        await jest.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(0);
     });
 };
 
 describe('AuthenticatedView session handling', () => {
     afterEach(() => {
-        jest.setSystemTime(now);
+        vi.setSystemTime(now);
     });
 
     test('shows the expiry warning 5 minutes before the reported expiry and logs out at it', async () => {
@@ -50,14 +51,14 @@ describe('AuthenticatedView session handling', () => {
             }
             return { status: 204, ok: true, json: () => Promise.reject(new Error('no body')) };
         });
-        const alertMock = jest.spyOn(window, 'alert').mockImplementation(() => undefined);
+        const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
         renderView();
         await settleAuthentication();
 
-        await jest.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
+        await vi.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
 
-        await jest.advanceTimersByTimeAsync(5 * 60 * 1000);
+        await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
         await waitFor(() => expect(alertMock).toHaveBeenCalledWith('Your session has expired. Please log in again.'));
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));
         alertMock.mockRestore();
@@ -76,18 +77,18 @@ describe('AuthenticatedView session handling', () => {
         renderView();
         await settleAuthentication();
 
-        await jest.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
+        await vi.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
 
-        global.alert = jest.fn();
-        const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTimeAsync });
+        global.alert = vi.fn();
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
         await user.click(screen.getByRole('button', { name: 'Stay Logged In' }));
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/refresh`, expect.objectContaining({ method: 'POST', credentials: 'include' })));
         await waitFor(() => expect(screen.queryByText('Session Expiring Soon')).not.toBeInTheDocument());
 
         // the warning must reappear 5 minutes before the NEW expiry (2h after the refresh)
-        await jest.advanceTimersByTimeAsync((2 * 60 - 5) * 60 * 1000);
+        await vi.advanceTimersByTimeAsync((2 * 60 - 5) * 60 * 1000);
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
     });
 
@@ -106,30 +107,30 @@ describe('AuthenticatedView session handling', () => {
             }
             return { status: 204, ok: true, json: () => Promise.reject(new Error('no body')) };
         });
-        const alertMock = jest.spyOn(window, 'alert').mockImplementation(() => undefined);
+        const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
         renderView();
         await settleAuthentication();
 
-        await jest.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
+        await vi.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
 
-        global.alert = jest.fn();
-        const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTimeAsync });
+        global.alert = vi.fn();
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
         await user.click(screen.getByRole('button', { name: 'Stay Logged In' }));
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/refresh`, expect.objectContaining({ method: 'POST', credentials: 'include' })));
         await waitFor(() => expect(screen.queryByText('Session Expiring Soon')).not.toBeInTheDocument());
 
         // the deadline from before the refresh must no longer end the session
-        await jest.advanceTimersByTimeAsync(5 * 60 * 1000);
+        await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
         await act(async () => {
-            await jest.advanceTimersByTimeAsync(0);
+            await vi.advanceTimersByTimeAsync(0);
         });
         expect(alertMock).not.toHaveBeenCalled();
         expect(global.fetch).not.toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything());
 
         // the warning reappears 5 minutes before the expiry reported by the refresh
-        await jest.advanceTimersByTimeAsync((60 - 5) * 60 * 1000 - 5 * 60 * 1000);
+        await vi.advanceTimersByTimeAsync((60 - 5) * 60 * 1000 - 5 * 60 * 1000);
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
         alertMock.mockRestore();
     });
@@ -144,14 +145,14 @@ describe('AuthenticatedView session handling', () => {
             }
             return { status: 204, ok: true, json: () => Promise.reject(new Error('no body')) };
         });
-        const alertMock = jest.spyOn(window, 'alert').mockImplementation(() => undefined);
+        const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
         renderView();
         await settleAuthentication();
 
-        await jest.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
+        await vi.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
 
-        const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTimeAsync });
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
         await user.click(screen.getByRole('button', { name: 'Stay Logged In' }));
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/refresh`, expect.anything()));
@@ -167,23 +168,23 @@ describe('AuthenticatedView session handling', () => {
             }
             return { status: 204, ok: true, json: () => Promise.reject(new Error('no body')) };
         });
-        const alertMock = jest.spyOn(window, 'alert').mockImplementation(() => undefined);
+        const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
         renderView();
         await settleAuthentication();
 
-        await jest.advanceTimersByTimeAsync(60 * 60 * 1000);
+        await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
         // The expiry fired, but /auth/me still reports a valid session refreshed
         // by another tab, so monitoring reschedules and no logout happens.
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
         await act(async () => {
-            await jest.advanceTimersByTimeAsync(0);
+            await vi.advanceTimersByTimeAsync(0);
         });
         expect(alertMock).not.toHaveBeenCalled();
         expect(global.fetch).not.toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything());
 
         // The rescheduled session expires 60 minutes after the re-check.
-        await jest.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
+        await vi.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
         alertMock.mockRestore();
     });
@@ -200,11 +201,11 @@ describe('AuthenticatedView session handling', () => {
             }
             return { status: 204, ok: true, json: () => Promise.reject(new Error('no body')) };
         });
-        const alertMock = jest.spyOn(window, 'alert').mockImplementation(() => undefined);
+        const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
         renderView();
         await settleAuthentication();
 
-        await jest.advanceTimersByTimeAsync(60 * 60 * 1000);
+        await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
         await waitFor(() => expect(alertMock).toHaveBeenCalledWith('Your session has expired. Please log in again.'));
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));

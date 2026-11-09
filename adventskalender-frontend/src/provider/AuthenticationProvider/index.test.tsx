@@ -1,4 +1,5 @@
 import { render, waitFor } from '@testing-library/react';
+import { vi, type Mock } from 'vitest';
 import { AuthenticationProvider } from './index';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { API_BACKEND_URL } from '../../api';
@@ -22,11 +23,11 @@ const renderProbe = () => {
 
 describe('AuthenticationProvider signin', () => {
     afterEach(() => {
-        jest.restoreAllMocks();
+        vi.restoreAllMocks();
     });
 
     test('reports the Retry-After seconds to the rate limit callback on 429', async () => {
-        global.fetch = jest.fn().mockImplementation((url: RequestInfo | URL) => {
+        global.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
             if (String(url) === `${API_BACKEND_URL}/auth/token`) {
                 return Promise.resolve({
                     status: 429,
@@ -40,9 +41,9 @@ describe('AuthenticationProvider signin', () => {
         const getSignin = renderProbe();
         await waitFor(() => expect(getSignin()).toBeTruthy());
 
-        const rateLimitCallback = jest.fn();
-        const successCallback = jest.fn();
-        const failCallback = jest.fn();
+        const rateLimitCallback = vi.fn();
+        const successCallback = vi.fn();
+        const failCallback = vi.fn();
         getSignin()('user', 'password', successCallback, failCallback, rateLimitCallback);
 
         await waitFor(() => expect(rateLimitCallback).toHaveBeenCalledWith(42));
@@ -51,14 +52,14 @@ describe('AuthenticationProvider signin', () => {
     });
 
     test('calls the fail callback when the credentials are wrong', async () => {
-        global.fetch = jest.fn().mockImplementation(() => Promise.resolve({ status: 401, ok: false } as unknown as Response));
+        global.fetch = vi.fn().mockImplementation(() => Promise.resolve({ status: 401, ok: false } as unknown as Response));
 
         const getSignin = renderProbe();
         await waitFor(() => expect(getSignin()).toBeTruthy());
 
-        const rateLimitCallback = jest.fn();
-        const successCallback = jest.fn();
-        const failCallback = jest.fn();
+        const rateLimitCallback = vi.fn();
+        const successCallback = vi.fn();
+        const failCallback = vi.fn();
         getSignin()('user', 'wrong-password', successCallback, failCallback, rateLimitCallback);
 
         await waitFor(() => expect(failCallback).toHaveBeenCalledTimes(1));
@@ -67,7 +68,7 @@ describe('AuthenticationProvider signin', () => {
     });
 
     test('starts the session from the token response and does not fetch the session information again', async () => {
-        global.fetch = jest.fn().mockImplementation((url: RequestInfo | URL) => {
+        global.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
             if (String(url) === `${API_BACKEND_URL}/auth/token`) {
                 return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) } as unknown as Response);
             }
@@ -77,20 +78,20 @@ describe('AuthenticationProvider signin', () => {
         const getSignin = renderProbe();
         await waitFor(() => expect(getSignin()).toBeTruthy());
 
-        const rateLimitCallback = jest.fn();
-        const successCallback = jest.fn();
-        const failCallback = jest.fn();
+        const rateLimitCallback = vi.fn();
+        const successCallback = vi.fn();
+        const failCallback = vi.fn();
         getSignin()('user', 'password', successCallback, failCallback, rateLimitCallback);
 
         await waitFor(() => expect(successCallback).toHaveBeenCalledTimes(1));
-        const authMeCalls = (global.fetch as jest.Mock).mock.calls.filter(([url]) => String(url) === `${API_BACKEND_URL}/auth/me`);
+        const authMeCalls = (global.fetch as Mock).mock.calls.filter(([url]) => String(url) === `${API_BACKEND_URL}/auth/me`);
         expect(authMeCalls).toHaveLength(1);
-        expect((global.fetch as jest.Mock).mock.calls.filter(([url]) => String(url) === `${API_BACKEND_URL}/auth/token`)).toHaveLength(1);
+        expect((global.fetch as Mock).mock.calls.filter(([url]) => String(url) === `${API_BACKEND_URL}/auth/token`)).toHaveLength(1);
         expect(rateLimitCallback).not.toHaveBeenCalled();
     });
 
     test('calls the fail callback when the token response carries no session information', async () => {
-        global.fetch = jest.fn().mockImplementation((url: RequestInfo | URL) => {
+        global.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
             if (String(url) === `${API_BACKEND_URL}/auth/token`) {
                 return Promise.resolve({ status: 200, ok: true, json: () => Promise.reject(new Error('no body')) } as unknown as Response);
             }
@@ -100,9 +101,9 @@ describe('AuthenticationProvider signin', () => {
         const getSignin = renderProbe();
         await waitFor(() => expect(getSignin()).toBeTruthy());
 
-        const rateLimitCallback = jest.fn();
-        const successCallback = jest.fn();
-        const failCallback = jest.fn();
+        const rateLimitCallback = vi.fn();
+        const successCallback = vi.fn();
+        const failCallback = vi.fn();
         getSignin()('user', 'password', successCallback, failCallback, rateLimitCallback);
 
         await waitFor(() => expect(failCallback).toHaveBeenCalledTimes(1));
@@ -111,7 +112,7 @@ describe('AuthenticationProvider signin', () => {
     });
 
     test('accepts a token response whose session is already in its last second', async () => {
-        global.fetch = jest.fn().mockImplementation((url: RequestInfo | URL) => {
+        global.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
             if (String(url) === `${API_BACKEND_URL}/auth/token`) {
                 return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 0 }) } as unknown as Response);
             }
@@ -121,9 +122,9 @@ describe('AuthenticationProvider signin', () => {
         const getSignin = renderProbe();
         await waitFor(() => expect(getSignin()).toBeTruthy());
 
-        const rateLimitCallback = jest.fn();
-        const successCallback = jest.fn();
-        const failCallback = jest.fn();
+        const rateLimitCallback = vi.fn();
+        const successCallback = vi.fn();
+        const failCallback = vi.fn();
         getSignin()('user', 'password', successCallback, failCallback, rateLimitCallback);
 
         await waitFor(() => expect(successCallback).toHaveBeenCalledTimes(1));

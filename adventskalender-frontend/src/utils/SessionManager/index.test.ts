@@ -1,29 +1,30 @@
 import { SessionManager } from './index';
+import { vi } from 'vitest';
 
-jest.useFakeTimers();
+vi.useFakeTimers();
 
 const now = 1700000000000;
 
 const advanceTo = async (target: number) => {
     while (Date.now() < target) {
         const step = Math.min(60000, target - Date.now());
-        await jest.advanceTimersByTimeAsync(step);
+        await vi.advanceTimersByTimeAsync(step);
     }
 };
 
 describe('SessionManager', () => {
     beforeEach(() => {
-        jest.setSystemTime(now);
+        vi.setSystemTime(now);
     });
 
     afterEach(() => {
-        jest.setSystemTime(now);
+        vi.setSystemTime(now);
     });
 
     test('shows the warning 5 minutes before the given remaining lifetime and expires at it', async () => {
         const sessionManager = new SessionManager();
-        const onExpirySoon = jest.fn();
-        const onExpired = jest.fn();
+        const onExpirySoon = vi.fn();
+        const onExpired = vi.fn();
 
         sessionManager.startMonitoring(50 * 60, onExpirySoon, onExpired);
 
@@ -41,8 +42,8 @@ describe('SessionManager', () => {
 
     test('shows the warning immediately when the given remaining lifetime is less than 5 minutes', async () => {
         const sessionManager = new SessionManager();
-        const onExpirySoon = jest.fn();
-        const onExpired = jest.fn();
+        const onExpirySoon = vi.fn();
+        const onExpired = vi.fn();
 
         sessionManager.startMonitoring(2 * 60, onExpirySoon, onExpired);
 
@@ -55,8 +56,8 @@ describe('SessionManager', () => {
 
     test('does not fire callbacks of a stopped session', async () => {
         const sessionManager = new SessionManager();
-        const onExpirySoon = jest.fn();
-        const onExpired = jest.fn();
+        const onExpirySoon = vi.fn();
+        const onExpired = vi.fn();
 
         sessionManager.startMonitoring(50 * 60, onExpirySoon, onExpired);
         sessionManager.stopMonitoring();

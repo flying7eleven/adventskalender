@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi, type Mock } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { WinnerDialog } from './index';
 import { MemoryRouter } from 'react-router-dom';
@@ -7,8 +8,8 @@ import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
 import { API_BACKEND_URL } from '../../api';
 
-jest.mock('sonner', () => ({
-    toast: { error: jest.fn(), warning: jest.fn(), success: jest.fn() },
+vi.mock('sonner', () => ({
+    toast: { error: vi.fn(), warning: vi.fn(), success: vi.fn() },
     Toaster: () => null,
 }));
 
@@ -17,7 +18,7 @@ import { toast } from 'sonner';
 const winners = [1, 2, 3, 4, 5].map((id) => ({ id, firstName: `First${id}`, lastName: `Last${id}` }));
 
 const mockFetch = (participantPutStatus?: number) => {
-    global.fetch = jest.fn().mockImplementation((url: string) =>
+    global.fetch = vi.fn().mockImplementation((url: string) =>
         Promise.resolve({
             status: url.endsWith('/auth/me') ? 200 : url.includes('/participants/') && participantPutStatus ? participantPutStatus : 204,
             ok: url.endsWith('/auth/me') ? true : !participantPutStatus || participantPutStatus < 400,
@@ -48,19 +49,19 @@ describe('WinnerDialog', () => {
     beforeEach(() => {
         mockFetch();
         Element.prototype.scrollIntoView = () => {};
-        Element.prototype.hasPointerCapture = jest.fn();
-        Element.prototype.releasePointerCapture = jest.fn();
-        Element.prototype.setPointerCapture = jest.fn();
+        Element.prototype.hasPointerCapture = vi.fn();
+        Element.prototype.releasePointerCapture = vi.fn();
+        Element.prototype.setPointerCapture = vi.fn();
         (globalThis as unknown as { __DEV__: boolean }).__DEV__ = true;
     });
 
     afterEach(() => {
         (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
-        (toast.error as jest.Mock).mockClear();
+        (toast.error as Mock).mockClear();
     });
 
     test('the close button un-picks the winners on the first step', async () => {
-        const setDialogOpenStateFunction = jest.fn();
+        const setDialogOpenStateFunction = vi.fn();
         renderDialog(setDialogOpenStateFunction);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
@@ -72,33 +73,33 @@ describe('WinnerDialog', () => {
     });
 
     test('the close button keeps the winners on the second step', async () => {
-        const setDialogOpenStateFunction = jest.fn();
+        const setDialogOpenStateFunction = vi.fn();
         renderDialog(setDialogOpenStateFunction);
 
         await goToSecondStep();
-        (global.fetch as jest.Mock).mockClear();
+        (global.fetch as Mock).mockClear();
         fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
         await waitFor(() => expect(setDialogOpenStateFunction).toHaveBeenCalledWith(false));
-        expect((global.fetch as jest.Mock).mock.calls.filter(([url]) => url.includes('/participants/won/'))).toHaveLength(0);
+        expect((global.fetch as Mock).mock.calls.filter(([url]) => url.includes('/participants/won/'))).toHaveLength(0);
     });
 
     test('escape does not un-pick the winners on the second step', async () => {
-        const setDialogOpenStateFunction = jest.fn();
+        const setDialogOpenStateFunction = vi.fn();
         renderDialog(setDialogOpenStateFunction);
 
         await goToSecondStep();
-        (global.fetch as jest.Mock).mockClear();
+        (global.fetch as Mock).mockClear();
         fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 
         await new Promise((resolve) => setTimeout(resolve, 100));
-        expect((global.fetch as jest.Mock).mock.calls.filter(([url]) => url.includes('/participants/won/'))).toHaveLength(0);
+        expect((global.fetch as Mock).mock.calls.filter(([url]) => url.includes('/participants/won/'))).toHaveLength(0);
         expect(setDialogOpenStateFunction).not.toHaveBeenCalledWith(false);
         expect(screen.getByRole('button', { name: 'Finish' })).toBeInTheDocument();
     });
 
     test('escape does not un-pick the winners on the first step', async () => {
-        const setDialogOpenStateFunction = jest.fn();
+        const setDialogOpenStateFunction = vi.fn();
         renderDialog(setDialogOpenStateFunction);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
@@ -106,13 +107,13 @@ describe('WinnerDialog', () => {
         fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 
         await new Promise((resolve) => setTimeout(resolve, 100));
-        expect((global.fetch as jest.Mock).mock.calls.filter(([url]) => url.includes('/participants/won/'))).toHaveLength(0);
+        expect((global.fetch as Mock).mock.calls.filter(([url]) => url.includes('/participants/won/'))).toHaveLength(0);
         expect(setDialogOpenStateFunction).not.toHaveBeenCalledWith(false);
         expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
     });
 
     test('stores an empty package when clearing the selection and still allows continuing', async () => {
-        const setDialogOpenStateFunction = jest.fn();
+        const setDialogOpenStateFunction = vi.fn();
         renderDialog(setDialogOpenStateFunction);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
@@ -125,7 +126,8 @@ describe('WinnerDialog', () => {
         await user.click(screen.getByRole('option', { name: '-' }));
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/1`, expect.objectContaining({ method: 'PUT' })));
-        const [, init] = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === `${API_BACKEND_URL}/participants/1`)!;
+        const participantOneCalls = (global.fetch as Mock).mock.calls.filter(([url]) => url === `${API_BACKEND_URL}/participants/1`);
+        const [, init] = participantOneCalls[participantOneCalls.length - 1]!;
         expect(JSON.parse(init.body)).toEqual({ package: '' });
 
         fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -136,14 +138,14 @@ describe('WinnerDialog', () => {
 
     test('shows an error toast when un-picking the winners fails', async () => {
         mockFetch();
-        (global.fetch as jest.Mock).mockImplementation((url: string) =>
+        (global.fetch as Mock).mockImplementation((url: string) =>
             Promise.resolve({
                 status: url.endsWith('/auth/me') ? 200 : url.includes('/participants/won/') ? 500 : 204,
                 ok: url.endsWith('/auth/me'),
                 json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }),
             } as Response)
         );
-        const setDialogOpenStateFunction = jest.fn();
+        const setDialogOpenStateFunction = vi.fn();
         renderDialog(setDialogOpenStateFunction);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
@@ -157,7 +159,7 @@ describe('WinnerDialog', () => {
 
     test('shows an error toast when the package is already taken on that day (409)', async () => {
         mockFetch(409);
-        const setDialogOpenStateFunction = jest.fn();
+        const setDialogOpenStateFunction = vi.fn();
         renderDialog(setDialogOpenStateFunction);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
@@ -174,7 +176,7 @@ describe('WinnerDialog', () => {
 
     test('shows an error toast when the package format is invalid (422)', async () => {
         mockFetch(422);
-        const setDialogOpenStateFunction = jest.fn();
+        const setDialogOpenStateFunction = vi.fn();
         renderDialog(setDialogOpenStateFunction);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));

@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi, type Mock } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { DashboardView } from './index';
 import { RequireAuthentication } from '../../components/RequireAuthentication';
@@ -8,8 +9,8 @@ import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
 import { API_BACKEND_URL } from '../../api';
 
-jest.mock('sonner', () => ({
-    toast: { error: jest.fn(), warning: jest.fn(), success: jest.fn() },
+vi.mock('sonner', () => ({
+    toast: { error: vi.fn(), warning: vi.fn(), success: vi.fn() },
     Toaster: () => null,
 }));
 
@@ -18,7 +19,7 @@ import { toast } from 'sonner';
 type MaybePromise<T> = T | Promise<T>;
 
 const mockFetchWith = (handlers: Record<string, () => MaybePromise<{ status: number; ok: boolean; json: () => Promise<unknown> }>>) => {
-    global.fetch = jest.fn().mockImplementation(async (url: string) => {
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
         for (const [prefix, respond] of Object.entries(handlers)) {
             if (url.startsWith(prefix)) {
                 return respond();
@@ -56,11 +57,11 @@ const selectDay = async (dayOption: RegExp) => {
 
 describe('DashboardView', () => {
     beforeEach(() => {
-        (toast.error as jest.Mock).mockClear();
-        Element.prototype.scrollIntoView = jest.fn();
-        Element.prototype.hasPointerCapture = jest.fn();
-        Element.prototype.releasePointerCapture = jest.fn();
-        Element.prototype.setPointerCapture = jest.fn();
+        (toast.error as Mock).mockClear();
+        Element.prototype.scrollIntoView = vi.fn();
+        Element.prototype.hasPointerCapture = vi.fn();
+        Element.prototype.releasePointerCapture = vi.fn();
+        Element.prototype.setPointerCapture = vi.fn();
     });
 
     test('shows a message when the day already has the maximum number of winners', async () => {

@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi, type Mock } from 'vitest';
 import { Dispatch, SetStateAction } from 'react';
 import { DeleteWinnerDialog } from './index';
 import { MemoryRouter } from 'react-router-dom';
@@ -7,15 +8,15 @@ import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
 import { API_BACKEND_URL } from '../../api';
 
-jest.mock('sonner', () => ({
-    toast: { error: jest.fn(), warning: jest.fn(), success: jest.fn() },
+vi.mock('sonner', () => ({
+    toast: { error: vi.fn(), warning: vi.fn(), success: vi.fn() },
     Toaster: () => null,
 }));
 
 import { toast } from 'sonner';
 
 const mockFetch = (deleteStatus: number) => {
-    global.fetch = jest.fn().mockImplementation((url: string) =>
+    global.fetch = vi.fn().mockImplementation((url: string) =>
         Promise.resolve({
             status: url.endsWith('/auth/me') ? 200 : deleteStatus,
             ok: url.endsWith('/auth/me') ? true : deleteStatus < 400,
@@ -42,13 +43,13 @@ const renderDialog = (updateWinnerList: () => void, setDialogOpenStateFunction: 
 
 describe('DeleteWinnerDialog', () => {
     beforeEach(() => {
-        (toast.error as jest.Mock).mockClear();
+        (toast.error as Mock).mockClear();
     });
 
     test('calls updateWinnerList and closes the dialog on success', async () => {
         mockFetch(204);
-        const updateWinnerList = jest.fn();
-        const setDialogOpenStateFunction = jest.fn() as unknown as Dispatch<SetStateAction<boolean>>;
+        const updateWinnerList = vi.fn();
+        const setDialogOpenStateFunction = vi.fn() as unknown as Dispatch<SetStateAction<boolean>>;
         renderDialog(updateWinnerList, setDialogOpenStateFunction);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
@@ -62,8 +63,8 @@ describe('DeleteWinnerDialog', () => {
 
     test('shows an error toast and keeps the dialog open when the backend reports an error', async () => {
         mockFetch(500);
-        const updateWinnerList = jest.fn();
-        const setDialogOpenStateFunction = jest.fn();
+        const updateWinnerList = vi.fn();
+        const setDialogOpenStateFunction = vi.fn();
         renderDialog(updateWinnerList, setDialogOpenStateFunction);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));

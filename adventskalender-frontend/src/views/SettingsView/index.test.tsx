@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { vi, type Mock } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { SettingsView } from './index';
@@ -6,14 +7,14 @@ import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
 import German from '../../languages/de.json';
 
-jest.mock('sonner', () => ({
-    toast: { error: jest.fn(), warning: jest.fn(), success: jest.fn() },
+vi.mock('sonner', () => ({
+    toast: { error: vi.fn(), warning: vi.fn(), success: vi.fn() },
     Toaster: () => null,
 }));
 
-jest.mock('zxcvbn', () => ({
+vi.mock('zxcvbn', () => ({
     __esModule: true,
-    default: jest.fn(() => ({ score: 4, feedback: { warning: '', suggestions: [] } })),
+    default: vi.fn(() => ({ score: 4, feedback: { warning: '', suggestions: [] } })),
 }));
 
 import zxcvbn from 'zxcvbn';
@@ -35,7 +36,7 @@ const fillPasswords = async (current = 'old-password') => {
 };
 
 const mockFetch = (status: number, body?: object, retryAfterSeconds?: number) => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
         status,
         ok: status < 400,
         headers: new Headers(retryAfterSeconds !== undefined ? { 'Retry-After': String(retryAfterSeconds) } : {}),
@@ -45,8 +46,8 @@ const mockFetch = (status: number, body?: object, retryAfterSeconds?: number) =>
 
 describe('SettingsView password change', () => {
     afterEach(() => {
-        jest.restoreAllMocks();
-        (zxcvbn as jest.Mock).mockClear();
+        vi.restoreAllMocks();
+        (zxcvbn as Mock).mockClear();
     });
 
     test('sends the current password and both new passwords on submit', async () => {
@@ -57,7 +58,7 @@ describe('SettingsView password change', () => {
         fireEvent.submit(screen.getByRole('button', { name: 'Change password' }).closest('form')!);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/password`, expect.objectContaining({ method: 'PUT', credentials: 'include' })));
-        const [, init] = (global.fetch as jest.Mock).mock.calls[0];
+        const [, init] = (global.fetch as Mock).mock.calls[0];
         expect(JSON.parse(init.body)).toEqual({ current_password: 'old-password', first_time: 'correct horse battery staple', second_time: 'correct horse battery staple' });
     });
 

@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { vi, type Mock } from 'vitest';
 import { VersionView } from './index';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
@@ -19,11 +20,11 @@ const renderView = () =>
 
 describe('VersionView', () => {
     afterEach(() => {
-        jest.restoreAllMocks();
+        vi.restoreAllMocks();
     });
 
     test('requests the audit count with credentials and shows it', async () => {
-        global.fetch = jest.fn().mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+        global.fetch = vi.fn().mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
             if (String(url) === `${API_BACKEND_URL}/audit/count`) {
                 expect(init).toBeDefined();
                 return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ count: 7 }) } as unknown as Response);
@@ -48,12 +49,12 @@ describe('VersionView', () => {
         renderView();
 
         await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
-        const auditCall = (global.fetch as jest.Mock).mock.calls.find((call) => String(call[0]) === `${API_BACKEND_URL}/audit/count`);
+        const auditCall = (global.fetch as Mock).mock.calls.find((call) => String(call[0]) === `${API_BACKEND_URL}/audit/count`);
         expect(auditCall?.[1]).toEqual(expect.objectContaining({ credentials: 'include' }));
     });
 
     test('logs the user out when the audit count request is rejected as unauthenticated', async () => {
-        global.fetch = jest.fn().mockImplementation((url: RequestInfo | URL) => {
+        global.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
             if (String(url) === `${API_BACKEND_URL}/audit/count`) {
                 return Promise.resolve({ status: 401, ok: false } as unknown as Response);
             }

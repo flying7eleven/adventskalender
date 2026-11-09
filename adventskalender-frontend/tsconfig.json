@@ -18,6 +18,8 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
+        /* Test framework globals and matchers */
+        "types": ["vitest/globals", "@testing-library/jest-dom", "node"],
         /* Path aliases */
         "baseUrl": ".",
         "paths": {

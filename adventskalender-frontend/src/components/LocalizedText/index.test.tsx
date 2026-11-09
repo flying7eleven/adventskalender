@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import { vi } from 'vitest';
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import { LocalizedText } from './index';
 
@@ -11,9 +12,9 @@ describe('LocalizedText component', () => {
     let originalError;
 
     beforeEach(() => {
-        languageGetter = jest.spyOn(window.navigator, 'language', 'get');
+        languageGetter = vi.spyOn(window.navigator, 'language', 'get');
         originalError = console.error;
-        console.error = jest.fn();
+        console.error = vi.fn();
     });
 
     afterEach(() => {

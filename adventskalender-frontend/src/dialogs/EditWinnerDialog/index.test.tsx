@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { vi, type Mock } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { Dispatch, SetStateAction } from 'react';
 import { EditWinnerDialog } from './index';
@@ -14,7 +15,7 @@ const winners = [
 ];
 
 const mockFetch = (putStatus: number) => {
-    global.fetch = jest.fn().mockImplementation((url: string) =>
+    global.fetch = vi.fn().mockImplementation((url: string) =>
         Promise.resolve({
             status: url.endsWith('/auth/me') ? 200 : putStatus,
             ok: url.endsWith('/auth/me') ? true : putStatus < 400,
@@ -52,9 +53,9 @@ const selectPackageForUser = async (userName: string, optionName: string) => {
 describe('EditWinnerDialog', () => {
     beforeEach(() => {
         Element.prototype.scrollIntoView = () => {};
-        Element.prototype.hasPointerCapture = jest.fn();
-        Element.prototype.releasePointerCapture = jest.fn();
-        Element.prototype.setPointerCapture = jest.fn();
+        Element.prototype.hasPointerCapture = vi.fn();
+        Element.prototype.releasePointerCapture = vi.fn();
+        Element.prototype.setPointerCapture = vi.fn();
         (globalThis as unknown as { __DEV__: boolean }).__DEV__ = true;
     });
 
@@ -64,7 +65,7 @@ describe('EditWinnerDialog', () => {
 
     test('shows the stored package of every winner as the selected value', async () => {
         mockFetch(204);
-        renderDialog(jest.fn(), jest.fn());
+        renderDialog(vi.fn(), vi.fn());
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
         const firstRowCombobox = screen.getByText('Max Mustermann').closest('tr')!.querySelector('button[role="combobox"]')!;
@@ -73,27 +74,27 @@ describe('EditWinnerDialog', () => {
 
     test('sends an empty package to the API when clearing the selection', async () => {
         mockFetch(204);
-        const updateWinnerList = jest.fn();
-        renderDialog(updateWinnerList, jest.fn());
+        const updateWinnerList = vi.fn();
+        renderDialog(updateWinnerList, vi.fn());
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
         await selectPackageForUser('Max Mustermann', '-');
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/1`, expect.objectContaining({ method: 'PUT' })));
-        const [, init] = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === `${API_BACKEND_URL}/participants/1`)!;
+        const [, init] = (global.fetch as Mock).mock.calls.find(([url]) => url === `${API_BACKEND_URL}/participants/1`)!;
         expect(JSON.parse(init.body)).toEqual({ package: '' });
     });
 
     test('sends the selected package to the API and refreshes the winner list', async () => {
         mockFetch(204);
-        const updateWinnerList = jest.fn();
-        renderDialog(updateWinnerList, jest.fn());
+        const updateWinnerList = vi.fn();
+        renderDialog(updateWinnerList, vi.fn());
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
         await selectPackageForUser('Erika Musterfrau', 'C');
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/2`, expect.objectContaining({ method: 'PUT' })));
-        const [, init] = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === `${API_BACKEND_URL}/participants/2`)!;
+        const [, init] = (global.fetch as Mock).mock.calls.find(([url]) => url === `${API_BACKEND_URL}/participants/2`)!;
         expect(JSON.parse(init.body)).toEqual({ package: 'C' });
         await waitFor(() => expect(updateWinnerList).toHaveBeenCalledTimes(1));
     });

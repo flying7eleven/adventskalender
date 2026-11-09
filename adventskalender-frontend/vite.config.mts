@@ -1,13 +1,14 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import browserslistToEsbuild from 'browserslist-to-esbuild';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
     return {
         define: {
             __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0]),
-            __DEV__: JSON.stringify(process.env.NODE_ENV !== 'production'),
-            __PROD__: JSON.stringify(process.env.NODE_ENV === 'production'),
+            __DEV__: JSON.stringify(mode === 'development'),
+            __PROD__: JSON.stringify(mode === 'production'),
         },
         resolve: {
             alias: {
@@ -19,6 +20,15 @@ export default defineConfig(() => {
             outDir: 'build',
             sourcemap: false,
             target: browserslistToEsbuild(['>0.2%', 'not dead', 'not op_mini all']),
+        },
+        test: {
+            environment: 'jsdom',
+            globals: true,
+            setupFiles: ['./src/test/setup.ts', './src/setupTests.ts'],
+            define: {
+                __DEV__: 'false',
+                __PROD__: 'false',
+            },
         },
         plugins: [
             react(),
@@ -33,10 +43,10 @@ export default defineConfig(() => {
                         // Prevent clickjacking by disallowing embedding in frames
                         res.setHeader('X-Frame-Options', 'DENY');
 
-                        // Enable XSS protection in older browsers (header is deprecated but still useful for legacy browsers)
+                        // Add XSS protection in older browsers (the header is deprecated but still useful for legacy browsers)
                         res.setHeader('X-XSS-Protection', '1; mode=block');
 
-                        // Control referrer information sent with requests
+                        // Control referrer information sent to external sites
                         res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
                         // Content Security Policy for development

@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import { vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { WinnerCard } from './index';
 import { MemoryRouter } from 'react-router-dom';
@@ -16,7 +17,7 @@ const renderCard = () =>
         <MemoryRouter>
             <AuthenticationProvider>
                 <LocalizationProvider resources={{ english: English, german: English }}>
-                    <WinnerCard winningDate="2024-12-06" listOfWinner={winners} numberOfMaxSubPackages={5} updateWinnerList={jest.fn()} />
+                    <WinnerCard winningDate="2024-12-06" listOfWinner={winners} numberOfMaxSubPackages={5} updateWinnerList={vi.fn()} />
                 </LocalizationProvider>
             </AuthenticationProvider>
         </MemoryRouter>
@@ -24,7 +25,7 @@ const renderCard = () =>
 
 describe('WinnerCard', () => {
     beforeEach(() => {
-        global.fetch = jest.fn().mockImplementation((url: string) =>
+        global.fetch = vi.fn().mockImplementation((url: string) =>
             Promise.resolve({
                 status: url.endsWith('/auth/me') ? 200 : 204,
                 ok: true,
@@ -32,9 +33,9 @@ describe('WinnerCard', () => {
             } as Response)
         );
         Element.prototype.scrollIntoView = () => {};
-        Element.prototype.hasPointerCapture = jest.fn();
-        Element.prototype.releasePointerCapture = jest.fn();
-        Element.prototype.setPointerCapture = jest.fn();
+        Element.prototype.hasPointerCapture = vi.fn();
+        Element.prototype.releasePointerCapture = vi.fn();
+        Element.prototype.setPointerCapture = vi.fn();
         (globalThis as unknown as { __DEV__: boolean }).__DEV__ = true;
     });
 
