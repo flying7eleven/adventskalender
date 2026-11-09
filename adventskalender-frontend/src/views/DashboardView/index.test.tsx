@@ -3,7 +3,7 @@ import { vi, type Mock } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { DashboardView } from './index';
 import { RequireAuthentication } from '../../components/RequireAuthentication';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';

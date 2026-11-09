@@ -1,6 +1,6 @@
 import { useState, useContext, ReactElement, useEffect, useRef } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { LayoutDashboard, Calendar, Settings, Info } from 'lucide-react';
 import { LocalizedText } from '../../components/LocalizedText';
 import { LocalizationContext } from '../../provider/LocalizationContext';

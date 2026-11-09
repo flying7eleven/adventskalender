@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, type Mock } from 'vitest';
 import { Dispatch, SetStateAction } from 'react';
 import { DeleteWinnerDialog } from './index';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';

@@ -1,5 +1,5 @@
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router';
 import English from '../../languages/en.json';
 import German from '../../languages/de.json';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';

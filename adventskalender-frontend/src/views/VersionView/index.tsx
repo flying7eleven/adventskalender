@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { API_BACKEND_URL, VersionInformation, MAX_WINNERS_PER_DAY } from '../../api';
 import packageJson from '../../../package.json';
 import { Card, CardContent } from '@/components/ui/card';

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { LockKeyhole } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { toast } from 'sonner';
 import { LocalizedText } from '../../components/LocalizedText';

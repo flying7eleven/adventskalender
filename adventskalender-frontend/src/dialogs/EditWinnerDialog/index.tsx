@@ -7,7 +7,7 @@ import { LocalizedText } from '../../components/LocalizedText';
 import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
 import { Dispatch, ReactNode, SetStateAction, useEffect, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 
 interface Props {

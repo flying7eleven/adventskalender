@@ -4,7 +4,7 @@ import { PickNewWinner } from '../../components/PickNewWinner';
 import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, ParticipantCount, WinnerInformation } from '../../api';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { WinnerDialog } from '../../dialogs/WinnerDialog';
 import { UnknownErrorDialog } from '../../dialogs/UnknownErrorDialog';

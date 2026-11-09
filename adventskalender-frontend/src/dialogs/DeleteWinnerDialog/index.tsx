@@ -5,7 +5,7 @@ import { Dispatch, SetStateAction, useContext } from 'react';
 import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { useAuthentication } from '../../hooks/useAuthentication';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 
 interface Props {

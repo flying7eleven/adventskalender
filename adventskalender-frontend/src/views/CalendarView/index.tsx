@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { API_BACKEND_URL, MAX_WINNERS_PER_DAY } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { WinnerCard } from '../../components/WinnerCard';
 import { WinnersOnDateMapSchema } from '../../schemas';
 

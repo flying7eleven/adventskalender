@@ -2,7 +2,7 @@ import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { AuthenticatedView } from './index';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';

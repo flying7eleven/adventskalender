@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
 import { ReactNode, useContext, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, WinnerInformation } from '../../api.ts';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { format, parse } from 'date-fns';
