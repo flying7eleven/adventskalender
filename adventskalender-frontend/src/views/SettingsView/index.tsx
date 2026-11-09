@@ -20,7 +20,7 @@ const isPasswordChangeRejectReason = (reason: unknown): reason is PasswordChange
 
 const MINIMUM_PASSWORD_LENGTH = 8;
 
-const isTooShort = (password: string) => password.length < MINIMUM_PASSWORD_LENGTH;
+const isTooShort = (password: string) => [...password].length < MINIMUM_PASSWORD_LENGTH;
 
 export const SettingsView = () => {
     const localizationContext = useContext(LocalizationContext);

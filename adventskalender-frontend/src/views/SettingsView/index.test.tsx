@@ -137,6 +137,17 @@ describe('SettingsView password change', () => {
         expect(screen.queryByText(/Strength:/)).not.toBeInTheDocument();
     });
 
+    test('counts characters instead of UTF-16 units for the minimum password length', async () => {
+        renderView();
+        const fourEmoji = '🎄🎅🤶🎁';
+        fireEvent.change(screen.getByLabelText('Current password'), { target: { value: 'old-password' } });
+        fireEvent.change(screen.getByLabelText('New password'), { target: { value: fourEmoji } });
+        fireEvent.change(screen.getByLabelText('Repeat password'), { target: { value: fourEmoji } });
+
+        await waitFor(() => expect(screen.getByText('Strength: Strong')).toBeInTheDocument());
+        expect(screen.getByRole('button', { name: 'Change password' })).toBeDisabled();
+    });
+
     test('shows a rate limit message with the retry time on a 429 response', async () => {
         mockFetch(429, undefined, 42);
         renderView();
