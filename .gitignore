@@ -11,7 +11,6 @@ venv/
 *.log
 *.pem
 CLAUDE.md
-AGENTS.md
 .playwright-mcp
 real_data.sql
 security.txt
