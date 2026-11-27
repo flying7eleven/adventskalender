@@ -25,6 +25,10 @@ FROM nginx:1.30-alpine
 COPY docker/default.conf /etc/nginx/conf.d/default.conf
 COPY docker/security-headers.conf /etc/nginx/snippets/security-headers.conf
 
+# Writes the trusted proxies of the realip module from NGINX_TRUSTED_PROXIES on every start; the build writes the defaults
+COPY --chmod=755 docker/40-real-ip.sh /docker-entrypoint.d/40-real-ip.sh
+RUN /docker-entrypoint.d/40-real-ip.sh
+
 # Copy built static files from build stage
 # Note: nginx master process runs as root, worker processes as nginx user
 COPY --from=build /usr/src/app/build /usr/share/nginx/html
