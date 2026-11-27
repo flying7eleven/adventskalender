@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, ReactNode } from 'react';
 import { AuthenticationContext } from '../../hooks/useAuthentication';
-import { API_BACKEND_URL } from '../../api';
+import { ApiResponseError, ApiSchemaError, apiFetch } from '../../api';
 import { SessionInformationSchema } from '../../schemas';
 
 export const AuthenticationProvider = ({ children }: { children: ReactNode }) => {
@@ -8,30 +8,20 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [expiresIn, setExpiresIn] = useState<number | null>(null);
-    const applySessionInformation = (data: unknown) => {
-        const sessionInformation = SessionInformationSchema.parse(data);
-        setExpiresIn(sessionInformation.expires_in);
-        return sessionInformation.expires_in;
-    };
 
     // Check authentication status on mount by calling /auth/me
     useEffect(() => {
-        fetch(`${API_BACKEND_URL}/auth/me`, {
-            method: 'GET',
-            credentials: 'include', // Include httpOnly cookie
-        })
-            .then((response) => {
-                if (response.ok) {
-                    setIsAuthenticated(true);
-                    return response
-                        .json()
-                        .then(applySessionInformation)
-                        .catch(() => undefined);
-                }
-                setIsAuthenticated(false);
-                setExpiresIn(null);
+        apiFetch('/auth/me', SessionInformationSchema)
+            .then((sessionInformation) => {
+                setIsAuthenticated(true);
+                setExpiresIn(sessionInformation.expires_in);
             })
-            .catch(() => {
+            .catch((error: unknown) => {
+                // the session cookie was accepted, only its remaining lifetime is unknown
+                if (error instanceof ApiSchemaError) {
+                    setIsAuthenticated(true);
+                    return;
+                }
                 setIsAuthenticated(false);
                 setExpiresIn(null);
             })
@@ -46,33 +36,16 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
             password,
         };
 
-        fetch(`${API_BACKEND_URL}/auth/token`, {
-            method: 'POST',
-            body: JSON.stringify(requestData),
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include', // CRITICAL: Send cookies with request
-        })
-            .then((response) => {
-                if (response.ok) {
-                    return response.json();
-                }
-                if (response.status === 429) {
-                    const retryAfter = Number.parseInt(response.headers.get('Retry-After') || '0', 10);
-                    return Promise.reject({ rateLimited: true, retryAfter: Number.isNaN(retryAfter) ? 0 : retryAfter });
-                }
-                return Promise.reject();
-            })
-            .then((data) => {
-                applySessionInformation(data);
+        apiFetch('/auth/token', SessionInformationSchema, { method: 'POST', body: requestData })
+            .then((sessionInformation) => {
+                setExpiresIn(sessionInformation.expires_in);
                 setIsAuthenticated(true);
                 successCallback();
             })
-            .catch((reason: unknown) => {
+            .catch((error: unknown) => {
                 setIsAuthenticated(false);
-                if (reason !== null && typeof reason === 'object' && 'rateLimited' in reason && reason.rateLimited === true && rateLimitCallback) {
-                    const retryAfter = 'retryAfter' in reason && typeof reason.retryAfter === 'number' ? reason.retryAfter : 0;
+                if (error instanceof ApiResponseError && error.status === 429 && rateLimitCallback) {
+                    const retryAfter = Number.parseInt(error.response.headers.get('Retry-After') || '0', 10);
                     rateLimitCallback(Number.isNaN(retryAfter) ? 0 : retryAfter);
                 } else {
                     failCallback();
@@ -81,17 +54,10 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
     };
 
     const signout = (callback: VoidFunction) => {
-        fetch(`${API_BACKEND_URL}/auth/logout`, {
-            method: 'POST',
-            credentials: 'include',
-        })
+        apiFetch('/auth/logout', { method: 'POST' })
+            // Even if logout fails, clear local state
+            .catch(() => undefined)
             .then(() => {
-                setIsAuthenticated(false);
-                setExpiresIn(null);
-                callback();
-            })
-            .catch(() => {
-                // Even if logout fails, clear local state
                 setIsAuthenticated(false);
                 setExpiresIn(null);
                 callback();
@@ -99,21 +65,10 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
     };
 
     const refresh = useCallback((successCallback: (expiresIn: number) => void, failCallback: VoidFunction) => {
-        fetch(`${API_BACKEND_URL}/auth/refresh`, {
-            method: 'POST',
-            credentials: 'include',
-        })
-            .then((response) => {
-                if (response.status === 200) {
-                    return response
-                        .json()
-                        .then(applySessionInformation)
-                        .catch(() => Promise.reject());
-                }
-                return Promise.reject();
-            })
-            .then((expiresIn) => {
-                successCallback(expiresIn);
+        apiFetch('/auth/refresh', SessionInformationSchema, { method: 'POST' })
+            .then((sessionInformation) => {
+                setExpiresIn(sessionInformation.expires_in);
+                successCallback(sessionInformation.expires_in);
             })
             .catch(() => {
                 failCallback();

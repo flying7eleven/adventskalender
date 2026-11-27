@@ -79,4 +79,38 @@ describe('VersionView', () => {
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));
     });
+
+    test('keeps the unknown backend version without reporting a validation error when the version request fails', async () => {
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        global.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+            if (String(url) === `${API_BACKEND_URL}/audit/count`) {
+                return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ count: 7 }) } as unknown as Response);
+            }
+            if (String(url) === `${API_BACKEND_URL}/version`) {
+                return Promise.resolve({ status: 503, ok: false, json: () => Promise.reject(new Error('no body')) } as unknown as Response);
+            }
+            return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 3600 }) } as unknown as Response);
+        });
+
+        renderView();
+
+        await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/version`, expect.anything()));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(screen.getAllByText('unknown').length).toBeGreaterThan(0);
+        expect(consoleError).not.toHaveBeenCalled();
+    });
+
+    test('requests the version and the audit count without a Content-Type header', async () => {
+        global.fetch = vi.fn().mockImplementation(() => Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ count: 7 }) } as unknown as Response));
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        renderView();
+
+        await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
+        for (const path of ['/version', '/audit/count']) {
+            const [, init] = (global.fetch as Mock).mock.calls.find((call) => String(call[0]) === `${API_BACKEND_URL}${path}`)!;
+            expect(init.headers).toBeUndefined();
+        }
+    });
 });

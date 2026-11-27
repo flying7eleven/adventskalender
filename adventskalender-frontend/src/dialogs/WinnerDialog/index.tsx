@@ -7,7 +7,7 @@ import { LocalizedText } from '../../components/LocalizedText';
 import { ReactNode, useContext, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
-import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, WinnerInformation } from '../../api.ts';
+import { ApiAuthExpiredError, ApiResponseError, apiFetch, MAX_WINNERS_PER_DAY, WinnerInformation } from '../../api.ts';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { format, parse } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -159,27 +159,13 @@ export const WinnerDialog = (props: Props) => {
         const winnerIds = props.winner.map((currentWinner) => currentWinner.id);
 
         // since we have a token, we can now unselect all participants
-        Promise.all(
-            winnerIds.map(async (winnerId) => {
-                const res = await fetch(`${API_BACKEND_URL}/participants/won/${winnerId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-type': 'application/json; charset=UTF-8',
-                    },
-                    credentials: 'include',
-                });
-                if (res.status === 204) {
+        Promise.all(winnerIds.map((winnerId) => apiFetch(`/participants/won/${winnerId}`, { method: 'DELETE' })))
+            .then(handleDialogClose)
+            .catch((error: unknown) => {
+                if (error instanceof ApiAuthExpiredError) {
+                    logoutUser();
                     return;
                 }
-                if (res.status === 401 || res.status === 403) {
-                    logoutUser();
-                    return Promise.reject();
-                }
-                return Promise.reject();
-            })
-        )
-            .then(handleDialogClose)
-            .catch(() => {
                 toast.error(localizationContext.translate('dashboard.dialogs.new_winners.error_unpick'), {
                     duration: 6000,
                 });
@@ -196,40 +182,7 @@ export const WinnerDialog = (props: Props) => {
         const packageValue = selectedPackage === '__none__' ? '' : selectedPackage;
 
         // since we have a token, we can update the package selection for the given user id
-        fetch(`${API_BACKEND_URL}/participants/${userId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-            body: JSON.stringify({ package: packageValue }),
-        })
-            .then((res) => {
-                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
-                // object and proceed processing it
-                if (res.status === 204) {
-                    return userId;
-                }
-
-                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                // the user should automatically be redirected to the login page
-                if (res.status === 401 || res.status === 403) {
-                    logoutUser();
-                    return Promise.reject();
-                }
-
-                // there should never be other status codes which have to be handled, but just in case, we'll handle
-                // them here too
-                if (res.status === 409) {
-                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.error_package_taken'), { duration: 6000 });
-                    return Promise.reject();
-                }
-                if (res.status === 422) {
-                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.table.error_package_selection'), { duration: 6000 });
-                    return Promise.reject();
-                }
-                return Promise.reject();
-            })
+        apiFetch(`/participants/${userId}`, { method: 'PUT', body: { package: packageValue } })
             .then(() => {
                 if (doUpdateState) {
                     // update the value the user successfully set for the package
@@ -243,7 +196,18 @@ export const WinnerDialog = (props: Props) => {
                     setPackageSelectionErrorStates(previousErrorStates);
                 }
             })
-            .catch(() => {
+            .catch((error: unknown) => {
+                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                // the user should automatically be redirected to the login page
+                if (error instanceof ApiAuthExpiredError) {
+                    logoutUser();
+                }
+                if (error instanceof ApiResponseError && error.status === 409) {
+                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.error_package_taken'), { duration: 6000 });
+                }
+                if (error instanceof ApiResponseError && error.status === 422) {
+                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.table.error_package_selection'), { duration: 6000 });
+                }
                 if (doUpdateState) {
                     const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
                     previousErrorStates[userId] = true;
@@ -255,36 +219,17 @@ export const WinnerDialog = (props: Props) => {
     const prepareWinnerData = (refetchWinners: boolean) => {
         if (refetchWinners) {
             // Fetch winners from backend to get all winners for the day
-            fetch(`${API_BACKEND_URL}/participants/won/${props.date}`, {
-                method: 'GET',
-                headers: {
-                    'Content-type': 'application/json; charset=UTF-8',
-                },
-                credentials: 'include',
-            })
-                .then((res) => {
-                    if (res.status === 200) {
-                        return res.json();
-                    }
-
-                    // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                    // the user should automatically be redirected to the login page
-                    if (res.status === 401 || res.status === 403) {
-                        logoutUser();
-                        return Promise.reject();
-                    }
-
-                    // there should never be other status codes which have to be handled, but just in case, we'll handle
-                    // them here too
-                    return Promise.reject();
-                })
-                .then((data) => {
-                    // Validate the response data using Zod schema
-                    const validated = z.array(WinnerInformation2Schema).parse(data);
-                    setFetchedWinners(validated);
+            apiFetch(`/participants/won/${props.date}`, z.array(WinnerInformation2Schema))
+                .then((winners) => {
+                    setFetchedWinners(winners);
                     setFetchError(false);
                 })
-                .catch(() => {
+                .catch((error: unknown) => {
+                    // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                    // the user should automatically be redirected to the login page
+                    if (error instanceof ApiAuthExpiredError) {
+                        logoutUser();
+                    }
                     setFetchError(true);
                 });
         } else {

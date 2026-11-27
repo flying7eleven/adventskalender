@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BACKEND_URL, MAX_WINNERS_PER_DAY } from '../../api';
+import { ApiAuthExpiredError, apiFetch, MAX_WINNERS_PER_DAY } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
 import { WinnerCard } from '../../components/WinnerCard';
@@ -21,42 +21,14 @@ export const CalendarView = () => {
         }
 
         // since we have a token, we can query the backend for the winner count for the selected day
-        fetch(`${API_BACKEND_URL}/participants/won`, {
-            method: 'GET',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-        })
-            .then((res) => {
-                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
-                // object and proceed processing it
-                if (res.status === 200) {
-                    return res.json();
-                }
-
+        apiFetch('/participants/won', WinnersOnDateMapSchema)
+            .then(setAllWinners)
+            .catch((error: unknown) => {
                 // if it seems that we are not authorized, invalidate the token. By invalidating the token,
                 // the user should automatically be redirected to the login page
-                if (res.status === 401 || res.status === 403) {
+                if (error instanceof ApiAuthExpiredError) {
                     logoutUser();
-                    return Promise.reject();
                 }
-
-                // there should never be other status codes which have to be handled, but just in case, we'll handle
-                // them here too
-                // TODO: this
-            })
-            .then((data) => {
-                // Validate the response data using Zod schema
-                const validated = WinnersOnDateMapSchema.parse(data);
-                setAllWinners(validated);
-            })
-            .catch((error) => {
-                // Log validation errors for debugging
-                if (error?.name === 'ZodError') {
-                    console.error('API response validation failed:', error);
-                }
-                /* we do not have to anything here */
             });
     };
 

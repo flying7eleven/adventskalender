@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { LocalizedText } from '../../components/LocalizedText';
 import { Dispatch, SetStateAction, useContext } from 'react';
-import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
+import { ApiAuthExpiredError, apiFetch, WinnerInformation } from '../../api.ts';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
@@ -30,38 +30,21 @@ export const DeleteWinnerDialog = (props: Props) => {
             return;
         }
 
-        // since we have a token, we can query the backend for the winner count for the selected day
-        fetch(`${API_BACKEND_URL}/participants/won/${props.userToDelete.id}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-        })
-            .then((res) => {
-                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
-                // object and proceed processing it
-                if (res.status === 204) {
-                    return;
-                }
-
-                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                // the user should automatically be redirected to the login page
-                if (res.status === 401 || res.status === 403) {
-                    logoutUser();
-                    return Promise.reject();
-                }
-
-                // in all other cases, something unexpected went wrong while removing the winner
-                return Promise.reject();
-            })
+        // since we have a token, we can remove the winning state of the participant
+        apiFetch(`/participants/won/${props.userToDelete.id}`, { method: 'DELETE' })
             .then(() => {
                 if (props.updateWinnerList) {
                     props.updateWinnerList();
                 }
                 props.setDialogOpenStateFunction(false);
             })
-            .catch(() => {
+            .catch((error: unknown) => {
+                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                // the user should automatically be redirected to the login page
+                if (error instanceof ApiAuthExpiredError) {
+                    logoutUser();
+                    return;
+                }
                 toast.error(localizationContext.translate('calendar.dialogs.remove_participant.error'), {
                     duration: 6000,
                 });
