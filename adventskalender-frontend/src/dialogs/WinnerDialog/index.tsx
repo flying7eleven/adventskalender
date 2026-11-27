@@ -191,15 +191,8 @@ export const WinnerDialog = (props: Props) => {
         apiFetch(`/participants/${userId}`, { method: 'PUT', body: { package: packageValue } })
             .then(() => {
                 if (doUpdateState) {
-                    // update the value the user successfully set for the package
-                    const previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
-                    previousSelection[userId] = packageValue;
-                    setPackageSelections(previousSelection);
-
-                    // clear a previous error state, if it existed
-                    const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
-                    previousErrorStates[userId] = false;
-                    setPackageSelectionErrorStates(previousErrorStates);
+                    setPackageSelections((previousSelections) => ({ ...previousSelections, [userId]: packageValue }));
+                    setPackageSelectionErrorStates((previousErrorStates) => ({ ...previousErrorStates, [userId]: false }));
                 }
             })
             .catch((error: unknown) => {
@@ -215,9 +208,7 @@ export const WinnerDialog = (props: Props) => {
                     toast.error(localizationContext.translate('dashboard.dialogs.new_winners.table.error_package_selection'), { duration: 6000 });
                 }
                 if (doUpdateState) {
-                    const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
-                    previousErrorStates[userId] = true;
-                    setPackageSelectionErrorStates(previousErrorStates);
+                    setPackageSelectionErrorStates((previousErrorStates) => ({ ...previousErrorStates, [userId]: true }));
                 }
             });
     };

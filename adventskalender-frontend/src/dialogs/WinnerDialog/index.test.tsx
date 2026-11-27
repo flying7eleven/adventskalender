@@ -245,4 +245,31 @@ describe('WinnerDialog', () => {
         expect(deletedUrls).toEqual([`${API_BACKEND_URL}/participants/won/2`]);
     });
 
+    test('keeps both selections when two packages are selected before the first request finishes', async () => {
+        const pendingPuts: (() => void)[] = [];
+        (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+            const response = { status: url.endsWith('/auth/me') ? 200 : 204, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) } as Response;
+            if (init?.method === 'PUT') {
+                return new Promise<Response>((resolve) => pendingPuts.push(() => resolve(response)));
+            }
+            return Promise.resolve(response);
+        });
+        renderDialog(vi.fn());
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+
+        const user = userEvent.setup();
+        for (const [name, option] of [
+            ['First1 Last1', 'A'],
+            ['First2 Last2', 'B'],
+        ]) {
+            await user.click(screen.getByText(name).closest('tr')!.querySelector('button[role="combobox"]')!);
+            await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+            await user.click(screen.getByRole('option', { name: option }));
+        }
+        await waitFor(() => expect(pendingPuts).toHaveLength(2));
+        pendingPuts.forEach((resolve) => resolve());
+
+        await waitFor(() => expect(screen.getByText('First2 Last2').closest('tr')!.querySelector('button[role="combobox"]')!).toHaveTextContent('B'));
+        expect(screen.getByText('First1 Last1').closest('tr')!.querySelector('button[role="combobox"]')!).toHaveTextContent('A');
+    });
 });
