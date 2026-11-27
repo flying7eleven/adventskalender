@@ -62,7 +62,8 @@ export const AuthenticatedView = (props: Props) => {
         }
         sessionExpiredRef.current = true;
         toast.error(localizationContext.translate('session.expired.message'), { duration: 10000 });
-        logoutUser();
+        sessionManager.stopMonitoring();
+        auth.signoutLocally(() => navigate('/login'));
     };
 
     const recheckSession = () => {

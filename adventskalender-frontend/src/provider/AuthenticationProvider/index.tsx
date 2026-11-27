@@ -54,15 +54,17 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
         );
     };
 
+    const signoutLocally = (callback: VoidFunction) => {
+        setIsAuthenticated(false);
+        setExpiresIn(null);
+        callback();
+    };
+
     const signout = (callback: VoidFunction) => {
         apiFetch('/auth/logout', { method: 'POST' })
             // Even if logout fails, clear local state
             .catch(() => undefined)
-            .then(() => {
-                setIsAuthenticated(false);
-                setExpiresIn(null);
-                callback();
-            });
+            .then(() => signoutLocally(callback));
     };
 
     const refresh = useCallback((successCallback: (expiresIn: number) => void, failCallback: VoidFunction) => {
@@ -76,7 +78,7 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
             });
     }, []);
 
-    const value = { isAuthenticated, isLoading, expiresIn, signin, signout, refresh };
+    const value = { isAuthenticated, isLoading, expiresIn, signin, signout, signoutLocally, refresh };
 
     return <AuthenticationContext.Provider value={value}>{children}</AuthenticationContext.Provider>;
 };

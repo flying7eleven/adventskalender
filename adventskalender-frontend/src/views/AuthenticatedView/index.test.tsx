@@ -9,7 +9,8 @@ vi.mock('sonner', () => ({
 
 import { toast } from 'sonner';
 import { AuthenticatedView } from './index';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
+import { RequireAuthentication } from '../../components/RequireAuthentication';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
@@ -28,11 +29,26 @@ const renderView = () =>
         <MemoryRouter>
             <AuthenticationProvider>
                 <LocalizationProvider resources={{ english: English, german: English }}>
-                    <AuthenticatedView content={<div>page content</div>} />
+                    <Routes>
+                        <Route
+                            path="/"
+                            element={
+                                <RequireAuthentication>
+                                    <AuthenticatedView content={<div>page content</div>} />
+                                </RequireAuthentication>
+                            }
+                        />
+                        <Route path="/login" element={<div>login page</div>} />
+                    </Routes>
                 </LocalizationProvider>
             </AuthenticationProvider>
         </MemoryRouter>
     );
+
+const expectLocalSignoutToLoginPage = async () => {
+    await waitFor(() => expect(screen.getByText('login page')).toBeInTheDocument());
+    expect(global.fetch).not.toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything());
+};
 
 const settleAuthentication = async () => {
     await waitFor(() => expect(screen.getByText('page content')).toBeInTheDocument());
@@ -69,7 +85,7 @@ describe('AuthenticatedView session handling', () => {
         await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
         await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Your session has expired. Please log in again.', expect.anything()));
         expect(alertMock).not.toHaveBeenCalled();
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));
+        await expectLocalSignoutToLoginPage();
         alertMock.mockRestore();
     });
 
@@ -166,7 +182,7 @@ describe('AuthenticatedView session handling', () => {
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/refresh`, expect.anything()));
         await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Your session has expired. Please log in again.', expect.anything()));
         expect(alertMock).not.toHaveBeenCalled();
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));
+        await expectLocalSignoutToLoginPage();
         alertMock.mockRestore();
     });
 
@@ -219,7 +235,25 @@ describe('AuthenticatedView session handling', () => {
 
         await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Your session has expired. Please log in again.', expect.anything()));
         expect(alertMock).not.toHaveBeenCalled();
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));
+        await expectLocalSignoutToLoginPage();
         alertMock.mockRestore();
+    });
+
+    test('explicit logout asks the backend to end the session and shows the login page', async () => {
+        mockFetchWith((url) => {
+            if (url === `${API_BACKEND_URL}/auth/me`) {
+                return { status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) };
+            }
+            return { status: 204, ok: true, json: () => Promise.reject(new Error('no body')) };
+        });
+        renderView();
+        await settleAuthentication();
+
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
+        await user.click(screen.getByRole('button', { name: 'Logout' }));
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.objectContaining({ method: 'POST' })));
+        await waitFor(() => expect(screen.getByText('login page')).toBeInTheDocument());
+        expect(toast.error).not.toHaveBeenCalled();
     });
 });
