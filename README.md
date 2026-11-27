@@ -58,6 +58,12 @@ psql -h localhost -U adventskalender -d adventskalender -c \
   "INSERT INTO users (username, password_hash) VALUES ('admin', '\$2b\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy');"
 ```
 
+To set a new password for an existing user, also bump the session epoch, so that all sessions of the user end like after a password change in the application:
+```shell
+psql -h localhost -U adventskalender -d adventskalender -c \
+  "UPDATE users SET password_hash = '\$2b\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', session_epoch = session_epoch + 1 WHERE username = 'admin';"
+```
+
 **Note**: The example hash above is for demonstration only. Always generate a fresh hash for your actual password.
 
 ## Reverse proxy requirement in production
