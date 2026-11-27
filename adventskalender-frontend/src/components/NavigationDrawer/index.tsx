@@ -2,12 +2,13 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ChevronLeft } from 'lucide-react';
-import { ReactNode } from 'react';
+import { ReactNode, useContext } from 'react';
+import { LocalizationContext } from '../../provider/LocalizationContext';
 
 interface NavigationItem {
     key: string;
     icon: ReactNode;
-    label: ReactNode;
+    label: string;
     onClick: () => void;
     selected: boolean;
 }
@@ -20,6 +21,8 @@ interface NavigationDrawerProps {
 }
 
 export const NavigationDrawer = ({ open, onToggle, items, settingsItems }: NavigationDrawerProps) => {
+    const localizationContext = useContext(LocalizationContext);
+
     return (
         <aside
             className={cn(
@@ -35,7 +38,7 @@ export const NavigationDrawer = ({ open, onToggle, items, settingsItems }: Navig
         >
             {/* Drawer Header - matches AppBar height (64px) */}
             <div className={cn('flex items-center h-16 px-2', open ? 'justify-end' : 'justify-center')}>
-                <Button variant="ghost" size="icon" onClick={onToggle} aria-label="Toggle navigation drawer">
+                <Button variant="ghost" size="icon" onClick={onToggle} aria-label={localizationContext.translate('global.navigation_buttons.toggle_drawer')}>
                     <ChevronLeft className={cn('h-5 w-5 transition-transform duration-300', !open && 'rotate-180')} />
                 </Button>
             </div>
@@ -45,7 +48,14 @@ export const NavigationDrawer = ({ open, onToggle, items, settingsItems }: Navig
             {/* Navigation Items */}
             <nav className="flex flex-col gap-1 p-2">
                 {items.map((item) => (
-                    <Button key={item.key} variant={item.selected ? 'secondary' : 'ghost'} className={cn('justify-start', !open && 'justify-center px-2')} onClick={item.onClick}>
+                    <Button
+                        key={item.key}
+                        variant={item.selected ? 'secondary' : 'ghost'}
+                        className={cn('justify-start', !open && 'justify-center px-2')}
+                        onClick={item.onClick}
+                        aria-label={open ? undefined : item.label}
+                        title={open ? undefined : item.label}
+                    >
                         {item.icon}
                         {open && <span className="ml-3">{item.label}</span>}
                     </Button>
@@ -57,7 +67,14 @@ export const NavigationDrawer = ({ open, onToggle, items, settingsItems }: Navig
             {/* Settings Navigation Items */}
             <nav className="flex flex-col gap-1 p-2">
                 {settingsItems.map((item) => (
-                    <Button key={item.key} variant={item.selected ? 'secondary' : 'ghost'} className={cn('justify-start', !open && 'justify-center px-2')} onClick={item.onClick}>
+                    <Button
+                        key={item.key}
+                        variant={item.selected ? 'secondary' : 'ghost'}
+                        className={cn('justify-start', !open && 'justify-center px-2')}
+                        onClick={item.onClick}
+                        aria-label={open ? undefined : item.label}
+                        title={open ? undefined : item.label}
+                    >
                         {item.icon}
                         {open && <span className="ml-3">{item.label}</span>}
                     </Button>
