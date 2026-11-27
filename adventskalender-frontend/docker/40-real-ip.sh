@@ -3,7 +3,7 @@
 set -eu
 
 ME=$(basename "$0")
-OUTPUT=/etc/nginx/snippets/real-ip.conf
+OUTPUT=${NGINX_REAL_IP_CONF:-/etc/nginx/snippets/real-ip.conf}
 DEFAULT_TRUSTED_PROXIES="127.0.0.1 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 fc00::/7"
 
 entrypoint_log() {

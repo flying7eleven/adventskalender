@@ -31,3 +31,6 @@ jobs:
     - name: Run tests
       run: npm run test
       working-directory: adventskalender-frontend
+    - name: Test the real IP entrypoint script
+      run: sh docker/40-real-ip.test.sh
+      working-directory: adventskalender-frontend
