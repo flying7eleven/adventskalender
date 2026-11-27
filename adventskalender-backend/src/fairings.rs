@@ -149,8 +149,8 @@ const SECURITY_HEADERS: [(&str, &str); 6] = [
     ("X-Content-Type-Options", "nosniff"),
     // prevent clickjacking by disallowing embedding in frames
     ("X-Frame-Options", "DENY"),
-    // enable XSS protection in older browsers (header is deprecated but still useful for legacy browsers)
-    ("X-XSS-Protection", "1; mode=block"),
+    // disable the legacy XSS auditor of older browsers, which can itself introduce vulnerabilities
+    ("X-XSS-Protection", "0"),
     // control referrer information sent with requests
     ("Referrer-Policy", "strict-origin-when-cross-origin"),
     // Content Security Policy - restrictive default (fonts self-hosted)

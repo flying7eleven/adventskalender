@@ -8,8 +8,8 @@ use rocket::serde::json::{Json, json};
 use rocket::{State, get, post, put};
 use serde::{Deserialize, Serialize};
 
-/// The longest username the backend accepts, matching the `users.username` column.
-const MAX_USERNAME_BYTES: usize = 64;
+/// The longest username in characters the backend accepts, matching the `users.username` column.
+const MAX_USERNAME_CHARACTERS: usize = 64;
 /// The longest new password the backend accepts, since bcrypt only uses the first 72 bytes.
 const MAX_PASSWORD_BYTES: usize = 72;
 
@@ -349,7 +349,7 @@ pub async fn get_login_token(
     // field; an oversized username is rejected before it reaches the rate limiter or the database.
     // passwords of any length are verified, since existing passwords may be longer than the limit
     // for new ones and bcrypt only uses their first 72 bytes
-    if login_information.username.len() > MAX_USERNAME_BYTES {
+    if login_information.username.chars().count() > MAX_USERNAME_CHARACTERS {
         debug!("Rejected a login request with an oversized username");
         return Err(LoginError::BadRequest);
     }
@@ -584,7 +584,8 @@ pub async fn logout(
     cookies.remove(Cookie::from("auth_token"));
 
     let user_id = match authenticated_user {
-        Ok(user) => user.user_id,
+        Ok(user) if user.expires_at > crate::unix_time_now() as u64 => user.user_id,
+        Ok(_) => return Ok(NoContent),
         Err(AuthorizationError::CannotValidateToken) => {
             return Err(Custom(Status::InternalServerError, ()));
         }
