@@ -63,13 +63,3 @@ For running `diesel` commands locally, create the configuration file first: `cp 
 
 ## Token signing key
 The backend signs its tokens with an Ed25519 key stored at `ADVENTSKALENDER_KEY_FILE_PATH` (default `/data/adventskalender_ed25519.key`). If the file is missing or invalid, the backend generates a new key on startup and stores it there, which invalidates all previously issued tokens. Keep the file on a persistent volume.
-
-## Things still to do
-- [x] _Backend_: Ensure that parallel picks never select the same participant twice
-- [x] _Backend_: Enforce the maximum number of winners per day, which only the frontend checks so far
-- [x] _Backend_: Use the new string formatting literals
-- [x] _Frontend_: Have a better looking overview for the calendar view
-- [x] _Frontend_: Removing a winner re-sorts the remaining winners in the cards. Always order them alphabetically to prevent this
-- [x] _Frontend_: A warning if the user tries to pick winners for a day, where winners were already picked
-- [x] _Front- and Backend_: Use the correct semantics for the REST routes
-- [x] _Front- and Backend_: Be able to change the own password on a settings page
