@@ -1,6 +1,13 @@
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
+
+vi.mock('sonner', () => ({
+    toast: { error: vi.fn(), warning: vi.fn(), success: vi.fn() },
+    Toaster: () => null,
+}));
+
+import { toast } from 'sonner';
 import { AuthenticatedView } from './index';
 import { MemoryRouter } from 'react-router';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
@@ -37,6 +44,7 @@ const settleAuthentication = async () => {
 describe('AuthenticatedView session handling', () => {
     afterEach(() => {
         vi.setSystemTime(now);
+        vi.mocked(toast.error).mockClear();
     });
 
     test('shows the expiry warning 5 minutes before the reported expiry and logs out at it', async () => {
@@ -59,7 +67,8 @@ describe('AuthenticatedView session handling', () => {
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
 
         await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
-        await waitFor(() => expect(alertMock).toHaveBeenCalledWith('Your session has expired. Please log in again.'));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Your session has expired. Please log in again.', expect.anything()));
+        expect(alertMock).not.toHaveBeenCalled();
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));
         alertMock.mockRestore();
     });
@@ -80,7 +89,6 @@ describe('AuthenticatedView session handling', () => {
         await vi.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
 
-        global.alert = vi.fn();
         const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
         await user.click(screen.getByRole('button', { name: 'Stay Logged In' }));
 
@@ -114,7 +122,6 @@ describe('AuthenticatedView session handling', () => {
         await vi.advanceTimersByTimeAsync((60 - 5) * 60 * 1000);
         await waitFor(() => expect(screen.getByText('Session Expiring Soon')).toBeInTheDocument());
 
-        global.alert = vi.fn();
         const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
         await user.click(screen.getByRole('button', { name: 'Stay Logged In' }));
 
@@ -127,6 +134,7 @@ describe('AuthenticatedView session handling', () => {
             await vi.advanceTimersByTimeAsync(0);
         });
         expect(alertMock).not.toHaveBeenCalled();
+        expect(toast.error).not.toHaveBeenCalled();
         expect(global.fetch).not.toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything());
 
         // the warning reappears 5 minutes before the expiry reported by the refresh
@@ -156,7 +164,8 @@ describe('AuthenticatedView session handling', () => {
         await user.click(screen.getByRole('button', { name: 'Stay Logged In' }));
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/refresh`, expect.anything()));
-        await waitFor(() => expect(alertMock).toHaveBeenCalledWith('Your session has expired. Please log in again.'));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Your session has expired. Please log in again.', expect.anything()));
+        expect(alertMock).not.toHaveBeenCalled();
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));
         alertMock.mockRestore();
     });
@@ -181,6 +190,7 @@ describe('AuthenticatedView session handling', () => {
             await vi.advanceTimersByTimeAsync(0);
         });
         expect(alertMock).not.toHaveBeenCalled();
+        expect(toast.error).not.toHaveBeenCalled();
         expect(global.fetch).not.toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything());
 
         // The rescheduled session expires 60 minutes after the re-check.
@@ -207,7 +217,8 @@ describe('AuthenticatedView session handling', () => {
 
         await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
-        await waitFor(() => expect(alertMock).toHaveBeenCalledWith('Your session has expired. Please log in again.'));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Your session has expired. Please log in again.', expect.anything()));
+        expect(alertMock).not.toHaveBeenCalled();
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));
         alertMock.mockRestore();
     });

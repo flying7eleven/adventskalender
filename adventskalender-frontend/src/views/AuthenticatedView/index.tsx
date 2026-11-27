@@ -11,6 +11,7 @@ import { AppHeader } from '../../components/AppHeader';
 import { apiFetch } from '../../api';
 import { SessionInformationSchema } from '../../schemas';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface Props {
     content: ReactElement;
@@ -60,7 +61,7 @@ export const AuthenticatedView = (props: Props) => {
             return;
         }
         sessionExpiredRef.current = true;
-        alert(localizationContext.translate('session.expired.message'));
+        toast.error(localizationContext.translate('session.expired.message'), { duration: 10000 });
         logoutUser();
     };
 
