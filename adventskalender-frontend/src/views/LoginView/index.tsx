@@ -1,4 +1,4 @@
-import { FormEvent, useContext, useEffect, useRef, useState } from 'react';
+import { FormEvent, useContext, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,20 +9,11 @@ import { useAuthentication } from '../../hooks/useAuthentication';
 import { toast } from 'sonner';
 import { LocalizedText } from '../../components/LocalizedText';
 import { LocalizationContext } from '../../provider/LocalizationContext';
-import { useTheme } from '../../provider/ThemeProvider';
+import { useTheme } from '../../hooks/useTheme';
 
 export const LoginView = () => {
-    const { theme } = useTheme();
-    const [isDark, setIsDark] = useState(false);
-
-    useEffect(() => {
-        if (theme === 'system') {
-            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            setIsDark(systemPrefersDark);
-        } else {
-            setIsDark(theme === 'dark');
-        }
-    }, [theme]);
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === 'dark';
     const navigate = useNavigate();
     const location = useLocation();
     const auth = useAuthentication();

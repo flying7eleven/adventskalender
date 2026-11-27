@@ -2,7 +2,7 @@ import { LocalizedText } from '../LocalizedText';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { WinnerInformation } from '../../api';
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Edit, Eye } from 'lucide-react';
 import { PersonItem } from '../PersonItem';
 import { EditWinnerDialog } from '../../dialogs/EditWinnerDialog';
@@ -19,14 +19,12 @@ interface Props {
 export const WinnerCard = (props: Props) => {
     const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
     const [viewDialogOpen, setViewDialogOpen] = useState<boolean>(false);
-    const [packageSelections, setPackageSelections] = useState<{ [key: string]: string }>({});
-
-    useEffect(() => {
-        const newPackageSelections: { [key: string]: string } = {};
+    const packageSelections = useMemo(() => {
+        const selections: { [key: string]: string } = {};
         props.listOfWinner.forEach((winner) => {
-            newPackageSelections[winner.id] = winner.presentIdentifier ? winner.presentIdentifier : '';
+            selections[winner.id] = winner.presentIdentifier ? winner.presentIdentifier : '';
         });
-        setPackageSelections(newPackageSelections);
+        return selections;
     }, [props.listOfWinner]);
 
     const handleEditClick = () => {
