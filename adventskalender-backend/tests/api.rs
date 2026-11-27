@@ -1743,6 +1743,51 @@ fn logging_out_without_a_valid_token_still_succeeds() {
     assert_eq!(response.status(), Status::NoContent);
 }
 
+fn assert_removes_the_auth_cookie(response: &rocket::local::blocking::LocalResponse<'_>) {
+    let cookie = auth_cookie_set_by(response);
+    assert_eq!(cookie.value(), "");
+    assert_eq!(cookie.max_age(), Some(rocket::time::Duration::ZERO));
+}
+
+#[test]
+fn logging_out_reports_a_server_error_but_removes_the_cookie_if_the_users_cannot_be_read() {
+    let database = TestDatabase::start(0);
+    let logged_in = logged_in_client(&database);
+    database.execute("ALTER TABLE users RENAME TO unreadable_users");
+
+    let response = logged_in.post("/v1/auth/logout").dispatch();
+
+    assert_eq!(response.status(), Status::InternalServerError);
+    assert_removes_the_auth_cookie(&response);
+}
+
+#[test]
+fn logging_out_reports_a_server_error_but_removes_the_cookie_if_the_epoch_cannot_be_bumped() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = session_token_of(&logged_in);
+    database.execute(
+        "CREATE FUNCTION reject_user_update() RETURNS trigger AS $$ \
+         BEGIN RAISE EXCEPTION 'update rejected'; END; $$ LANGUAGE plpgsql",
+    );
+    database.execute(
+        "CREATE TRIGGER reject_user_update BEFORE UPDATE ON users \
+         FOR EACH ROW EXECUTE FUNCTION reject_user_update()",
+    );
+
+    let response = logged_in.post("/v1/auth/logout").dispatch();
+
+    assert_eq!(response.status(), Status::InternalServerError);
+    assert_removes_the_auth_cookie(&response);
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM users WHERE session_epoch = 0"),
+        1
+    );
+    let replaying_client = client_with_key_bytes(&database, &key_bytes);
+    assert_eq!(me_status_with_token(&replaying_client, &token), Status::Ok);
+}
+
 #[test]
 fn a_password_change_ends_all_other_sessions_but_keeps_the_changing_one() {
     let database = TestDatabase::start(0);
