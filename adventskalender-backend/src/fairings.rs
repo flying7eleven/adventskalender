@@ -1,11 +1,15 @@
 use diesel::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
 use jsonwebtoken::{DecodingKey, EncodingKey};
+use ring::signature::{Ed25519KeyPair, KeyPair};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Request, Response};
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+
+/// The key ID which the issued tokens carry and the JWKS advertises for the signing key.
+pub const SIGNING_KEY_ID: &str = "adventskalender-key-1";
 
 #[derive(Clone)]
 pub struct BackendConfiguration {
@@ -17,29 +21,38 @@ pub struct BackendConfiguration {
     pub encoding_key: EncodingKey,
     /// The key which is used to decode a token signature.
     pub decoding_key: DecodingKey,
-    /// The raw Ed25519 key bytes in PKCS8 format (for JWKS endpoint).
-    pub ed25519_key_bytes: Vec<u8>,
+    /// The base64url-encoded public key, served as the `x` parameter of the JWK.
+    pub public_key_x: String,
     /// The UUID used for the health check on  healthcheck.io.
     pub healthcheck_project: String,
     /// A list of URLs which represent the audience for this token.
     pub token_audience: HashSet<String>,
     /// The precomputed parameter set which is used to validate incoming tokens.
     pub token_validation: jsonwebtoken::Validation,
+    /// Whether the session cookie carries the `Secure` attribute.
+    pub cookie_secure: bool,
 }
 
 impl BackendConfiguration {
-    /// Builds the configuration with the precomputed parameter set which is used to validate
-    /// incoming tokens: EdDSA signatures, the supplied audience and the API host as the only
-    /// accepted issuer.
-    pub fn new(
+    /// Builds the configuration from the Ed25519 signing key in the PKCS#8 DER format, together
+    /// with the precomputed parameter set which is used to validate incoming tokens: EdDSA
+    /// signatures, the supplied audience and the API host as the only accepted issuer.
+    pub fn from_pkcs8(
+        key_pkcs8: &[u8],
         api_host: String,
         jwks_uri: String,
-        encoding_key: EncodingKey,
-        decoding_key: DecodingKey,
-        ed25519_key_bytes: Vec<u8>,
         healthcheck_project: String,
         token_audience: HashSet<String>,
-    ) -> Self {
+        cookie_secure: bool,
+    ) -> Result<Self, ring::error::KeyRejected> {
+        use base64::Engine;
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
+        let public_key = Ed25519KeyPair::from_pkcs8(key_pkcs8)?
+            .public_key()
+            .as_ref()
+            .to_vec();
+
         let mut token_validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::EdDSA);
         // allow a time difference of max. 5 seconds
         token_validation.leeway = 5;
@@ -51,16 +64,17 @@ impl BackendConfiguration {
         issuer_set.insert(api_host.clone());
         token_validation.iss = Some(issuer_set);
 
-        BackendConfiguration {
+        Ok(BackendConfiguration {
             api_host,
             jwks_uri,
-            encoding_key,
-            decoding_key,
-            ed25519_key_bytes,
+            encoding_key: EncodingKey::from_ed_der(key_pkcs8),
+            decoding_key: DecodingKey::from_ed_der(&public_key),
+            public_key_x: URL_SAFE_NO_PAD.encode(&public_key),
             healthcheck_project,
             token_audience,
             token_validation,
-        }
+            cookie_secure,
+        })
     }
 }
 
@@ -129,6 +143,42 @@ impl From<Pool<ConnectionManager<PgConnection>>> for AdventskalenderDatabaseConn
     }
 }
 
+/// The security headers which every response carries.
+const SECURITY_HEADERS: [(&str, &str); 6] = [
+    // prevent MIME type sniffing
+    ("X-Content-Type-Options", "nosniff"),
+    // prevent clickjacking by disallowing embedding in frames
+    ("X-Frame-Options", "DENY"),
+    // enable XSS protection in older browsers (header is deprecated but still useful for legacy browsers)
+    ("X-XSS-Protection", "1; mode=block"),
+    // control referrer information sent with requests
+    ("Referrer-Policy", "strict-origin-when-cross-origin"),
+    // Content Security Policy - restrictive default (fonts self-hosted)
+    (
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; media-src 'none'; worker-src 'none'",
+    ),
+    // prevent browser features and APIs
+    (
+        "Permissions-Policy",
+        "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()",
+    ),
+];
+
+/// Enforces HTTPS for one year on this host only; neither subdomains nor the browsers' preload
+/// list are committed, since the backend does not control where else the domain is used.
+const STRICT_TRANSPORT_SECURITY: (&str, &str) = ("Strict-Transport-Security", "max-age=31536000");
+
+/// The headers the [`SecurityHeaders`] fairing sets; HSTS only in release builds, since debug
+/// builds are served over plain HTTP.
+fn security_headers(
+    include_strict_transport_security: bool,
+) -> impl Iterator<Item = (&'static str, &'static str)> {
+    SECURITY_HEADERS
+        .into_iter()
+        .chain(include_strict_transport_security.then_some(STRICT_TRANSPORT_SECURITY))
+}
+
 /// Fairing that adds security headers to all HTTP responses
 pub struct SecurityHeaders;
 
@@ -142,36 +192,71 @@ impl Fairing for SecurityHeaders {
     }
 
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
-        // prevent MIME type sniffing
-        response.set_raw_header("X-Content-Type-Options", "nosniff");
+        for (name, value) in security_headers(cfg!(not(debug_assertions))) {
+            response.set_raw_header(name, value);
+        }
+    }
+}
 
-        // prevent clickjacking by disallowing embedding in frames
-        response.set_raw_header("X-Frame-Options", "DENY");
+#[cfg(test)]
+mod tests {
+    use super::{BackendConfiguration, security_headers};
+    use base64::Engine;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use ring::rand::SystemRandom;
+    use ring::signature::{Ed25519KeyPair, KeyPair};
+    use std::collections::HashSet;
 
-        // enable XSS protection in older browsers (header is deprecated but still useful for legacy browsers)
-        response.set_raw_header("X-XSS-Protection", "1; mode=block");
+    fn configuration_from(
+        key_pkcs8: &[u8],
+    ) -> Result<BackendConfiguration, ring::error::KeyRejected> {
+        BackendConfiguration::from_pkcs8(
+            key_pkcs8,
+            "https://example.com".to_string(),
+            "https://example.com/.well-known/jwks.json".to_string(),
+            "".to_string(),
+            HashSet::from(["https://example.com".to_string()]),
+            true,
+        )
+    }
 
-        // enforce HTTPS for 1 year (31536000 seconds)
-        // WARNING: only set this in production with proper HTTPS setup
-        #[cfg(not(debug_assertions))]
-        response.set_raw_header(
-            "Strict-Transport-Security",
-            "max-age=31536000; includeSubDomains; preload",
+    #[test]
+    fn the_release_headers_carry_hsts_without_subdomains_and_preload() {
+        let headers: Vec<_> = security_headers(true).collect();
+
+        assert!(headers.contains(&("Strict-Transport-Security", "max-age=31536000")));
+        assert!(headers.contains(&("X-Content-Type-Options", "nosniff")));
+        assert!(headers.contains(&("X-Frame-Options", "DENY")));
+    }
+
+    #[test]
+    fn the_debug_headers_carry_no_hsts() {
+        assert!(
+            security_headers(false).all(|(name, _)| name != "Strict-Transport-Security"),
+            "debug builds are served over plain HTTP and must not send HSTS"
         );
+        assert!(security_headers(false).any(|(name, _)| name == "Content-Security-Policy"));
+    }
 
-        // control referrer information sent with requests
-        response.set_raw_header("Referrer-Policy", "strict-origin-when-cross-origin");
+    #[test]
+    fn the_configuration_precomputes_the_public_key_of_the_jwk() {
+        let document = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new()).unwrap();
+        let expected_public_key = Ed25519KeyPair::from_pkcs8(document.as_ref())
+            .unwrap()
+            .public_key()
+            .as_ref()
+            .to_vec();
 
-        // Content Security Policy - restrictive default (fonts self-hosted)
-        response.set_raw_header(
-            "Content-Security-Policy",
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; media-src 'none'; worker-src 'none'",
+        let configuration = configuration_from(document.as_ref()).unwrap();
+
+        assert_eq!(
+            URL_SAFE_NO_PAD.decode(&configuration.public_key_x).unwrap(),
+            expected_public_key
         );
+    }
 
-        // prevent browser features and APIs
-        response.set_raw_header(
-            "Permissions-Policy",
-            "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()",
-        );
+    #[test]
+    fn a_key_which_is_not_in_the_pkcs8_format_is_rejected() {
+        assert!(configuration_from(b"not a key").is_err());
     }
 }

@@ -1,7 +1,7 @@
 mod common;
 
+use adventskalender_backend::build_rocket;
 use adventskalender_backend::fairings::BackendConfiguration;
-use adventskalender_backend::routes::mount_routes;
 use common::{PICKING_USER_PASSWORD, TestDatabase};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use ring::rand::SystemRandom;
@@ -18,28 +18,33 @@ fn fresh_key_bytes() -> Vec<u8> {
         .to_vec()
 }
 
-fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
-    let configuration = BackendConfiguration::new(
+fn configuration_with_key_bytes(key_bytes: &[u8], cookie_secure: bool) -> BackendConfiguration {
+    BackendConfiguration::from_pkcs8(
+        key_bytes,
         "http://localhost:5479".to_string(),
         "http://localhost:5479/.well-known/jwks.json".to_string(),
-        EncodingKey::from_ed_der(key_bytes),
-        DecodingKey::from_ed_der(
-            Ed25519KeyPair::from_pkcs8(key_bytes)
-                .unwrap()
-                .public_key()
-                .as_ref(),
-        ),
-        key_bytes.to_vec(),
         "".to_string(),
         HashSet::from(["http://localhost:5173".to_string()]),
-    );
-    let rocket = mount_routes(
-        rocket::build()
-            .manage(configuration)
-            .manage(database.new_connection_pool())
-            .attach(adventskalender_backend::cors::Cors::new(["http://localhost:5173"]).unwrap()),
+        cookie_secure,
+    )
+    .unwrap()
+}
+
+fn client_with_configuration(
+    database: &TestDatabase,
+    configuration: BackendConfiguration,
+) -> Client {
+    let rocket = build_rocket(
+        rocket::Config::figment(),
+        configuration,
+        database.new_connection_pool(),
+        adventskalender_backend::cors::Cors::new(["http://localhost:5173"]).unwrap(),
     );
     Client::tracked(rocket).unwrap()
+}
+
+fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
+    client_with_configuration(database, configuration_with_key_bytes(key_bytes, false))
 }
 
 fn client(database: &TestDatabase) -> Client {
@@ -819,6 +824,155 @@ fn the_openid_configuration_advertises_only_the_supported_fields() {
         configuration["id_token_signing_alg_values_supported"],
         json!(["EdDSA"])
     );
+}
+
+#[test]
+fn issued_tokens_carry_the_key_id_and_verify_with_the_key_the_jwks_advertises() {
+    use base64::Engine;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = logged_in
+        .cookies()
+        .get("auth_token")
+        .expect("a login must set the auth_token cookie")
+        .value()
+        .to_string();
+
+    let key_set: Value = logged_in
+        .get("/.well-known/jwks.json")
+        .dispatch()
+        .into_json()
+        .unwrap();
+    let advertised_key = &key_set["keys"][0];
+
+    assert_eq!(
+        jsonwebtoken::decode_header(&token).unwrap().kid.as_deref(),
+        advertised_key["kid"].as_str()
+    );
+    let advertised_x = advertised_key["x"].as_str().unwrap();
+    assert_eq!(
+        URL_SAFE_NO_PAD.decode(advertised_x).unwrap(),
+        Ed25519KeyPair::from_pkcs8(&key_bytes)
+            .unwrap()
+            .public_key()
+            .as_ref()
+    );
+    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::EdDSA);
+    validation.set_audience(&["http://localhost:5173"]);
+    validation.set_issuer(&["http://localhost:5479"]);
+    jsonwebtoken::decode::<Value>(
+        &token,
+        &DecodingKey::from_ed_components(advertised_x).unwrap(),
+        &validation,
+    )
+    .expect("the token must verify with the advertised key");
+}
+
+fn assert_security_headers(response: &rocket::local::blocking::LocalResponse<'_>) {
+    let headers = response.headers();
+    assert_eq!(headers.get_one("X-Content-Type-Options"), Some("nosniff"));
+    assert_eq!(headers.get_one("X-Frame-Options"), Some("DENY"));
+    assert_eq!(
+        headers.get_one("Referrer-Policy"),
+        Some("strict-origin-when-cross-origin")
+    );
+    assert!(headers.get_one("Content-Security-Policy").is_some());
+    assert!(headers.get_one("Permissions-Policy").is_some());
+    let expected_hsts = if cfg!(debug_assertions) {
+        None
+    } else {
+        Some("max-age=31536000")
+    };
+    assert_eq!(headers.get_one("Strict-Transport-Security"), expected_hsts);
+}
+
+#[test]
+fn successful_and_rejected_responses_carry_the_security_headers() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client.get("/.well-known/openid-configuration").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    assert_security_headers(&response);
+
+    let response = client.get("/v1/auth/me").dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+    assert_security_headers(&response);
+}
+
+fn auth_cookie_set_by(
+    response: &rocket::local::blocking::LocalResponse<'_>,
+) -> rocket::http::Cookie<'static> {
+    response
+        .headers()
+        .get("Set-Cookie")
+        .map(|value| rocket::http::Cookie::parse(value.to_string()).unwrap())
+        .find(|cookie| cookie.name() == "auth_token")
+        .expect("the response must set the auth_token cookie")
+}
+
+fn login_response<'c>(
+    client: &'c Client,
+    database: &TestDatabase,
+) -> rocket::local::blocking::LocalResponse<'c> {
+    client
+        .post("/v1/auth/token")
+        .header(ContentType::JSON)
+        .body(
+            json!({ "username": database.picking_user, "password": PICKING_USER_PASSWORD })
+                .to_string(),
+        )
+        .dispatch()
+}
+
+#[test]
+fn the_session_cookie_is_secure_when_configured_on_login_and_refresh() {
+    let database = TestDatabase::start(0);
+    let client = client_with_configuration(
+        &database,
+        configuration_with_key_bytes(&fresh_key_bytes(), true),
+    );
+
+    let response = login_response(&client, &database);
+    assert_eq!(response.status(), Status::Ok);
+    let login_cookie = auth_cookie_set_by(&response);
+    assert_eq!(login_cookie.secure(), Some(true));
+    assert_eq!(login_cookie.http_only(), Some(true));
+    assert_eq!(
+        login_cookie.same_site(),
+        Some(rocket::http::SameSite::Strict)
+    );
+
+    let response = client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", login_cookie.value().to_string()))
+        .dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    assert_eq!(auth_cookie_set_by(&response).secure(), Some(true));
+}
+
+#[test]
+fn the_session_cookie_is_not_secure_when_disabled_on_login_and_refresh() {
+    let database = TestDatabase::start(0);
+    let client = client_with_configuration(
+        &database,
+        configuration_with_key_bytes(&fresh_key_bytes(), false),
+    );
+
+    let response = login_response(&client, &database);
+    assert_eq!(response.status(), Status::Ok);
+    let login_cookie = auth_cookie_set_by(&response);
+    assert_ne!(login_cookie.secure(), Some(true));
+
+    let response = client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", login_cookie.value().to_string()))
+        .dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    assert_ne!(auth_cookie_set_by(&response).secure(), Some(true));
 }
 
 #[test]

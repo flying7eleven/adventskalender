@@ -245,7 +245,8 @@ pub fn get_token_for_user_with_auth_time(
 
     // generate a new JWT for the supplied header and token claims. if we were successful, return
     // the token
-    let header = Header::new(Algorithm::EdDSA);
+    let mut header = Header::new(Algorithm::EdDSA);
+    header.kid = Some(crate::fairings::SIGNING_KEY_ID.to_string());
     if let Ok(token) = encode(&header, &token_claims, encoding_key) {
         return Some((token, token_expires_at as u64));
     }
@@ -267,10 +268,47 @@ pub fn session_lifetime_in_seconds() -> usize {
     SESSION_LIFETIME_IN_SECONDS
 }
 
+/// Assembles the backend with all routes, fairings and managed state. The binary and the
+/// integration tests share it, so the tests exercise the same stack which runs in production.
+pub fn build_rocket<T: rocket::figment::Provider>(
+    figment: T,
+    configuration: fairings::BackendConfiguration,
+    database: fairings::AdventskalenderDatabaseConnection,
+    cors: cors::Cors,
+) -> rocket::Rocket<rocket::Build> {
+    routes::mount_routes(
+        rocket::custom(figment)
+            .attach(cors)
+            .attach(fairings::SecurityHeaders)
+            .manage(configuration)
+            .manage(database),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{BackoffHandler, ServiceStatus};
     use std::time::Duration;
+
+    #[test]
+    fn an_issued_token_carries_the_key_id_of_the_signing_key() {
+        use jsonwebtoken::EncodingKey;
+        use ring::rand::SystemRandom;
+        use ring::signature::Ed25519KeyPair;
+        use std::collections::HashSet;
+
+        let document = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new()).unwrap();
+        let (token, _) = super::get_token_for_user(
+            "someone",
+            HashSet::from(["https://example.com".to_string()]),
+            "https://example.com".to_string(),
+            &EncodingKey::from_ed_der(document.as_ref()),
+        )
+        .unwrap();
+
+        let header = jsonwebtoken::decode_header(&token).unwrap();
+        assert_eq!(header.kid.as_deref(), Some(crate::fairings::SIGNING_KEY_ID));
+    }
 
     #[test]
     fn down_ping_is_sent_immediately_after_an_up_ping() {
