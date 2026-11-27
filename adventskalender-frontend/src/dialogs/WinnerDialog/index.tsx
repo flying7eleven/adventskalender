@@ -45,27 +45,14 @@ export const WinnerDialog = (props: Props) => {
             return false;
         }
 
-        const remainingErrorStates = Object.fromEntries(
-            remainingWinners.filter((currentWinner) => currentWinner.id in packageSelectionErrorStates).map((currentWinner) => [currentWinner.id, packageSelectionErrorStates[currentWinner.id]])
-        );
-
-        // if all error states are negative, we can assume that we can proceed to the next step
-        if (Object.values(remainingErrorStates).filter((item) => item).length == 0) {
-            return true;
-        }
-
-        // if there are error states, there might be reasons to proceed anyway, now we have to check for them
-        // one of the reasons can be that a user re-picked a winner and selected a free package for him or her and then
-        // proceeded to select an already an invalid package. The control gets into an error state where the user cannot
-        // recover from. If this happens, we can ignore the error state since a package was selected for the user
-        const deepCheckErrorValues = Object.keys(remainingErrorStates).map((key) => {
-            const isErrorState = remainingErrorStates[key];
-            if (isErrorState) {
-                return packageSelections[key].length == 1 && USABLE_PACKAGE_ALPHABET.includes(packageSelections[key]);
-            }
-            return false;
+        // a winner in an error state can still proceed: one of the reasons can be that a user re-picked a winner and
+        // selected a free package for him or her and then proceeded to select an already taken package. The control gets
+        // into an error state the user cannot recover from. If this happens, we can ignore the error state since a valid
+        // package was selected for the user
+        return remainingWinners.every((currentWinner) => {
+            const selectedPackage = packageSelections[currentWinner.id];
+            return !packageSelectionErrorStates[currentWinner.id] || (selectedPackage.length == 1 && USABLE_PACKAGE_ALPHABET.includes(selectedPackage));
         });
-        return Object.values(deepCheckErrorValues).filter((item) => !item).length == 0;
     };
 
     const markPackagesNotSelectedAsError = () => {

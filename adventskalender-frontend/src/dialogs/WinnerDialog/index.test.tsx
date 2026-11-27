@@ -327,6 +327,55 @@ describe('WinnerDialog', () => {
         expect(setDialogOpenStateFunction).not.toHaveBeenCalledWith(false);
     });
 
+    test('continuing ignores a failed selection of a winner who still holds a valid package', async () => {
+        (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+            if (url.endsWith('/participants/won/2026-12-06')) {
+                return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve([]) } as Response);
+            }
+            const isTaken = init?.method === 'PUT' && url.endsWith('/participants/2') && JSON.parse(String(init.body)).package === 'C';
+            return Promise.resolve({
+                status: url.endsWith('/auth/me') ? 200 : isTaken ? 409 : 204,
+                ok: !isTaken,
+                json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }),
+            } as Response);
+        });
+        render(
+            <MemoryRouter>
+                <AuthenticationProvider>
+                    <LocalizationProvider resources={{ english: English, german: English }}>
+                        <WinnerDialog isOpen={true} winner={winners.slice(0, 3)} numberOfMaxSubPackages={5} date={'2026-12-06'} setDialogOpenStateFunction={vi.fn()} />
+                    </LocalizationProvider>
+                </AuthenticationProvider>
+            </MemoryRouter>
+        );
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+
+        const user = userEvent.setup();
+        const comboboxOf = (name: string) => screen.getByText(name).closest('tr')!.querySelector('button[role="combobox"]')!;
+        const selectPackage = async (name: string, option: string) => {
+            await user.click(comboboxOf(name));
+            await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+            await user.click(screen.getByRole('option', { name: option }));
+        };
+        await selectPackage('First1 Last1', 'A');
+        await waitFor(() => expect(comboboxOf('First1 Last1')).toHaveTextContent('A'));
+        await selectPackage('First2 Last2', 'B');
+        await waitFor(() => expect(comboboxOf('First2 Last2')).toHaveTextContent('B'));
+        await selectPackage('First2 Last2', 'C');
+        await waitFor(() => expect(comboboxOf('First2 Last2')).toHaveAttribute('aria-invalid', 'true'));
+        expect(comboboxOf('First2 Last2')).toHaveTextContent('B');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        await waitFor(() => expect(comboboxOf('First3 Last3')).toHaveAttribute('aria-invalid', 'true'));
+        expect(screen.queryByRole('button', { name: 'Finish' })).not.toBeInTheDocument();
+
+        await selectPackage('First3 Last3', 'D');
+        await waitFor(() => expect(comboboxOf('First3 Last3')).toHaveAttribute('aria-invalid', 'false'));
+        fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Finish' })).toBeInTheDocument());
+    });
+
     test('keeps both selections when two packages are selected before the first request finishes', async () => {
         const pendingPuts: (() => void)[] = [];
         (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
