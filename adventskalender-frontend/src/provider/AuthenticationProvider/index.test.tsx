@@ -133,6 +133,20 @@ describe('AuthenticationProvider signin', () => {
         expect(probe.isAuthenticated).toBe(false);
     });
 
+    test('reports invalid credentials when the backend rejects the login request with 400', async () => {
+        mockFetch(() => Promise.resolve(jsonResponse({}, 400)));
+        const probe = await renderReadyProbe();
+
+        const callbacks = signinCallbacks();
+        probe.signin!('u'.repeat(65), 'password', callbacks);
+
+        await waitFor(() => expect(callbacks.onInvalidCredentials).toHaveBeenCalledTimes(1));
+        expect(callbacks.onError).not.toHaveBeenCalled();
+        expect(callbacks.onRateLimited).not.toHaveBeenCalled();
+        expect(callbacks.onSuccess).not.toHaveBeenCalled();
+        expect(probe.isAuthenticated).toBe(false);
+    });
+
     test('reports an error instead of invalid credentials when the backend forbids the login with 403', async () => {
         mockFetch(() => Promise.resolve(jsonResponse({}, 403)));
         const probe = await renderReadyProbe();
