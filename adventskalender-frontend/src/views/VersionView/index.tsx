@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { API_BACKEND_URL, VersionInformation, MAX_WINNERS_PER_DAY } from '../../api';
+import { API_BACKEND_URL, ApiAuthExpiredError, apiFetch, VersionInformation, MAX_WINNERS_PER_DAY } from '../../api';
 import packageJson from '../../../package.json';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -20,76 +20,30 @@ export const VersionView = () => {
     const auth = useAuthentication();
     const navigate = useNavigate();
 
-    const logoutUser = () => {
+    const logoutUser = useEffectEvent(() => {
         auth.signout(() => navigate('/'));
-    };
+    });
 
     const getFrontendBuildDateTimeString = () => {
         return __BUILD_DATE__;
     };
 
     useEffect(() => {
-        // get the version information from the backend
-        fetch(`${API_BACKEND_URL}/version`, {
-            method: 'GET',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-        })
-            .then((res) => {
-                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
-                // object and proceed processing it
-                if (res.status === 200) {
-                    return res.json();
-                }
-            })
-            .then((data) => {
-                // Validate the response data using Zod schema
-                const validated = VersionInformationSchema.parse(data);
-                setBackendVersionInformation(validated);
-            })
-            .catch((error) => {
-                // Log validation errors for debugging
-                if (error?.name === 'ZodError') {
-                    console.error('API response validation failed:', error);
-                }
-                /* we do not have to anything here */
-            });
+        // without version information from the backend, the placeholder values stay visible
+        apiFetch('/version', VersionInformationSchema)
+            .then(setBackendVersionInformation)
+            .catch(() => undefined);
     }, []);
 
     useEffect(() => {
-        fetch(`${API_BACKEND_URL}/audit/count`, {
-            method: 'GET',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-        })
-            .then((res) => {
-                if (res.status === 200) {
-                    return res.json();
-                }
-
+        apiFetch('/audit/count', AuditEventCountSchema)
+            .then((auditEvents) => setAuditEventCount(auditEvents.count))
+            .catch((error: unknown) => {
                 // if it seems that we are not authorized, invalidate the session. By invalidating the session,
                 // the user should automatically be redirected to the login page
-                if (res.status === 401 || res.status === 403) {
+                if (error instanceof ApiAuthExpiredError) {
                     logoutUser();
-                    return Promise.reject();
                 }
-
-                return Promise.reject();
-            })
-            .then((data) => {
-                // Validate the response data using Zod schema
-                const validated = AuditEventCountSchema.parse(data);
-                setAuditEventCount(validated.count);
-            })
-            .catch((error) => {
-                // Log validation errors for debugging
-                if (error?.name === 'ZodError') {
-                    console.error('API response validation failed:', error);
-                }
-                /* we do not have to anything here */
             });
     }, []);
 

@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
-import { API_BACKEND_URL, WinnerInformation } from '../../api.ts';
+import { ApiAuthExpiredError, apiFetch, WinnerInformation } from '../../api.ts';
 import { Dispatch, ReactNode, SetStateAction, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
@@ -61,26 +61,7 @@ export const EditWinnerDialog = (props: Props) => {
 
         const packageValue = selectedPackage === '__none__' ? '' : selectedPackage;
 
-        fetch(`${API_BACKEND_URL}/participants/${userId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-            body: JSON.stringify({ package: packageValue }),
-        })
-            .then((res) => {
-                if (res.status === 204) {
-                    return userId;
-                }
-
-                if (res.status === 401 || res.status === 403) {
-                    logoutUser();
-                    return Promise.reject();
-                }
-
-                return Promise.reject();
-            })
+        apiFetch(`/participants/${userId}`, { method: 'PUT', body: { package: packageValue } })
             .then(() => {
                 const previousSelection = Object.assign({}, packageSelections);
                 previousSelection[userId] = selectedPackage === '__none__' ? '' : selectedPackage;
@@ -94,7 +75,10 @@ export const EditWinnerDialog = (props: Props) => {
                     props.updateWinnerList();
                 }
             })
-            .catch(() => {
+            .catch((error: unknown) => {
+                if (error instanceof ApiAuthExpiredError) {
+                    logoutUser();
+                }
                 const previousErrorStates = Object.assign({}, packageSelectionErrorStates);
                 previousErrorStates[userId] = true;
                 setPackageSelectionErrorStates(previousErrorStates);
