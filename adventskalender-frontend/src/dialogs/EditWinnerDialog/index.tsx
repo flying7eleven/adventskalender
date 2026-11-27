@@ -63,13 +63,8 @@ export const EditWinnerDialog = (props: Props) => {
 
         apiFetch(`/participants/${userId}`, { method: 'PUT', body: { package: packageValue } })
             .then(() => {
-                const previousSelection = Object.assign({}, packageSelections);
-                previousSelection[userId] = selectedPackage === '__none__' ? '' : selectedPackage;
-                setPackageSelections(previousSelection);
-
-                const previousErrorStates = Object.assign({}, packageSelectionErrorStates);
-                previousErrorStates[userId] = false;
-                setPackageSelectionErrorStates(previousErrorStates);
+                setPackageSelections((previousSelections) => ({ ...previousSelections, [userId]: packageValue }));
+                setPackageSelectionErrorStates((previousErrorStates) => ({ ...previousErrorStates, [userId]: false }));
 
                 if (props.updateWinnerList) {
                     props.updateWinnerList();
@@ -79,9 +74,7 @@ export const EditWinnerDialog = (props: Props) => {
                 if (error instanceof ApiAuthExpiredError) {
                     logoutUser();
                 }
-                const previousErrorStates = Object.assign({}, packageSelectionErrorStates);
-                previousErrorStates[userId] = true;
-                setPackageSelectionErrorStates(previousErrorStates);
+                setPackageSelectionErrorStates((previousErrorStates) => ({ ...previousErrorStates, [userId]: true }));
             });
     };
 

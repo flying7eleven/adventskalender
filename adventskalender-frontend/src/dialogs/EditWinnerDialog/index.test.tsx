@@ -128,4 +128,25 @@ describe('EditWinnerDialog', () => {
         rerender(dialogTree(vi.fn(), vi.fn(), { '1': 'A', '2': 'E' }));
         expect(packageOfRow('Erika Musterfrau')).toHaveTextContent('E');
     });
+
+    test('keeps both selections when two packages are selected before the first request finishes', async () => {
+        const pendingPuts: (() => void)[] = [];
+        global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+            const response = { status: url.endsWith('/auth/me') ? 200 : 204, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) } as Response;
+            if (init?.method === 'PUT') {
+                return new Promise<Response>((resolve) => pendingPuts.push(() => resolve(response)));
+            }
+            return Promise.resolve(response);
+        });
+        renderDialog(vi.fn(), vi.fn());
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+
+        await selectPackageForUser('Max Mustermann', 'B');
+        await selectPackageForUser('Erika Musterfrau', 'C');
+        await waitFor(() => expect(pendingPuts).toHaveLength(2));
+        pendingPuts.forEach((resolve) => resolve());
+
+        await waitFor(() => expect(packageOfRow('Erika Musterfrau')).toHaveTextContent('C'));
+        expect(packageOfRow('Max Mustermann')).toHaveTextContent('B');
+    });
 });
