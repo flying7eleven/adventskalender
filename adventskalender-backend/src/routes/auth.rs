@@ -511,20 +511,35 @@ pub async fn get_login_token(
     }))
 }
 
+/// Issues a new token for a valid session. A rejected token or an exceeded session lifetime
+/// removes the session cookie.
 #[post("/auth/refresh")]
 pub async fn refresh_session(
-    authenticated_user: AuthenticatedUser,
+    authenticated_user: Result<AuthenticatedUser, AuthorizationError>,
     config: &State<BackendConfiguration>,
     cookies: &CookieJar<'_>,
-) -> Result<Json<UserInfo>, Status> {
+) -> Result<Json<UserInfo>, Custom<()>> {
     use crate::{get_token_for_user_with_auth_time, session_lifetime_in_seconds, unix_time_now};
+
+    // the error responses below are no catchers, so the removal of the cookie reaches the client;
+    // a token which could not be validated may still be valid, so its cookie is kept
+    let authenticated_user = match authenticated_user {
+        Ok(user) => user,
+        Err(AuthorizationError::CannotValidateToken) => {
+            return Err(Custom(Status::InternalServerError, ()));
+        }
+        Err(_) => {
+            cookies.remove(Cookie::from("auth_token"));
+            return Err(Custom(Status::Forbidden, ()));
+        }
+    };
 
     // a session has an absolute lifetime which starts at the original login; if it is exceeded,
     // the session is terminated and the user has to log in again
     let now = unix_time_now() as u64;
     if now.saturating_sub(authenticated_user.auth_time) >= session_lifetime_in_seconds() as u64 {
         cookies.remove(Cookie::from("auth_token"));
-        return Err(Status::Forbidden);
+        return Err(Custom(Status::Forbidden, ()));
     }
 
     // the guard already ensured that the user still exists and that the session was not revoked;
@@ -548,7 +563,7 @@ pub async fn refresh_session(
                 expires_in,
             }))
         }
-        None => Err(Status::InternalServerError),
+        None => Err(Custom(Status::InternalServerError, ())),
     }
 }
 

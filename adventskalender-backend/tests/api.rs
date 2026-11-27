@@ -1169,6 +1169,7 @@ fn refreshing_a_session_after_the_absolute_session_lifetime_is_forbidden() {
         .dispatch();
 
     assert_eq!(response.status(), Status::Forbidden);
+    assert_removes_the_auth_cookie(&response);
 }
 
 #[test]
@@ -1181,6 +1182,7 @@ fn refreshing_the_session_of_a_deleted_user_is_forbidden() {
     let response = logged_in.post("/v1/auth/refresh").dispatch();
 
     assert_eq!(response.status(), Status::Forbidden);
+    assert_removes_the_auth_cookie(&response);
 }
 
 #[test]
@@ -1702,6 +1704,7 @@ fn refreshing_with_a_token_replayed_after_logout_is_rejected() {
         .dispatch();
 
     assert_eq!(response.status(), Status::Forbidden);
+    assert_removes_the_auth_cookie(&response);
 }
 
 #[test]
@@ -1728,6 +1731,7 @@ fn a_token_of_a_deleted_user_is_rejected_after_the_username_was_recreated() {
         .cookie(("auth_token", token))
         .dispatch();
     assert_eq!(response.status(), Status::Forbidden);
+    assert_removes_the_auth_cookie(&response);
 }
 
 #[test]
