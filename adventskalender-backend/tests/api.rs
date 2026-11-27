@@ -1530,10 +1530,9 @@ fn picking_an_invalid_number_of_winners_is_a_bad_request_and_marks_nobody() {
 
 #[test]
 fn picking_for_a_date_outside_the_advent_days_of_this_year_is_a_bad_request() {
-    use chrono::Datelike;
     let database = TestDatabase::start(2);
     let client = logged_in_client(&database);
-    let year = chrono::Utc::now().year();
+    let year = common::current_year();
 
     for date in [
         date_this_year(11, 24),
@@ -2158,6 +2157,17 @@ fn the_backend_version_is_served_without_authentication() {
             "{field}: {body}"
         );
     }
+    let build_time = body["build_time"].as_str().unwrap();
+    assert!(
+        build_time.len() == 8
+            && build_time
+                .char_indices()
+                .all(|(index, character)| match index {
+                    2 | 5 => character == ':',
+                    _ => character.is_ascii_digit(),
+                }),
+        "build_time is not HH:MM:SS: {build_time}"
+    );
 }
 
 #[test]
@@ -2220,4 +2230,66 @@ fn logging_out_with_a_token_within_the_leeway_keeps_the_other_sessions() {
         other_session.get("/v1/auth/me").dispatch().status(),
         Status::Ok
     );
+}
+
+#[test]
+fn picking_stores_the_day_and_the_picking_and_audit_times_in_utc() {
+    let database = TestDatabase::start(2);
+    let client = logged_in_client(&database);
+    let day = date_this_year(12, 6);
+
+    assert_eq!(pick_winners(&client, 2, &day).len(), 2);
+
+    let within_the_last_minute_in_utc = "BETWEEN (now() AT TIME ZONE 'UTC') - INTERVAL '1 minute' \
+         AND (now() AT TIME ZONE 'UTC') + INTERVAL '1 minute'";
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM participants \
+             WHERE won_on = DATE '{day}' AND picking_time {within_the_last_minute_in_utc}"
+        )),
+        2
+    );
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM performed_actions \
+             WHERE action = 'picked_winner' AND time_of_action {within_the_last_minute_in_utc}"
+        )),
+        2
+    );
+}
+
+#[test]
+fn the_date_routes_accept_dates_without_zero_padding() {
+    let database = TestDatabase::start(3);
+    let client = logged_in_client(&database);
+    let padded = date_this_year(12, 6);
+    let unpadded = padded.replace("-12-06", "-12-6");
+
+    let mut picked = pick_winners(&client, 2, &unpadded);
+    picked.sort_unstable();
+    assert_eq!(picked.len(), 2);
+
+    let response = client
+        .get(format!("/v1/participants/won/{unpadded}"))
+        .dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let listed: Vec<i32> = response
+        .into_json::<Vec<Value>>()
+        .unwrap()
+        .iter()
+        .map(|winner| winner["id"].as_i64().unwrap() as i32)
+        .collect();
+    assert_eq!(listed, picked);
+
+    let response = client
+        .get(format!("/v1/participants/won/{unpadded}/count"))
+        .dispatch();
+    assert_eq!(response.into_json::<usize>(), Some(2));
+
+    let all_winners = client
+        .get("/v1/participants/won")
+        .dispatch()
+        .into_json::<Value>()
+        .unwrap();
+    assert_eq!(all_winners[&padded].as_array().map(Vec::len), Some(2));
 }

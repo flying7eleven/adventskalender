@@ -2,7 +2,6 @@
 #![allow(dead_code)]
 
 use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
-use chrono::NaiveDate;
 use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool};
 use diesel::sql_types::{BigInt, Integer, Text};
 use diesel::{PgConnection, QueryableByName, RunQueryDsl, sql_query};
@@ -11,6 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::Container;
 use testcontainers_modules::testcontainers::runners::SyncRunner;
+use time::{Date, Month, OffsetDateTime};
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 pub const PICKING_USER_PASSWORD: &str = "picker-password";
@@ -119,18 +119,20 @@ impl TestDatabase {
     }
 }
 
-pub fn day_this_year(month: u32, day: u32) -> NaiveDate {
-    use chrono::Datelike;
-    NaiveDate::from_ymd_opt(chrono::Utc::now().year(), month, day).unwrap()
+pub fn current_year() -> i32 {
+    OffsetDateTime::now_utc().year()
+}
+
+pub fn day_this_year(month: u8, day: u8) -> Date {
+    Date::from_calendar_date(current_year(), Month::try_from(month).unwrap(), day).unwrap()
 }
 
 /// Formats a date of the current year as the backend expects it in paths; an impossible day is
 /// kept verbatim, so tests can build invalid dates as well.
 pub fn date_this_year(month: u32, day: u32) -> String {
-    use chrono::Datelike;
-    format!("{}-{month:02}-{day:02}", chrono::Utc::now().year())
+    format!("{}-{month:02}-{day:02}", current_year())
 }
 
-pub fn christmas_eve() -> NaiveDate {
+pub fn christmas_eve() -> Date {
     day_this_year(12, 24)
 }

@@ -1,4 +1,0 @@
-[advisories]
-ignore = [
-    { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained without a known vulnerability; it is used directly and through the chrono feature of diesel, replacing it with time or jiff is a separate migration" },
-]

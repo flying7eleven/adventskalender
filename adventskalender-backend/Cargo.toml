@@ -20,11 +20,6 @@ version = "0.5.4"
 default-features = false
 features = ["json"]
 
-[dependencies.chrono]
-version = "0.4.45"
-default-features = false
-features = ["clock", "serde"]
-
 [dependencies.log]
 version = "0.4.35"
 default-features = false
@@ -45,7 +40,7 @@ default-features = false
 [dependencies.diesel]
 version = "2.4.0"
 default-features = false
-features = ["postgres", "r2d2", "chrono"]
+features = ["postgres", "r2d2", "time"]
 
 [dependencies.diesel_migrations]
 version = "2.4.0"
@@ -90,6 +85,7 @@ default-features = false
 [dependencies.time]
 version = "0.3"
 default-features = false
+features = ["std", "formatting", "parsing", "macros"]
 
 [dependencies.base64]
 version = "0.23"

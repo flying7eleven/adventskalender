@@ -14,7 +14,6 @@ version = "2025.12.1"
 dependencies = [
  "base64 0.23.1",
  "bcrypt",
- "chrono",
  "dashmap",
  "diesel",
  "diesel_migrations",
@@ -681,7 +680,6 @@ checksum = "9824c36a57a17ece4c8883baed41dc3eb81b2b949364c174750acc462e19b5ec"
 dependencies = [
  "bitflags",
  "byteorder",
- "chrono",
  "diesel_derives",
  "downcast-rs",
  "itoa",
@@ -689,6 +687,7 @@ dependencies = [
  "r2d2",
  "serde_json",
  "sqlstate",
+ "time",
 ]
 
 [[package]]

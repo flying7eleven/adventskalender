@@ -1,13 +1,23 @@
 use crate::Action;
 use crate::fairings::AdventskalenderDatabaseConnection;
 use crate::guards::AuthenticatedUser;
-use chrono::NaiveDate;
 use rand::prelude::IndexedRandom;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{State, delete, get, post, put};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use time::macros::format_description;
+use time::{Date, Month, OffsetDateTime};
+
+/// Parses a day given as `YYYY-MM-DD`; month and day may omit their leading zero.
+fn parse_day(value: &str) -> Option<Date> {
+    Date::parse(
+        value,
+        format_description!("[year]-[month padding:none]-[day padding:none]"),
+    )
+    .ok()
+}
 
 #[derive(Serialize)]
 pub struct ParticipantCount {
@@ -150,7 +160,7 @@ pub async fn get_all_winners(
 
 pub async fn get_won_participants_on_day(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
-    date: NaiveDate,
+    date: Date,
 ) -> Result<Vec<Participant>, WinnersError> {
     use crate::fairings::BlockingDatabaseError;
     use crate::models::Participant as DatabaseParticipant;
@@ -386,16 +396,12 @@ pub async fn get_won_participants_on_day_route(
     _authenticated_user: AuthenticatedUser,
     date_as_str: &str,
 ) -> Result<Json<Vec<Participant>>, Status> {
-    use std::str::FromStr;
-
-    // if we cannot parse the input date, we received a bad parameter and we have to react to it
-    let maybe_date = NaiveDate::from_str(date_as_str);
-    if maybe_date.is_err() {
+    let Some(date) = parse_day(date_as_str) else {
         return Err(Status::BadRequest);
-    }
+    };
 
     // try to fetch the information and construct the corresponding data structure we want to return
-    let maybe_result = get_won_participants_on_day(db_connection_pool, maybe_date.unwrap()).await;
+    let maybe_result = get_won_participants_on_day(db_connection_pool, date).await;
 
     // if we got a result, count the participants and return the amount
     if let Ok(result) = maybe_result {
@@ -413,16 +419,13 @@ pub async fn count_won_participants_on_day(
     date_as_str: &str,
 ) -> Result<Json<usize>, Status> {
     use log::debug;
-    use std::str::FromStr;
 
-    // if we cannot parse the input date, we received a bad parameter and we have to react to it
-    let maybe_date = NaiveDate::from_str(date_as_str);
-    if maybe_date.is_err() {
+    let Some(date) = parse_day(date_as_str) else {
         return Err(Status::BadRequest);
-    }
+    };
 
     // try to fetch the information and construct the corresponding data structure we want to return
-    let maybe_result = get_won_participants_on_day(db_connection_pool, maybe_date.unwrap()).await;
+    let maybe_result = get_won_participants_on_day(db_connection_pool, date).await;
 
     // if we got a result, count the participants and return the amount
     if let Ok(winners) = maybe_result {
@@ -463,14 +466,14 @@ impl From<diesel::result::Error> for PickWinnersError {
 pub async fn pick_winners(
     db_connection_pool: &AdventskalenderDatabaseConnection,
     count: usize,
-    picked_for_date: NaiveDate,
+    picked_for_date: Date,
     user_who_picked: i32,
 ) -> Result<Vec<Participant>, PickWinnersError> {
     use crate::fairings::BlockingDatabaseError;
     use crate::models::{Participant as DatabaseParticipant, ParticipantPicking};
     use crate::record_action;
     use crate::schema::participants::dsl::{id, participants, won_on};
-    use chrono::Utc;
+    use crate::utc_now_without_offset;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::error;
 
@@ -518,7 +521,7 @@ pub async fn pick_winners(
                     update(participants.filter(id.eq_any(winners.iter().map(|winner| winner.id))))
                         .set(&ParticipantPicking {
                             won_on: Some(picked_for_date),
-                            picking_time: Some(Utc::now().naive_utc()),
+                            picking_time: Some(utc_now_without_offset()),
                             picked_by: Some(user_who_picked),
                             present_identifier: None,
                         })
@@ -559,9 +562,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
     count: &str,
     date: &str,
 ) -> Result<Json<Vec<Participant>>, Status> {
-    use chrono::{Datelike, Utc};
     use log::{debug, error};
-    use std::str::FromStr;
 
     let Ok(count) = count.parse::<usize>() else {
         return Err(Status::BadRequest);
@@ -570,11 +571,11 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         return Err(Status::BadRequest);
     }
 
-    let Ok(picked_for_date) = NaiveDate::from_str(date) else {
+    let Some(picked_for_date) = parse_day(date) else {
         return Err(Status::BadRequest);
     };
-    if picked_for_date.year() != Utc::now().year()
-        || picked_for_date.month() != 12
+    if picked_for_date.year() != OffsetDateTime::now_utc().year()
+        || picked_for_date.month() != Month::December
         || picked_for_date.day() > 24
     {
         return Err(Status::BadRequest);

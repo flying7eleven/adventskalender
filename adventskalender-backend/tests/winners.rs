@@ -26,7 +26,7 @@ fn parallel_picks_never_select_the_same_participant_twice() {
                 rocket::execute(pick_winners(
                     &database.pool,
                     WINNERS_PER_PICK,
-                    christmas_eve() + chrono::Duration::days(index as i64),
+                    christmas_eve() + time::Duration::days(index as i64),
                     database.picking_user_id,
                 ))
             })

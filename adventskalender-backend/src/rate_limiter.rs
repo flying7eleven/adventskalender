@@ -1,7 +1,7 @@
-use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use std::net::IpAddr;
 use std::sync::LazyLock;
+use std::time::{Duration, SystemTime};
 
 /// The number of keys the process-wide limiter tracks at most. Every key is bounded (an IP
 /// address, a prefix or a username of at most 64 bytes), so this caps the memory of the limiter.
@@ -10,7 +10,7 @@ const MAX_TRACKED_KEYS: usize = 100_000;
 #[derive(Clone)]
 pub(crate) struct RateLimitEntry {
     attempts: u32,
-    window_start: DateTime<Utc>,
+    window_start: SystemTime,
 }
 
 /// Counts attempts per key within a fixed window. The number of tracked keys is capped: when a
@@ -27,7 +27,7 @@ pub(crate) static RATE_LIMITER: LazyLock<RateLimiter> =
 
 pub struct RateLimitConfig {
     pub max_attempts: u32,
-    pub window_minutes: i64,
+    pub window_minutes: u64,
 }
 
 impl Default for RateLimitConfig {
@@ -82,14 +82,14 @@ impl RateLimiter {
     }
 
     pub(crate) fn check(&self, key: &str, config: &RateLimitConfig) -> RateLimitDecision {
-        let now = Utc::now();
-        let window_duration = Duration::minutes(config.window_minutes);
+        let now = SystemTime::now();
+        let window_duration = config.window();
 
         if !self.entries.contains_key(key) && self.entries.len() >= self.capacity {
             self.remove_expired(window_duration);
             if self.entries.len() >= self.capacity {
                 return RateLimitDecision::RateLimited {
-                    retry_after_seconds: window_duration.num_seconds().max(1) as u64,
+                    retry_after_seconds: window_duration.as_secs().max(1),
                 };
             }
         }
@@ -102,18 +102,19 @@ impl RateLimiter {
                 window_start: now,
             });
 
-        if now - entry.window_start > window_duration {
+        let elapsed = elapsed_since(entry.window_start, now);
+        if elapsed > window_duration {
             entry.attempts = 1;
             entry.window_start = now;
             return RateLimitDecision::Allowed;
         }
 
         if entry.attempts >= config.max_attempts {
-            let retry_after = window_duration - (now - entry.window_start);
+            let retry_after = window_duration.saturating_sub(elapsed);
             let retry_after_seconds =
-                retry_after.num_seconds() + i64::from(retry_after.subsec_millis() > 0);
+                retry_after.as_secs() + u64::from(retry_after.subsec_millis() > 0);
             return RateLimitDecision::RateLimited {
-                retry_after_seconds: retry_after_seconds.max(1) as u64,
+                retry_after_seconds: retry_after_seconds.max(1),
             };
         }
 
@@ -126,10 +127,21 @@ impl RateLimiter {
     }
 
     fn remove_expired(&self, window_duration: Duration) {
-        let now = Utc::now();
+        let now = SystemTime::now();
         self.entries
-            .retain(|_, entry| now - entry.window_start <= window_duration);
+            .retain(|_, entry| elapsed_since(entry.window_start, now) <= window_duration);
     }
+}
+
+impl RateLimitConfig {
+    fn window(&self) -> Duration {
+        Duration::from_secs(self.window_minutes * 60)
+    }
+}
+
+/// A window start in the future (the wall clock was set back) counts as just started.
+fn elapsed_since(start: SystemTime, now: SystemTime) -> Duration {
+    now.duration_since(start).unwrap_or(Duration::ZERO)
 }
 
 pub fn check_rate_limit(key: &str, config: &RateLimitConfig) -> RateLimitDecision {
@@ -141,7 +153,7 @@ pub fn reset_rate_limit(key: &str) {
 }
 
 pub fn cleanup_old_entries(config: &RateLimitConfig) {
-    RATE_LIMITER.remove_expired(Duration::minutes(config.window_minutes));
+    RATE_LIMITER.remove_expired(config.window());
 }
 
 #[cfg(test)]
@@ -150,7 +162,7 @@ mod tests {
         RATE_LIMITER, RateLimitConfig, RateLimitDecision, RateLimiter, check_rate_limit,
         client_ip_key, reset_rate_limit,
     };
-    use chrono::{Duration, Utc};
+    use std::time::{Duration, SystemTime};
 
     #[test]
     fn the_retry_after_seconds_round_up_the_remaining_window() {
@@ -164,7 +176,7 @@ mod tests {
 
         // simulate that the rate limited window started half a second ago, so that the
         // remaining window is not a whole number of seconds
-        let half_a_second_ago = Utc::now() - Duration::milliseconds(500);
+        let half_a_second_ago = SystemTime::now() - Duration::from_millis(500);
         if let Some(mut entry) = RATE_LIMITER.entries.get_mut(key) {
             entry.window_start = half_a_second_ago;
         }
@@ -236,7 +248,7 @@ mod tests {
         limiter.check("a", &config);
         limiter.check("b", &config);
         if let Some(mut entry) = limiter.entries.get_mut("a") {
-            entry.window_start = Utc::now() - Duration::minutes(16);
+            entry.window_start = SystemTime::now() - Duration::from_secs(16 * 60);
         }
 
         assert_eq!(limiter.check("c", &config), RateLimitDecision::Allowed);

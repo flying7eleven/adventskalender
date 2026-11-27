@@ -1,5 +1,4 @@
 use crate::models::User;
-use chrono::{DateTime, Utc};
 use diesel::PgConnection;
 use jsonwebtoken::EncodingKey;
 use log::debug;
@@ -9,6 +8,9 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
+use time::format_description::well_known::Rfc3339;
+use time::macros::format_description;
+use time::{OffsetDateTime, PrimitiveDateTime, UtcOffset};
 
 pub mod cors;
 pub mod fairings;
@@ -28,6 +30,25 @@ pub static BACKOFF_HANDLER: LazyLock<Mutex<BackoffHandler>> =
 
 /// The bcrypt cost factor used when hashing passwords.
 pub const PASSWORD_HASH_COST: u32 = 10;
+
+/// The current time in UTC without an offset, as the `TIMESTAMP` columns store it.
+pub fn utc_now_without_offset() -> PrimitiveDateTime {
+    let now = OffsetDateTime::now_utc();
+    PrimitiveDateTime::new(now.date(), now.time())
+}
+
+/// The UTC time of day of the build as `HH:MM:SS`.
+pub fn build_time_of_day() -> String {
+    OffsetDateTime::parse(env!("VERGEN_BUILD_TIMESTAMP"), &Rfc3339)
+        .ok()
+        .and_then(|timestamp| {
+            timestamp
+                .to_offset(UtcOffset::UTC)
+                .format(format_description!("[hour]:[minute]:[second]"))
+                .ok()
+        })
+        .unwrap_or_else(|| "unknown".to_string())
+}
 
 /// A hash of a fixed dummy password. It is verified against user input when the username is
 /// unknown so that login timing does not reveal whether the username exists.
@@ -90,10 +111,11 @@ impl BackoffHandler {
         if self.last_status != Some(status)
             || self.last_call + self.backoff_time < SystemTime::now()
         {
-            let datetime: DateTime<Utc> = self.last_call.into();
             debug!(
                 "Calling method since the last call time was {} and the back off duration was {}s",
-                datetime.to_rfc3339(),
+                OffsetDateTime::from(self.last_call)
+                    .format(&Rfc3339)
+                    .unwrap_or_default(),
                 self.backoff_time.as_secs()
             );
             self.last_status = Some(status);
@@ -164,14 +186,13 @@ pub fn record_action(
 ) -> Result<(), diesel::result::Error> {
     use crate::models::NewPerformedAction;
     use crate::schema::performed_actions::dsl::performed_actions;
-    use chrono::Utc;
     use diesel::RunQueryDsl;
     use diesel::insert_into;
 
     insert_into(performed_actions)
         .values(&NewPerformedAction {
             action: executed_action.to_string(),
-            time_of_action: Utc::now().naive_utc(),
+            time_of_action: utc_now_without_offset(),
             description: possible_description,
             user_id,
         })

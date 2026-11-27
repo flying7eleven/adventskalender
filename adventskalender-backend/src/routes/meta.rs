@@ -1,6 +1,5 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration, SIGNING_KEY_ID};
-use crate::{BACKOFF_HANDLER, ServiceStatus};
-use chrono::DateTime;
+use crate::{BACKOFF_HANDLER, ServiceStatus, build_time_of_day};
 use rocket::http::Status;
 use rocket::serde::json::{Json, json};
 use rocket::{State, get};
@@ -71,19 +70,12 @@ pub struct VersionInformation {
 
 #[get("/version")]
 pub async fn get_backend_version() -> Json<VersionInformation> {
-    use chrono::Utc;
-
     Json(VersionInformation {
         backend_version: env!("VERGEN_GIT_DESCRIBE"),
         backend_arch: env!("VERGEN_CARGO_TARGET_TRIPLE"),
         rustc_version: env!("VERGEN_RUSTC_SEMVER"),
         build_date: env!("VERGEN_BUILD_DATE"),
-        build_time: DateTime::parse_from_rfc3339(env!("VERGEN_BUILD_TIMESTAMP"))
-            .unwrap()
-            .with_timezone(&Utc)
-            .time()
-            .format("%H:%M:%S")
-            .to_string(),
+        build_time: build_time_of_day(),
     })
 }
 

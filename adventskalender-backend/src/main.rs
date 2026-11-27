@@ -1,6 +1,5 @@
 use adventskalender_backend::fairings::BackendConfiguration;
-use adventskalender_backend::{Action, build_rocket, record_action};
-use chrono::DateTime;
+use adventskalender_backend::{Action, build_rocket, build_time_of_day, record_action};
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 use log::LevelFilter;
@@ -35,7 +34,8 @@ pub fn run_migrations(
 }
 
 fn setup_logging(logging_level: LevelFilter) {
-    use chrono::Utc;
+    use time::OffsetDateTime;
+    use time::macros::format_description;
 
     // create an instance for the Dispatcher to create a new logging configuration
     let mut base_config = fern::Dispatch::new();
@@ -49,7 +49,11 @@ fn setup_logging(logging_level: LevelFilter) {
         .format(|out, message, record| {
             out.finish(format_args!(
                 "{}[{}][{}] {}",
-                Utc::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                OffsetDateTime::now_utc()
+                    .format(format_description!(
+                        "[[[year]-[month]-[day]][[[hour]:[minute]:[second]]"
+                    ))
+                    .unwrap_or_default(),
                 record.target(),
                 record.level(),
                 message
@@ -436,10 +440,7 @@ async fn main() {
             env!("VERGEN_GIT_DESCRIBE"),
             env!("VERGEN_RUSTC_SEMVER"),
             env!("VERGEN_BUILD_DATE"),
-            DateTime::parse_from_rfc3339(env!("VERGEN_BUILD_TIMESTAMP"))
-                .unwrap()
-                .time()
-                .format("%H:%M:%S"),
+            build_time_of_day(),
         )),
     ) {
         error!("Could not log the startup of the backend service. The error was: {error}");
