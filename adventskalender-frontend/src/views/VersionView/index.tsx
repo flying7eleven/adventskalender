@@ -24,10 +24,6 @@ export const VersionView = () => {
         auth.signout(() => navigate('/'));
     });
 
-    const getFrontendBuildDateTimeString = () => {
-        return __BUILD_DATE__;
-    };
-
     useEffect(() => {
         // without version information from the backend, the placeholder values stay visible
         apiFetch('/version', VersionInformationSchema)
@@ -90,7 +86,7 @@ export const VersionView = () => {
                                 <p className="text-base text-left">
                                     <LocalizedText translationKey={'version.card.categories.frontend_build_date_time'} />
                                 </p>
-                                <p className="text-base text-right">{`${getFrontendBuildDateTimeString()}`}</p>
+                                <p className="text-base text-right">{__BUILD_DATE__}</p>
                             </div>
                             <Separator />
                             <div className="grid grid-cols-2">
@@ -135,7 +131,7 @@ export const VersionView = () => {
                 </Card>
             </div>
             <p className="text-xs font-medium text-center">
-                <span dangerouslySetInnerHTML={{ __html: 'Crafted with &#10084; in Düsseldorf.&nbsp;' }} />
+                {'Crafted with \u2764 in Düsseldorf.\u00a0'}
                 Get the source code at{' '}
                 <a href={'https://github.com/flying7eleven/adventskalender'} target={'_blank'} rel="noreferrer" className="text-primary hover:underline">
                     GitHub

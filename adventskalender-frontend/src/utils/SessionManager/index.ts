@@ -7,8 +7,8 @@
  * reported time instead of the client's clock.
  */
 export class SessionManager {
-    private expiryTimeout: NodeJS.Timeout | null = null;
-    private warningTimeout: NodeJS.Timeout | null = null;
+    private expiryTimeout: ReturnType<typeof setTimeout> | null = null;
+    private warningTimeout: ReturnType<typeof setTimeout> | null = null;
     private readonly WARNING_BEFORE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
     /**

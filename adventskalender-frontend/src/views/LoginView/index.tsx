@@ -65,7 +65,7 @@ export const LoginView = () => {
             onRateLimited: (waitTimeSeconds: number) => {
                 finishSignin();
                 // Rate limit hit - show user how long to wait (Retry-After seconds from the backend)
-                const rateLimitMessage = localizationContext.translate('login.alerts.rate_limited.message').replace('{0}', String(waitTimeSeconds));
+                const rateLimitMessage = localizationContext.translate('login.alerts.rate_limited.message', [waitTimeSeconds]);
                 toast.warning(rateLimitMessage, {
                     duration: 10000,
                 });

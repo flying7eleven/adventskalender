@@ -7,7 +7,7 @@ use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{State, delete, get, post, put};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Serialize)]
 pub struct ParticipantCount {
@@ -97,10 +97,10 @@ pub enum WinnersError {
 
 pub async fn get_all_winners(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
-) -> Result<HashMap<String, Vec<Participant>>, WinnersError> {
+) -> Result<BTreeMap<String, Vec<Participant>>, WinnersError> {
     use crate::fairings::BlockingDatabaseError;
     use crate::models::Participant as DatabaseParticipant;
-    use crate::schema::participants::dsl::{participants, won_on};
+    use crate::schema::participants::dsl::{id, participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
@@ -114,9 +114,9 @@ pub async fn get_all_winners(
                 .run::<_, diesel::result::Error, _>(|connection| {
                     let participants_won_dates = participants
                         .filter(won_on.is_not_null())
-                        .order_by(won_on.asc())
+                        .order_by((won_on.asc(), id.asc()))
                         .load::<DatabaseParticipant>(connection)?;
-                    let mut result_map = HashMap::new();
+                    let mut result_map = BTreeMap::new();
                     for current in participants_won_dates {
                         result_map
                             .entry(current.won_on.unwrap().to_string())
@@ -154,7 +154,7 @@ pub async fn get_won_participants_on_day(
 ) -> Result<Vec<Participant>, WinnersError> {
     use crate::fairings::BlockingDatabaseError;
     use crate::models::Participant as DatabaseParticipant;
-    use crate::schema::participants::dsl::{participants, won_on};
+    use crate::schema::participants::dsl::{id, participants, won_on};
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use log::error;
 
@@ -168,6 +168,7 @@ pub async fn get_won_participants_on_day(
                 .run::<_, diesel::result::Error, _>(|connection| {
                     let participants_won_on_date = participants
                         .filter(won_on.eq(date))
+                        .order_by(id.asc())
                         .load::<DatabaseParticipant>(connection)?;
                     Ok(participants_won_on_date
                         .into_iter()
@@ -233,7 +234,7 @@ pub async fn remove_participant_from_winner_list(
 pub async fn get_all_won_participants(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     _authenticated_user: AuthenticatedUser,
-) -> Result<Json<HashMap<String, Vec<Participant>>>, Status> {
+) -> Result<Json<BTreeMap<String, Vec<Participant>>>, Status> {
     get_all_winners(db_connection_pool)
         .await
         .map(Json)

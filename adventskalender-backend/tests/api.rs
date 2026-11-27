@@ -23,7 +23,7 @@ fn configuration_with_key_bytes(key_bytes: &[u8], cookie_secure: bool) -> Backen
         key_bytes,
         "http://localhost:5479".to_string(),
         "http://localhost:5479/.well-known/jwks.json".to_string(),
-        "".to_string(),
+        None,
         HashSet::from(["http://localhost:5173".to_string()]),
         cookie_secure,
     )
@@ -1966,4 +1966,121 @@ fn a_new_password_longer_than_72_bytes_is_rejected_with_a_reason() {
 
     assert_eq!(status, Status::UnprocessableEntity);
     assert_eq!(body.unwrap()["reason"], json!("password_too_long"));
+}
+
+#[test]
+fn listing_all_winners_groups_them_by_day_in_date_order() {
+    let database = TestDatabase::start(6);
+    let client = logged_in_client(&database);
+    let third = pick_winners(&client, 2, &date_this_year(12, 3));
+    let first = pick_winners(&client, 3, &date_this_year(12, 1));
+    let second = pick_winners(&client, 1, &date_this_year(12, 2));
+
+    let response = client.get("/v1/participants/won").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let body = response.into_string().unwrap();
+
+    let days: Vec<String> = [1, 2, 3].map(|day| date_this_year(12, day)).to_vec();
+    let positions: Vec<usize> = days
+        .iter()
+        .map(|day| body.find(&format!("\"{day}\"")).expect(day))
+        .collect();
+    assert!(positions.is_sorted(), "days out of order: {body}");
+
+    let winners: Value = rocket::serde::json::from_str(&body).unwrap();
+    for (day, mut expected) in days.iter().zip([first, second, third]) {
+        expected.sort_unstable();
+        let ids: Vec<i32> = winners[day]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|winner| winner["id"].as_i64().unwrap() as i32)
+            .collect();
+        assert_eq!(ids, expected, "winners on {day}");
+    }
+}
+
+#[test]
+fn the_winners_of_a_day_are_listed_ordered_by_id() {
+    let database = TestDatabase::start(5);
+    let client = logged_in_client(&database);
+    let day = date_this_year(12, 5);
+    let mut expected = pick_winners(&client, 4, &day);
+    pick_winners(&client, 1, &date_this_year(12, 6));
+    expected.sort_unstable();
+
+    let response = client.get(format!("/v1/participants/won/{day}")).dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let ids: Vec<i32> = response
+        .into_json::<Vec<Value>>()
+        .unwrap()
+        .iter()
+        .map(|winner| {
+            assert!(winner["first_name"].is_string());
+            assert!(winner["last_name"].is_string());
+            winner["id"].as_i64().unwrap() as i32
+        })
+        .collect();
+    assert_eq!(ids, expected);
+}
+
+#[test]
+fn the_number_of_winners_of_a_day_is_counted() {
+    let database = TestDatabase::start(5);
+    let client = logged_in_client(&database);
+    pick_winners(&client, 3, &date_this_year(12, 7));
+    pick_winners(&client, 1, &date_this_year(12, 8));
+
+    for (day, expected) in [(7, 3), (8, 1), (9, 0)] {
+        let response = client
+            .get(format!(
+                "/v1/participants/won/{}/count",
+                date_this_year(12, day)
+            ))
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_json::<usize>(), Some(expected), "day {day}");
+    }
+}
+
+#[test]
+fn the_winner_routes_require_an_authenticated_user() {
+    let database = TestDatabase::start(1);
+    let client = client(&database);
+    let day = date_this_year(12, 1);
+
+    for path in [
+        "/v1/participants/won".to_string(),
+        format!("/v1/participants/won/{day}"),
+        format!("/v1/participants/won/{day}/count"),
+    ] {
+        let status = client.get(path.as_str()).dispatch().status();
+        assert!(
+            status == Status::Unauthorized || status == Status::Forbidden,
+            "{path}: {status}"
+        );
+    }
+}
+
+#[test]
+fn the_backend_version_is_served_without_authentication() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client.get("/v1/version").dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+    let body = response.into_json::<Value>().unwrap();
+    for field in [
+        "backend_version",
+        "backend_arch",
+        "rustc_version",
+        "build_date",
+        "build_time",
+    ] {
+        assert!(
+            body[field].as_str().is_some_and(|value| !value.is_empty()),
+            "{field}: {body}"
+        );
+    }
 }

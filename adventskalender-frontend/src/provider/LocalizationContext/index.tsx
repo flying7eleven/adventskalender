@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import type { Locale } from 'date-fns';
 
 export interface ResourceDefinitions {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -7,10 +8,15 @@ export interface ResourceDefinitions {
     german: any;
 }
 
+export type Language = 'de' | 'en';
+
+export type TranslationVariable = string | number;
+
 interface LocalizationContextType {
     resources: ResourceDefinitions;
-    translate: (key: string) => string;
-    translateWithPlaceholder: (key: string, placeholder: string) => string;
+    language: Language;
+    dateLocale: Locale;
+    translate: (key: string, variables?: TranslationVariable[]) => string;
 }
 
 export const LocalizationContext = createContext<LocalizationContextType>(null!);

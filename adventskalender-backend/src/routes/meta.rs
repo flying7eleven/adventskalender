@@ -132,9 +132,7 @@ pub async fn check_backend_health(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     config: &State<BackendConfiguration>,
 ) -> Result<Json<HealthCheck>, (Status, Json<HealthCheck>)> {
-    use crate::schema::participants::dsl::participants;
-    use diesel::dsl::count_star;
-    use diesel::{QueryDsl, RunQueryDsl};
+    use diesel::RunQueryDsl;
     use log::{debug, error};
 
     // check if the connection to the database is working or not, on a blocking thread so the
@@ -145,9 +143,7 @@ pub async fn check_backend_health(
                 .build_transaction()
                 .read_only()
                 .run::<_, diesel::result::Error, _>(|connection| {
-                    if let Err(query_error) =
-                        participants.select(count_star()).first::<i64>(connection)
-                    {
+                    if let Err(query_error) = diesel::sql_query("SELECT 1").execute(connection) {
                         error!("The health check of the database connection failed with the following error: {query_error}");
                         return Err(query_error);
                     }
@@ -170,18 +166,14 @@ pub async fn check_backend_health(
 
     // if the database is healthy, we can return the status immediately
     if database_is_healthy {
-        if !config.healthcheck_project.is_empty()
-            && BACKOFF_HANDLER
-                .lock()
-                .unwrap()
-                .should_call(ServiceStatus::Up)
+        if let Some(project_uuid) = config.healthcheck_project
+            && should_ping(ServiceStatus::Up)
         {
             // the ping itself runs fire-and-forget on a blocking thread so that the health
             // route does not wait for healthchecks.io
-            let project_uuid = config.healthcheck_project.clone();
-            rocket::tokio::spawn(rocket::tokio::task::spawn_blocking(move || {
-                notify_service_up(&project_uuid);
-            }));
+            rocket::tokio::task::spawn_blocking(move || {
+                notify_service_up(&project_uuid.to_string());
+            });
         }
         return Ok(Json(HealthCheck {
             database_healthy: true,
@@ -193,6 +185,15 @@ pub async fn check_backend_health(
     Err(unhealthy_response(config, false, false))
 }
 
+/// Asks the process-wide backoff handler whether a ping for `status` is due. A poisoned lock is
+/// recovered, since the handler only holds plain timestamps which stay consistent.
+fn should_ping(status: ServiceStatus) -> bool {
+    BACKOFF_HANDLER
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .should_call(status)
+}
+
 fn unhealthy_response(
     config: &BackendConfiguration,
     database_healthy: bool,
@@ -202,19 +203,15 @@ fn unhealthy_response(
         database_healthy,
         backend_healthy,
     };
-    if !config.healthcheck_project.is_empty()
-        && BACKOFF_HANDLER
-            .lock()
-            .unwrap()
-            .should_call(ServiceStatus::Down)
+    if let Some(project_uuid) = config.healthcheck_project
+        && should_ping(ServiceStatus::Down)
     {
         // the ping itself runs fire-and-forget on a blocking thread so that the health route does
         // not wait for healthchecks.io
-        let project_uuid = config.healthcheck_project.clone();
         let error_data = json!(health_check).to_string();
-        rocket::tokio::spawn(rocket::tokio::task::spawn_blocking(move || {
-            notify_service_down(&project_uuid, &error_data);
-        }));
+        rocket::tokio::task::spawn_blocking(move || {
+            notify_service_down(&project_uuid.to_string(), &error_data);
+        });
     }
     (Status::ServiceUnavailable, Json(health_check))
 }

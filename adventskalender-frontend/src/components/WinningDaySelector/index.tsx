@@ -3,7 +3,6 @@ import { Label } from '@/components/ui/label';
 import { useContext } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { format } from 'date-fns';
-import { de } from 'date-fns/locale';
 import { FIRST_RAFFLE_DAY, getRaffleDate, LAST_RAFFLE_DAY } from '../../utils/raffleDate';
 
 interface Props {
@@ -25,12 +24,10 @@ export const WinningDaySelector = (props: Props) => {
     const getListOfDays = () => {
         const menuEntries = [];
         const translationFormat = localizationContext.translate('dashboard.date_format_dropdown');
-        // Determine locale based on browser language (German or English)
-        const locale = window.navigator.language.startsWith('de') ? de : undefined;
         for (let day = FIRST_RAFFLE_DAY; day <= LAST_RAFFLE_DAY; day++) {
             menuEntries.push(
                 <SelectItem key={`menu-item-${day}`} value={day.toString()}>
-                    {format(getRaffleDate(day), translationFormat, { locale })}
+                    {format(getRaffleDate(day), translationFormat, { locale: localizationContext.dateLocale })}
                 </SelectItem>
             );
         }

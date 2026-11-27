@@ -88,22 +88,11 @@ export interface ParticipantCount {
     number_of_participants_still_in_raffle: number;
 }
 
-export interface Participant {
-    id: number;
-    first_name: string;
-    last_name: string;
-    present_identifier?: string | null;
-}
-
 export interface WinnerInformation {
     id: number;
     firstName: string;
     lastName: string;
     presentIdentifier?: string | null;
-}
-
-export interface AccessToken {
-    accessToken: string;
 }
 
 export interface VersionInformation {
