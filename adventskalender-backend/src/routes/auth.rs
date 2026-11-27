@@ -239,26 +239,28 @@ pub fn issue_session_cookie(
         config.api_host.clone(),
         &config.encoding_key,
     )?;
+    set_session_cookie(token, expires_at, config, cookies);
 
-    // create httpOnly cookie with the token
+    Some(expires_at)
+}
+
+/// Sets `token` as the HTTP-only `auth_token` cookie which expires together with the token at
+/// `expires_at` (UNIX seconds).
+fn set_session_cookie(
+    token: String,
+    expires_at: u64,
+    config: &BackendConfiguration,
+    cookies: &CookieJar<'_>,
+) {
     let mut cookie = Cookie::new("auth_token", token);
     cookie.set_http_only(true);
     cookie.set_same_site(SameSite::Strict);
     cookie.set_path("/");
-
-    // only set secure-flag if we're using HTTPS (check API host)
-    if config.api_host.starts_with("https://") {
-        cookie.set_secure(true);
-    }
-
-    // the cookie expires together with the token
+    cookie.set_secure(config.cookie_secure);
     if let Ok(expiration) = time::OffsetDateTime::from_unix_timestamp(expires_at as i64) {
         cookie.set_expires(expiration);
     }
-
     cookies.add(cookie);
-
-    Some(expires_at)
 }
 
 pub enum LoginError {
@@ -512,18 +514,7 @@ pub async fn refresh_session(
         authenticated_user.auth_time as usize,
     ) {
         Some((token, expires_at)) => {
-            // create httpOnly cookie with the token
-            let mut cookie = Cookie::new("auth_token", token);
-            cookie.set_http_only(true);
-            cookie.set_same_site(SameSite::Strict);
-            cookie.set_path("/");
-            if config.api_host.starts_with("https://") {
-                cookie.set_secure(true);
-            }
-            if let Ok(expiration) = time::OffsetDateTime::from_unix_timestamp(expires_at as i64) {
-                cookie.set_expires(expiration);
-            }
-            cookies.add(cookie);
+            set_session_cookie(token, expires_at, config, cookies);
 
             let expires_in = expires_at.saturating_sub(now);
             Ok(Json(UserInfo {

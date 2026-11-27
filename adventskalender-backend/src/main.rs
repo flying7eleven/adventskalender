@@ -1,14 +1,13 @@
 use adventskalender_backend::fairings::BackendConfiguration;
-use adventskalender_backend::routes::mount_routes;
-use adventskalender_backend::{Action, log_action};
+use adventskalender_backend::{Action, build_rocket, log_action};
 use chrono::DateTime;
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
-use jsonwebtoken::{DecodingKey, EncodingKey};
 use log::LevelFilter;
 use ring::signature::Ed25519KeyPair;
 use rocket::config::{Shutdown, Sig};
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::time::Duration;
 use url::Url;
 
@@ -73,91 +72,168 @@ fn setup_logging(logging_level: LevelFilter) {
         .unwrap();
 }
 
-/// Load Ed25519 key pair from a file, or generate and save a new one if it doesn't exist
+/// The key file which is used when `ADVENTSKALENDER_KEY_FILE_PATH` is not set.
+const DEFAULT_KEY_FILE_PATH: &str = "/data/adventskalender_ed25519.key";
+
+/// The validated startup configuration of the backend.
+#[derive(Debug)]
+struct Settings {
+    api_host: String,
+    jwks_uri: String,
+    database_connection_url: String,
+    healthcheck_io_project: String,
+    token_audience: HashSet<String>,
+    cors_origins: Vec<String>,
+    key_file_path: PathBuf,
+    cookie_secure: bool,
+}
+
+/// Reads the startup configuration through `variable`, which returns the value of the named
+/// environment variable. An empty value counts as unset. Returns a message naming the offending
+/// variable if a required one is missing or a value is invalid.
+fn parse_settings(variable: impl Fn(&str) -> Option<String>) -> Result<Settings, String> {
+    let optional = |name: &str| variable(name).filter(|value| !value.is_empty());
+    let required = |name: &str| optional(name).ok_or_else(|| format!("{name} must be set"));
+
+    // the API host is the token issuer and the base of the advertised OpenID configuration
+    let api_host = required("ADVENTSKALENDER_API_HOST")?;
+    let jwks_uri = Url::parse(&api_host)
+        .and_then(|url| url.join("/.well-known/jwks.json"))
+        .map_err(|error| {
+            format!("ADVENTSKALENDER_API_HOST '{api_host}' is not a valid URL: {error}")
+        })?
+        .to_string();
+
+    let cors_origins: Vec<String> = required("ADVENTSKALENDER_CORS_ORIGINS")?
+        .split(',')
+        .map(|origin| origin.trim().to_string())
+        .filter(|origin| !origin.is_empty())
+        .collect();
+    if cors_origins.is_empty() {
+        return Err("ADVENTSKALENDER_CORS_ORIGINS must list at least one origin".to_string());
+    }
+
+    let cookie_secure = match optional("ADVENTSKALENDER_COOKIE_SECURE") {
+        None => true,
+        Some(value) => match value.to_lowercase().as_str() {
+            "true" => true,
+            "false" => false,
+            _ => {
+                return Err(format!(
+                    "ADVENTSKALENDER_COOKIE_SECURE must be 'true' or 'false', got '{value}'"
+                ));
+            }
+        },
+    };
+
+    Ok(Settings {
+        api_host,
+        jwks_uri,
+        database_connection_url: required("ADVENTSKALENDER_DB_CONNECTION")?,
+        healthcheck_io_project: required("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT")?,
+        token_audience: required("ADVENTSKALENDER_TOKEN_AUDIENCE")?
+            .split(',')
+            .map(|audience| audience.to_string())
+            .collect(),
+        cors_origins,
+        key_file_path: PathBuf::from(
+            optional("ADVENTSKALENDER_KEY_FILE_PATH")
+                .unwrap_or_else(|| DEFAULT_KEY_FILE_PATH.to_string()),
+        ),
+        cookie_secure,
+    })
+}
+
+/// Loads the Ed25519 key pair (PKCS#8 DER) from `key_file_path`. Only a missing file leads to a
+/// newly generated key; a file which exists but cannot be read or does not contain a valid key is
+/// an error, so that a mis-mounted key is never silently replaced.
 fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, String> {
-    use log::{info, warn};
+    use log::info;
+
+    match std::fs::read(key_file_path) {
+        Ok(key_bytes) => {
+            Ed25519KeyPair::from_pkcs8(&key_bytes).map_err(|error| {
+                format!(
+                    "The key file {key_file_path:?} does not contain a valid Ed25519 key in the PKCS#8 DER format: {error}"
+                )
+            })?;
+            info!("Loaded the existing Ed25519 key pair from {key_file_path:?}");
+            Ok(key_bytes)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            info!("Generating a new Ed25519 key pair and saving it to {key_file_path:?}");
+            generate_and_store_keypair(key_file_path)
+        }
+        Err(error) => Err(format!(
+            "Could not read the key file {key_file_path:?}: {error}"
+        )),
+    }
+}
+
+/// Generates a new key pair and stores it atomically: the key is written to a temporary file
+/// which only the owner can access, flushed to disk and then renamed to `key_file_path`, so that
+/// an interrupted write never leaves a partial key behind.
+fn generate_and_store_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, String> {
     use std::fs;
     use std::io::Write;
 
-    // Try to load the existing key
-    if key_file_path.exists() {
-        info!("Loading existing Ed25519 key pair from {key_file_path:?}");
-        match fs::read(key_file_path) {
-            Ok(key_bytes) => {
-                // Validate the key can be parsed
-                match Ed25519KeyPair::from_pkcs8(&key_bytes) {
-                    Ok(_) => {
-                        info!("Successfully loaded existing Ed25519 key pair");
-                        return Ok(key_bytes);
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Existing key file is invalid or corrupted: {e}. Generating new key."
-                        );
-                    }
-                }
-            }
-            Err(e) => {
-                warn!("Failed to read existing key file: {e}. Generating new key.");
-            }
+    let key_pair_document = Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new())
+        .map_err(|error| format!("Failed to generate an Ed25519 key pair: {error}"))?;
+
+    let file_name = key_file_path
+        .file_name()
+        .ok_or_else(|| format!("The key file path {key_file_path:?} does not name a file"))?;
+    let key_directory = match key_file_path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => std::path::Path::new("."),
+    };
+    fs::create_dir_all(key_directory)
+        .map_err(|error| format!("Failed to create the key directory: {error}"))?;
+
+    let mut temporary_file_name = std::ffi::OsString::from(".");
+    temporary_file_name.push(file_name);
+    temporary_file_name.push(".tmp");
+    let temporary_path = key_directory.join(temporary_file_name);
+    match fs::remove_file(&temporary_path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(format!(
+                "Failed to remove the leftover temporary key file {temporary_path:?}: {error}"
+            ));
         }
     }
 
-    // generate a new key
-    info!("Generating new Ed25519 key pair and saving to {key_file_path:?}");
-    let key_pair_doc = match Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new()) {
-        Ok(doc) => doc,
-        Err(e) => return Err(format!("Failed to generate Ed25519 key pair: {e}")),
+    let write_temporary_file = || -> std::io::Result<()> {
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        let mut file = options.open(&temporary_path)?;
+        file.write_all(key_pair_document.as_ref())?;
+        file.sync_all()
     };
-
-    // create a parent directory if it doesn't exist
-    if let Some(parent) = key_file_path.parent()
-        && !parent.exists()
+    if let Err(error) =
+        write_temporary_file().and_then(|()| fs::rename(&temporary_path, key_file_path))
     {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create key directory: {e}"))?;
+        let _ = fs::remove_file(&temporary_path);
+        return Err(format!(
+            "Failed to write the key file {key_file_path:?}: {error}"
+        ));
     }
 
-    // write the key to a file which only the owner can read and write, right from its creation,
-    // so that the private key is never visible to other users even for a short time. The mode of
-    // a newly created file only applies on creation, so the permissions of a replaced existing
-    // file are explicitly set again before anything is written to it.
+    // the rename only survives a crash once the directory entry itself is flushed to disk
     #[cfg(unix)]
-    let open_key_file = {
-        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-        |path: &std::path::Path| -> std::io::Result<std::fs::File> {
-            std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
-                .open(path)
-                .or_else(|error| {
-                    if error.kind() != std::io::ErrorKind::AlreadyExists {
-                        return Err(error);
-                    }
-                    let file = std::fs::OpenOptions::new()
-                        .write(true)
-                        .truncate(true)
-                        .open(path)?;
-                    file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
-                    Ok(file)
-                })
-        }
-    };
-    #[cfg(not(unix))]
-    let open_key_file = |path: &std::path::Path| std::fs::File::create(path);
+    fs::File::open(key_directory)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|error| format!("Failed to flush the key directory to disk: {error}"))?;
 
-    let mut file =
-        open_key_file(key_file_path).map_err(|e| format!("Failed to create key file: {e}"))?;
-    file.write_all(key_pair_doc.as_ref())
-        .map_err(|e| format!("Failed to write key to file: {e}"))?;
-
-    info!("Successfully generated and saved new Ed25519 key pair");
-    Ok(key_pair_doc.as_ref().to_vec())
+    Ok(key_pair_document.as_ref().to_vec())
 }
 
 #[rocket::main]
 async fn main() {
-    use adventskalender_backend::fairings::{AdventskalenderDatabaseConnection, SecurityHeaders};
+    use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
     use log::{error, info};
     use rocket::Config as RocketConfig;
     use std::env;
@@ -209,106 +285,46 @@ async fn main() {
         env!("VERGEN_RUSTC_SEMVER")
     );
 
-    // get the API base host and ensure it is a valid URL since it is used to build the
-    // advertised OpenID configuration
-    let api_host = env::var("ADVENTSKALENDER_API_HOST").unwrap_or("".to_string());
-    if api_host.is_empty() {
-        error!("Could not get the API host. Ensure ADVENTSKALENDER_API_HOST is set properly");
-        return;
-    }
-    let api_host_url = match Url::parse(&api_host) {
-        Ok(url) => url,
+    // read and validate the whole configuration before anything else happens, so that a
+    // misconfigured deployment refuses to start instead of failing on the first requests
+    let settings = match parse_settings(|name| env::var(name).ok()) {
+        Ok(settings) => settings,
         Err(error) => {
-            error!("The supplied API host '{api_host}' is not a valid URL. The error was: {error}");
-            return;
+            error!("Invalid configuration: {error}");
+            std::process::exit(1);
         }
     };
-    let jwks_uri = match api_host_url.join("/.well-known/jwks.json") {
-        Ok(url) => url.to_string(),
-        Err(error) => {
-            error!(
-                "Could not build the JWKS URL from the API host '{api_host}'. The error was: {error}"
-            );
-            return;
-        }
-    };
-
-    // get the configuration for the database server and terminate if something is missing
-    let database_connection_url =
-        env::var("ADVENTSKALENDER_DB_CONNECTION").unwrap_or("".to_string());
-    if database_connection_url.is_empty() {
-        error!(
-            "Could not get the configuration for the database server. Ensure ADVENTSKALENDER_DB_CONNECTION is set properly"
-        );
-        return;
-    }
-
-    // get the project UUID for the health check
-    let healthcheck_io_project =
-        env::var("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT").unwrap_or("".to_string());
-    if healthcheck_io_project.is_empty() {
-        error!(
-            "Could not get the healthchecks.io project UUID. Ensure ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT is set properly"
-        );
-        return;
-    }
-
-    // get the audience for the token
-    let token_audience_str = env::var("ADVENTSKALENDER_TOKEN_AUDIENCE").unwrap_or("".to_string());
-    if token_audience_str.is_empty() {
-        error!(
-            "Could not get the token audience. Ensure ADVENTSKALENDER_TOKEN_AUDIENCE is set properly"
-        );
-        return;
-    }
-    let token_audience_hash_set = token_audience_str
-        .split(',')
-        .map(|s| s.to_string())
-        .collect::<HashSet<String>>();
-
-    // get the allowed CORS origins (comma-separated list)
-    let allowed_cors_origins =
-        env::var("ADVENTSKALENDER_CORS_ORIGINS").unwrap_or("http://localhost:5173".to_string());
-    info!("Allowed CORS origins: {allowed_cors_origins}");
-
-    // get the key file path for Ed25519 key persistence
-    let key_file_path_str = env::var("ADVENTSKALENDER_KEY_FILE_PATH")
-        .unwrap_or_else(|_| "/data/adventskalender_ed25519.key".to_string());
-    let key_file_path = std::path::Path::new(&key_file_path_str);
+    info!("Allowed CORS origins: {}", settings.cors_origins.join(","));
+    let cors_header = adventskalender_backend::cors::Cors::new(&settings.cors_origins)
+        .unwrap_or_else(|error| {
+            error!("Could not build the CORS fairing. The error was: {error}");
+            std::process::exit(1);
+        });
 
     // load or generate Ed25519 key pair for signing tokens (persisted across restarts)
-    let ed25519_key_bytes = match load_or_generate_keypair(key_file_path) {
+    let ed25519_key_bytes = match load_or_generate_keypair(&settings.key_file_path) {
         Ok(bytes) => bytes,
         Err(error) => {
-            error!("Failed to load or generate Ed25519 key pair: {error}");
-            return;
+            error!("Failed to load or generate the Ed25519 key pair: {error}");
+            std::process::exit(1);
+        }
+    };
+    let backend_config = match BackendConfiguration::from_pkcs8(
+        &ed25519_key_bytes,
+        settings.api_host,
+        settings.jwks_uri,
+        settings.healthcheck_io_project,
+        settings.token_audience,
+        settings.cookie_secure,
+    ) {
+        Ok(configuration) => configuration,
+        Err(error) => {
+            error!("Could not use the Ed25519 key pair. The error was: {error}");
+            std::process::exit(1);
         }
     };
 
-    // create encoding/decoding keys from the key bytes
-    // For Ed25519: encoding needs the full keypair, decoding needs only the public key
-    let encoding_key = EncodingKey::from_ed_der(&ed25519_key_bytes);
-
-    // Extract public key from the keypair for decoding
-    use ring::signature::KeyPair; // Import trait for public_key() method
-    let public_key_bytes = match Ed25519KeyPair::from_pkcs8(&ed25519_key_bytes) {
-        Ok(keypair) => keypair.public_key().as_ref().to_vec(),
-        Err(e) => {
-            error!("Failed to extract public key from Ed25519 keypair: {e}");
-            return;
-        }
-    };
-    let decoding_key = DecodingKey::from_ed_der(&public_key_bytes);
-
-    let backend_config = BackendConfiguration::new(
-        api_host,
-        jwks_uri,
-        encoding_key,
-        decoding_key,
-        ed25519_key_bytes.clone(),
-        healthcheck_io_project.to_string(),
-        token_audience_hash_set,
-    );
+    let database_connection_url = settings.database_connection_url;
 
     // create a db connection pool manager and the corresponding pool with retry logic
     info!("Connecting to database with retry logic...");
@@ -402,18 +418,6 @@ async fn main() {
             },
         ));
 
-    // prepare the fairing for the CORS headers
-    let origins_list: Vec<String> = allowed_cors_origins
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect();
-    let cors_header =
-        adventskalender_backend::cors::Cors::new(origins_list).unwrap_or_else(|error| {
-            error!("Could not build the CORS fairing. The error was: {error}");
-            std::process::exit(-1);
-        });
-
     // log the startup of the backend service
     log_action(
         &mut db_connection,
@@ -450,14 +454,11 @@ async fn main() {
 
     // mount all supported routes and launch the rocket :)
     info!("Database preparations done and starting up the API endpoints now...");
-    if let Err(error) = mount_routes(
-        rocket::custom(rocket_configuration_figment)
-            .attach(cors_header)
-            .attach(SecurityHeaders)
-            .manage(backend_config)
-            .manage(AdventskalenderDatabaseConnection::from(
-                db_connection_pool.clone(),
-            )),
+    if let Err(error) = build_rocket(
+        rocket_configuration_figment,
+        backend_config,
+        AdventskalenderDatabaseConnection::from(db_connection_pool.clone()),
+        cors_header,
     )
     .launch()
     .await
@@ -585,6 +586,167 @@ fn healthcheck(host: &str, port: &str, path: &str) -> Result<(), HealthcheckErro
 fn contains_end_of_headers(response: &[u8]) -> bool {
     response.windows(4).any(|window| window == b"\r\n\r\n")
 }
+#[cfg(test)]
+mod settings_tests {
+    use super::{DEFAULT_KEY_FILE_PATH, parse_settings};
+    use std::collections::{HashMap, HashSet};
+    use std::path::PathBuf;
+
+    const REQUIRED_VARIABLES: [&str; 5] = [
+        "ADVENTSKALENDER_API_HOST",
+        "ADVENTSKALENDER_DB_CONNECTION",
+        "ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT",
+        "ADVENTSKALENDER_TOKEN_AUDIENCE",
+        "ADVENTSKALENDER_CORS_ORIGINS",
+    ];
+
+    fn minimal_environment() -> HashMap<&'static str, String> {
+        HashMap::from([
+            (
+                "ADVENTSKALENDER_API_HOST",
+                "https://example.com".to_string(),
+            ),
+            (
+                "ADVENTSKALENDER_DB_CONNECTION",
+                "postgres://user:password@database/adventskalender".to_string(),
+            ),
+            (
+                "ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT",
+                "00000000-0000-0000-0000-000000000000".to_string(),
+            ),
+            (
+                "ADVENTSKALENDER_TOKEN_AUDIENCE",
+                "https://example.com,https://admin.example.com".to_string(),
+            ),
+            (
+                "ADVENTSKALENDER_CORS_ORIGINS",
+                "https://example.com".to_string(),
+            ),
+        ])
+    }
+
+    fn parse(environment: &HashMap<&'static str, String>) -> Result<super::Settings, String> {
+        parse_settings(|name| environment.get(name).cloned())
+    }
+
+    fn with(name: &'static str, value: &str) -> HashMap<&'static str, String> {
+        let mut environment = minimal_environment();
+        environment.insert(name, value.to_string());
+        environment
+    }
+
+    #[test]
+    fn the_minimal_configuration_uses_the_defaults_of_the_optional_variables() {
+        let settings = parse(&minimal_environment()).expect("a complete configuration");
+
+        assert_eq!(settings.api_host, "https://example.com");
+        assert_eq!(
+            settings.jwks_uri,
+            "https://example.com/.well-known/jwks.json"
+        );
+        assert_eq!(
+            settings.database_connection_url,
+            "postgres://user:password@database/adventskalender"
+        );
+        assert_eq!(
+            settings.healthcheck_io_project,
+            "00000000-0000-0000-0000-000000000000"
+        );
+        assert_eq!(
+            settings.token_audience,
+            HashSet::from([
+                "https://example.com".to_string(),
+                "https://admin.example.com".to_string()
+            ])
+        );
+        assert_eq!(
+            settings.cors_origins,
+            vec!["https://example.com".to_string()]
+        );
+        assert_eq!(settings.key_file_path, PathBuf::from(DEFAULT_KEY_FILE_PATH));
+        assert!(settings.cookie_secure, "the cookie is secure by default");
+    }
+
+    #[test]
+    fn every_required_variable_which_is_unset_or_empty_is_an_error_naming_it() {
+        for name in REQUIRED_VARIABLES {
+            let mut environment = minimal_environment();
+            environment.remove(name);
+            let error = parse(&environment).expect_err(name);
+            assert!(error.contains(name), "unset {name}: {error}");
+
+            let error = parse(&with(name, "")).expect_err(name);
+            assert!(error.contains(name), "empty {name}: {error}");
+        }
+    }
+
+    #[test]
+    fn a_cors_origin_list_without_any_origin_is_an_error() {
+        let error = parse(&with("ADVENTSKALENDER_CORS_ORIGINS", " , ,")).unwrap_err();
+
+        assert!(error.contains("ADVENTSKALENDER_CORS_ORIGINS"), "{error}");
+    }
+
+    #[test]
+    fn the_cors_origins_are_trimmed_and_empty_entries_dropped() {
+        let settings = parse(&with(
+            "ADVENTSKALENDER_CORS_ORIGINS",
+            " https://example.com , ,http://localhost:5173",
+        ))
+        .unwrap();
+
+        assert_eq!(
+            settings.cors_origins,
+            vec![
+                "https://example.com".to_string(),
+                "http://localhost:5173".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn an_api_host_which_is_not_a_url_is_an_error() {
+        let error = parse(&with("ADVENTSKALENDER_API_HOST", "example.com")).unwrap_err();
+
+        assert!(error.contains("ADVENTSKALENDER_API_HOST"), "{error}");
+    }
+
+    #[test]
+    fn the_cookie_secure_flag_accepts_true_and_false_in_any_case() {
+        for (value, expected) in [
+            ("true", true),
+            ("TRUE", true),
+            ("false", false),
+            ("False", false),
+        ] {
+            let settings = parse(&with("ADVENTSKALENDER_COOKIE_SECURE", value)).unwrap();
+            assert_eq!(settings.cookie_secure, expected, "value {value}");
+        }
+    }
+
+    #[test]
+    fn an_empty_cookie_secure_flag_keeps_the_secure_default() {
+        let settings = parse(&with("ADVENTSKALENDER_COOKIE_SECURE", "")).unwrap();
+
+        assert!(settings.cookie_secure);
+    }
+
+    #[test]
+    fn any_other_cookie_secure_value_is_an_error() {
+        for value in ["yes", "0", "1", "off", " true"] {
+            let error = parse(&with("ADVENTSKALENDER_COOKIE_SECURE", value)).expect_err(value);
+            assert!(error.contains("ADVENTSKALENDER_COOKIE_SECURE"), "{error}");
+        }
+    }
+
+    #[test]
+    fn the_key_file_path_can_be_overridden() {
+        let settings = parse(&with("ADVENTSKALENDER_KEY_FILE_PATH", "/keys/signing.der")).unwrap();
+
+        assert_eq!(settings.key_file_path, PathBuf::from("/keys/signing.der"));
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::{HealthcheckError, healthcheck};
@@ -688,17 +850,23 @@ mod tests {
 
     // the tests of the key file handling live in this module as well
     use super::load_or_generate_keypair;
+    use ring::signature::Ed25519KeyPair;
     use std::os::unix::fs::PermissionsExt;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    fn temporary_key_file_path() -> std::path::PathBuf {
-        std::env::temp_dir().join(format!(
-            "adventskalender-key-permission-test-{}-{}",
+    static CREATED_KEY_DIRECTORIES: AtomicUsize = AtomicUsize::new(0);
+
+    /// Creates an empty directory which no other test uses, so that every test can inspect all
+    /// files it leaves behind.
+    fn temporary_key_directory() -> std::path::PathBuf {
+        let directory = std::env::temp_dir().join(format!(
+            "adventskalender-key-test-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ))
+            CREATED_KEY_DIRECTORIES.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        directory
     }
 
     fn mode_of(path: &std::path::Path) -> u32 {
@@ -708,47 +876,119 @@ mod tests {
             .mode()
     }
 
-    #[test]
-    fn a_newly_generated_key_file_is_only_accessible_by_the_owner() {
-        let key_file_path = temporary_key_file_path();
-        let _ = std::fs::remove_file(&key_file_path);
-
-        let key_bytes = load_or_generate_keypair(&key_file_path).expect("key generation failed");
-        assert!(!key_bytes.is_empty());
-
-        assert_eq!(mode_of(&key_file_path) & 0o777, 0o600);
-
-        std::fs::remove_file(&key_file_path).unwrap();
+    fn file_names_in(directory: &std::path::Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(directory)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
     }
 
     #[test]
-    fn a_regenerated_key_file_over_an_existing_invalid_one_is_only_accessible_by_the_owner() {
-        let key_file_path = temporary_key_file_path();
-        std::fs::write(&key_file_path, "this is not a valid PKCS8 key").unwrap();
-        std::fs::set_permissions(&key_file_path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    fn a_missing_key_file_is_generated_and_only_accessible_by_the_owner() {
+        let key_directory = temporary_key_directory();
+        let key_file_path = key_directory.join("key.der");
 
         let key_bytes = load_or_generate_keypair(&key_file_path).expect("key generation failed");
-        assert!(!key_bytes.is_empty());
 
+        assert!(Ed25519KeyPair::from_pkcs8(&key_bytes).is_ok());
+        assert_eq!(std::fs::read(&key_file_path).unwrap(), key_bytes);
         assert_eq!(mode_of(&key_file_path) & 0o777, 0o600);
+        assert_eq!(
+            file_names_in(&key_directory),
+            vec!["key.der".to_string()],
+            "no temporary file may be left behind"
+        );
+        std::fs::remove_dir_all(&key_directory).unwrap();
+    }
 
-        std::fs::remove_file(&key_file_path).unwrap();
+    #[test]
+    fn a_missing_key_directory_is_created() {
+        let key_directory = temporary_key_directory();
+        let key_file_path = key_directory.join("nested").join("key.der");
+
+        let key_bytes = load_or_generate_keypair(&key_file_path).expect("key generation failed");
+
+        assert_eq!(std::fs::read(&key_file_path).unwrap(), key_bytes);
+        std::fs::remove_dir_all(&key_directory).unwrap();
+    }
+
+    #[test]
+    fn an_existing_valid_key_file_is_loaded_unchanged() {
+        let key_directory = temporary_key_directory();
+        let key_file_path = key_directory.join("key.der");
+        let first_key = load_or_generate_keypair(&key_file_path).expect("key generation failed");
+
+        let loaded_key = load_or_generate_keypair(&key_file_path).expect("key loading failed");
+
+        assert_eq!(loaded_key, first_key);
+        assert_eq!(std::fs::read(&key_file_path).unwrap(), first_key);
+        std::fs::remove_dir_all(&key_directory).unwrap();
+    }
+
+    #[test]
+    fn an_existing_invalid_key_file_is_an_error_and_stays_untouched() {
+        let key_directory = temporary_key_directory();
+        let key_file_path = key_directory.join("key.der");
+        std::fs::write(&key_file_path, "-----BEGIN PRIVATE KEY-----").unwrap();
+
+        let result = load_or_generate_keypair(&key_file_path);
+
+        let error = result.expect_err("an invalid key file must not be replaced");
+        assert!(
+            error.contains("key.der"),
+            "the error must name the key file, got: {error}"
+        );
+        assert_eq!(
+            std::fs::read(&key_file_path).unwrap(),
+            b"-----BEGIN PRIVATE KEY-----"
+        );
+        assert_eq!(file_names_in(&key_directory), vec!["key.der".to_string()]);
+        std::fs::remove_dir_all(&key_directory).unwrap();
+    }
+
+    #[test]
+    fn an_existing_unreadable_key_file_is_an_error_and_stays_untouched() {
+        let key_directory = temporary_key_directory();
+        let key_file_path = key_directory.join("key.der");
+        std::fs::write(&key_file_path, "secret").unwrap();
+        std::fs::set_permissions(&key_file_path, std::fs::Permissions::from_mode(0o200)).unwrap();
+
+        let result = load_or_generate_keypair(&key_file_path);
+
+        std::fs::set_permissions(&key_file_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let error = result.expect_err("an unreadable key file must not be replaced");
+        assert!(
+            error.contains("Permission denied"),
+            "the error must name the real reason, got: {error}"
+        );
+        assert_eq!(std::fs::read(&key_file_path).unwrap(), b"secret");
+        std::fs::remove_dir_all(&key_directory).unwrap();
+    }
+
+    #[test]
+    fn a_leftover_temporary_file_of_an_interrupted_write_does_not_block_the_generation() {
+        let key_directory = temporary_key_directory();
+        let key_file_path = key_directory.join("key.der");
+        let leftover_path = key_directory.join(".key.der.tmp");
+        std::fs::write(&leftover_path, "partial").unwrap();
+        std::fs::set_permissions(&leftover_path, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        let key_bytes = load_or_generate_keypair(&key_file_path).expect("key generation failed");
+
+        assert_eq!(std::fs::read(&key_file_path).unwrap(), key_bytes);
+        assert_eq!(mode_of(&key_file_path) & 0o777, 0o600);
+        assert_eq!(file_names_in(&key_directory), vec!["key.der".to_string()]);
+        std::fs::remove_dir_all(&key_directory).unwrap();
     }
 
     #[test]
     fn an_unwritable_key_directory_is_reported_as_an_error() {
-        let key_directory = std::env::temp_dir().join(format!(
-            "adventskalender-key-dir-permission-test-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(&key_directory).unwrap();
+        let key_directory = temporary_key_directory();
         std::fs::set_permissions(&key_directory, std::fs::Permissions::from_mode(0o555)).unwrap();
 
-        let result = load_or_generate_keypair(&key_directory.join("key.pem"));
+        let result = load_or_generate_keypair(&key_directory.join("key.der"));
 
         std::fs::set_permissions(&key_directory, std::fs::Permissions::from_mode(0o755)).unwrap();
         std::fs::remove_dir_all(&key_directory).unwrap();
