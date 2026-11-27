@@ -59,7 +59,7 @@ export const DeleteWinnerDialog = (props: Props) => {
                         <LocalizedText translationKey={'calendar.dialogs.remove_participant.title'} />
                     </DialogTitle>
                     <DialogDescription>
-                        {localizationContext.translate('calendar.dialogs.remove_participant.text').replace('{0}', `${props.userToDelete.firstName} ${props.userToDelete.lastName}`)}
+                        {localizationContext.translate('calendar.dialogs.remove_participant.text', [`${props.userToDelete.firstName} ${props.userToDelete.lastName}`])}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2">

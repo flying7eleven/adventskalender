@@ -1,6 +1,5 @@
 import { useContext } from 'react';
 import { format, parse } from 'date-fns';
-import { de } from 'date-fns/locale';
 import { LocalizedText } from '../LocalizedText';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { WinnerInformation } from '../../api';
@@ -21,8 +20,7 @@ export const SpecialTextItem = ({ date }: { date: string }) => {
 export const WinnerSummary = ({ date, winners }: { date: string; winners: WinnerInformation[] }) => {
     const localizationContext = useContext(LocalizationContext);
     const parsedDate = parse(date, 'yyyy-MM-dd', new Date());
-    const locale = window.navigator.language.startsWith('de') ? de : undefined;
-    const winningDate = format(parsedDate, localizationContext.translate('dashboard.dialogs.new_winners.date_format'), { locale });
+    const winningDate = format(parsedDate, localizationContext.translate('dashboard.dialogs.new_winners.date_format'), { locale: localizationContext.dateLocale });
     const winningDay = format(parsedDate, 'd');
 
     const sortedWinners = [...winners].sort((a, b) => {
