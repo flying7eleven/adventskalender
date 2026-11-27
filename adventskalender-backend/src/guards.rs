@@ -15,9 +15,13 @@ impl<'r> FromRequest<'r> for ClientIp {
 }
 
 /// The representation of an authenticated user. As soon as this is included in the parameters
-/// of a route, the call can be just made with an valid token in the header.
+/// of a route, the call can only be made with a valid, unrevoked token in the `auth_token`
+/// cookie.
 pub struct AuthenticatedUser {
+    pub user_id: i32,
     pub username: String,
+    /// The session epoch the token was issued for, which equals the user's current epoch.
+    pub session_epoch: i32,
     /// The UNIX timestamp (in seconds) at which the validated token expires.
     pub expires_at: u64,
     /// The UNIX timestamp (in seconds) of the original login of the session, preserved across
@@ -27,13 +31,14 @@ pub struct AuthenticatedUser {
 
 #[derive(Debug)]
 pub enum AuthorizationError {
-    /// Could not find any authentication header in the request.
-    MissingAuthorizationHeader,
-    /// It seems that the authentication header is not well-formed (e.g. Bearer is missing)
-    MalformedAuthorizationHeader,
-    /// It seems that the supplied token is not valid (e.g. signature validation failed)
+    /// The request carries no `auth_token` cookie.
+    MissingToken,
+    /// The supplied token is not valid (e.g. the signature validation failed or it expired).
     InvalidToken,
-    /// It seems that we failed to validate the token (e.g. we do not know if the token is valid or not)
+    /// The token was revoked by a logout or a password change, or its user does not exist
+    /// anymore.
+    RevokedToken,
+    /// We failed to validate the token (e.g. we do not know if the token is valid or not).
     CannotValidateToken,
 }
 
@@ -45,63 +50,81 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
         request: &'r Request<'_>,
     ) -> Outcome<AuthenticatedUser, AuthorizationError> {
         use crate::Claims;
-        use crate::fairings::BackendConfiguration;
+        use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
+        use crate::schema::users::dsl::{id, session_epoch, username, users};
+        use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl};
         use jsonwebtoken::decode;
-        use log::error;
+        use jsonwebtoken::errors::ErrorKind;
+        use log::{debug, error, warn};
         use rocket::http::Status;
 
-        // Try to get token from cookie first, then fall back to Authorization header
-        let cookies = request.cookies();
-        let token_str = match cookies.get("auth_token") {
-            Some(cookie) => cookie.value().to_string(),
-            None => {
-                // Fallback: try to get from Authorization header for backward compatibility
-                match request.headers().get_one("Authorization") {
-                    Some(maybe_authorization) => {
-                        // split the token type from the actual token... there have to be two parts
-                        let authorization_information =
-                            maybe_authorization.split(' ').collect::<Vec<&str>>();
-                        if authorization_information.len() != 2 {
-                            error!(
-                                "It seems that the authorization header is malformed. There were 2 parts expected but we got {}",
-                                authorization_information.len()
-                            );
-                            return Outcome::Error((
-                                Status::Forbidden,
-                                AuthorizationError::MalformedAuthorizationHeader,
-                            ));
-                        }
+        let Some(token_cookie) = request.cookies().get("auth_token") else {
+            debug!("The request carries no auth_token cookie");
+            return Outcome::Error((Status::Forbidden, AuthorizationError::MissingToken));
+        };
 
-                        // ensure that the token type is marked as 'bearer' token
-                        if authorization_information[0].to_lowercase() != "bearer" {
-                            error!(
-                                "It seems that the authorization header is malformed. We expected as token type 'bearer' but got '{}'",
-                                authorization_information[0].to_lowercase()
-                            );
-                            return Outcome::Error((
-                                Status::Forbidden,
-                                AuthorizationError::MalformedAuthorizationHeader,
-                            ));
-                        }
+        let rocket = request.rocket();
+        let (Some(backend_config), Some(database)) = (
+            rocket.state::<BackendConfiguration>(),
+            rocket.state::<AdventskalenderDatabaseConnection>(),
+        ) else {
+            error!("The backend configuration or the database is missing from the managed state");
+            return Outcome::Error((
+                Status::InternalServerError,
+                AuthorizationError::CannotValidateToken,
+            ));
+        };
 
-                        authorization_information[1].to_string()
-                    }
-                    None => {
-                        error!("No authentication token found in cookie or Authorization header!");
-                        return Outcome::Error((
-                            Status::Forbidden,
-                            AuthorizationError::MissingAuthorizationHeader,
-                        ));
-                    }
+        let claims = match decode::<Claims>(
+            token_cookie.value(),
+            &backend_config.decoding_key,
+            &backend_config.token_validation,
+        ) {
+            Ok(token) => token.claims,
+            Err(error) => {
+                if matches!(error.kind(), ErrorKind::ExpiredSignature) {
+                    debug!("The supplied token has expired");
+                } else {
+                    warn!("The supplied token is invalid. The error was: {error}");
                 }
+                return Outcome::Error((Status::Forbidden, AuthorizationError::InvalidToken));
             }
         };
 
-        // get the current backend configuration for the token validation
-        let backend_config = match request.rocket().state::<BackendConfiguration>() {
-            Some(config) => config,
-            None => {
-                error!("The backend configuration is missing from the managed state");
+        let subject = claims.sub.clone();
+        let current_user = database
+            .run_blocking(move |db_connection| {
+                users
+                    .filter(username.eq(&subject))
+                    .select((id, session_epoch))
+                    .first::<(i32, i32)>(db_connection)
+                    .optional()
+            })
+            .await;
+        let user_id = match current_user {
+            Ok(Ok(Some((user_id, current_epoch)))) if current_epoch == claims.session_epoch => {
+                user_id
+            }
+            Ok(Ok(Some(_))) => {
+                debug!("The supplied token was revoked by a logout or a password change");
+                return Outcome::Error((Status::Forbidden, AuthorizationError::RevokedToken));
+            }
+            Ok(Ok(None)) => {
+                warn!(
+                    "The supplied token belongs to the user '{}' who does not exist anymore",
+                    claims.sub
+                );
+                return Outcome::Error((Status::Forbidden, AuthorizationError::RevokedToken));
+            }
+            Ok(Err(error)) => {
+                error!("Could not look up the session epoch of a user. The error was: {error}");
+                return Outcome::Error((
+                    Status::InternalServerError,
+                    AuthorizationError::CannotValidateToken,
+                ));
+            }
+            Err(error) => {
+                error!("Could not look up the session epoch of a user. The error was: {error}");
                 return Outcome::Error((
                     Status::InternalServerError,
                     AuthorizationError::CannotValidateToken,
@@ -109,25 +132,12 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             }
         };
 
-        // verify the validity of the token supplied in the header or cookie
-        let decoded_token = match decode::<Claims>(
-            &token_str,
-            &backend_config.decoding_key,
-            &backend_config.token_validation,
-        ) {
-            Ok(token) => token,
-            Err(error) => {
-                error!("The supplied token seems to be invalid. The error was: {error}");
-                return Outcome::Error((Status::Forbidden, AuthorizationError::InvalidToken));
-            }
-        };
-
-        // if we reach this step, the validation was successful, and we can allow the user to
-        // call the route
         Outcome::Success(AuthenticatedUser {
-            username: decoded_token.claims.sub,
-            expires_at: decoded_token.claims.exp as u64,
-            auth_time: decoded_token.claims.auth_time as u64,
+            user_id,
+            username: claims.sub,
+            session_epoch: claims.session_epoch,
+            expires_at: claims.exp as u64,
+            auth_time: claims.auth_time as u64,
         })
     }
 }

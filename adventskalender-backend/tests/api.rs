@@ -785,7 +785,7 @@ fn changing_the_password_to_a_too_weak_one_is_rejected_with_a_reason() {
 }
 
 #[test]
-fn changing_the_password_of_a_deleted_user_is_a_server_error() {
+fn changing_the_password_of_a_deleted_user_is_forbidden() {
     let database = TestDatabase::start(0);
     let client = logged_in_client(&database);
     database.execute("DELETE FROM performed_actions");
@@ -793,7 +793,7 @@ fn changing_the_password_of_a_deleted_user_is_a_server_error() {
 
     assert_eq!(
         change_password(&client, PICKING_USER_PASSWORD, NEW_PASSWORD, NEW_PASSWORD),
-        Status::InternalServerError
+        Status::Forbidden
     );
 }
 
@@ -1032,37 +1032,6 @@ fn logging_out_clears_the_session_cookie() {
 }
 
 #[test]
-fn a_bearer_token_in_the_authorization_header_is_accepted_as_fallback() {
-    let database = TestDatabase::start(0);
-    let key_bytes = fresh_key_bytes();
-    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
-    let token = logged_in
-        .cookies()
-        .get("auth_token")
-        .expect("a login must set the auth_token cookie")
-        .value()
-        .to_string();
-    let client_without_cookies = client_with_key_bytes(&database, &key_bytes);
-
-    let response = client_without_cookies
-        .get("/v1/auth/me")
-        .header(Header::new("Authorization", format!("Bearer {token}")))
-        .dispatch();
-    assert_eq!(response.status(), Status::Ok);
-
-    let response = client_without_cookies
-        .get("/v1/auth/me")
-        .header(Header::new("Authorization", format!("NotBearer {token}")))
-        .dispatch();
-    assert_eq!(response.status(), Status::Forbidden);
-
-    let response = client_without_cookies
-        .get("/v1/auth/me")
-        .header(Header::new("Authorization", "justonepart"))
-        .dispatch();
-    assert_eq!(response.status(), Status::Forbidden);
-}
-#[test]
 fn picking_without_logging_in_is_forbidden_and_marks_nobody() {
     let database = TestDatabase::start(1);
     let client = client(&database);
@@ -1185,6 +1154,7 @@ fn refreshing_a_session_after_the_absolute_session_lifetime_is_forbidden() {
         unix_now() - (adventskalender_backend::session_lifetime_in_seconds() as u64 + 1);
     let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        0,
         HashSet::from(["http://localhost:5173".to_string()]),
         "http://localhost:5479".to_string(),
         &encoding_key,
@@ -1413,6 +1383,7 @@ fn a_refresh_near_the_session_cap_returns_a_short_lived_token_which_keeps_the_or
     let auth_time = now - (adventskalender_backend::session_lifetime_in_seconds() as u64 - 60);
     let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        0,
         audience.clone(),
         issuer.to_string(),
         &encoding_key,
@@ -1473,6 +1444,7 @@ fn a_refresh_near_the_session_cap_returns_a_short_lived_token_which_keeps_the_or
 
     let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        0,
         audience,
         "http://localhost:5479".to_string(),
         &encoding_key,
@@ -1673,4 +1645,325 @@ fn picking_winners_over_http_logs_one_audit_entry_per_winner() {
         ),
         3
     );
+}
+
+fn session_token_of(client: &Client) -> String {
+    client
+        .cookies()
+        .get("auth_token")
+        .expect("the client must hold an auth_token cookie")
+        .value()
+        .to_string()
+}
+
+fn me_status_with_token(client: &Client, token: &str) -> Status {
+    client
+        .get("/v1/auth/me")
+        .cookie(("auth_token", token.to_string()))
+        .dispatch()
+        .status()
+}
+
+#[test]
+fn a_token_replayed_after_logout_is_rejected() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = session_token_of(&logged_in);
+    let replaying_client = client_with_key_bytes(&database, &key_bytes);
+    assert_eq!(me_status_with_token(&replaying_client, &token), Status::Ok);
+
+    assert_eq!(
+        logged_in.post("/v1/auth/logout").dispatch().status(),
+        Status::NoContent
+    );
+
+    assert_eq!(
+        me_status_with_token(&replaying_client, &token),
+        Status::Forbidden
+    );
+}
+
+#[test]
+fn refreshing_with_a_token_replayed_after_logout_is_rejected() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = session_token_of(&logged_in);
+    logged_in.post("/v1/auth/logout").dispatch();
+
+    let replaying_client = client_with_key_bytes(&database, &key_bytes);
+    let response = replaying_client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", token))
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Forbidden);
+}
+
+#[test]
+fn logging_out_without_a_valid_token_still_succeeds() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client
+        .post("/v1/auth/logout")
+        .cookie(("auth_token", "not-a-token"))
+        .dispatch();
+
+    assert_eq!(response.status(), Status::NoContent);
+}
+
+#[test]
+fn a_password_change_ends_all_other_sessions_but_keeps_the_changing_one() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let changing_session = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let other_session = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token_before_the_change = session_token_of(&changing_session);
+
+    assert_eq!(
+        change_password(
+            &changing_session,
+            PICKING_USER_PASSWORD,
+            NEW_PASSWORD,
+            NEW_PASSWORD
+        ),
+        Status::NoContent
+    );
+
+    assert_eq!(
+        changing_session.get("/v1/auth/me").dispatch().status(),
+        Status::Ok,
+        "the session which changed the password must keep working with its new cookie"
+    );
+    assert_eq!(
+        changing_session
+            .post("/v1/auth/refresh")
+            .dispatch()
+            .status(),
+        Status::Ok
+    );
+    assert_eq!(
+        other_session.get("/v1/auth/me").dispatch().status(),
+        Status::Forbidden
+    );
+    let replaying_client = client_with_key_bytes(&database, &key_bytes);
+    assert_eq!(
+        me_status_with_token(&replaying_client, &token_before_the_change),
+        Status::Forbidden
+    );
+}
+
+#[test]
+fn a_bearer_token_in_the_authorization_header_is_not_accepted() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = session_token_of(&logged_in);
+    let client_without_cookies = client_with_key_bytes(&database, &key_bytes);
+
+    let response = client_without_cookies
+        .get("/v1/auth/me")
+        .header(Header::new("Authorization", format!("Bearer {token}")))
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Forbidden);
+}
+
+#[test]
+fn an_expired_token_is_rejected() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let client = client_with_key_bytes(&database, &key_bytes);
+    let auth_time =
+        unix_now() - (adventskalender_backend::session_lifetime_in_seconds() as u64 + 60 * 60);
+    let (token, expires_at) = adventskalender_backend::get_token_for_user_with_auth_time(
+        &database.picking_user,
+        0,
+        HashSet::from(["http://localhost:5173".to_string()]),
+        "http://localhost:5479".to_string(),
+        &EncodingKey::from_ed_der(&key_bytes),
+        auth_time as usize,
+    )
+    .expect("token creation must succeed");
+    assert!(expires_at < unix_now());
+
+    assert_eq!(me_status_with_token(&client, &token), Status::Forbidden);
+}
+
+#[test]
+fn a_token_with_a_tampered_signature_or_a_foreign_key_is_rejected() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = session_token_of(&logged_in);
+    let client = client_with_key_bytes(&database, &key_bytes);
+    assert_eq!(me_status_with_token(&client, &token), Status::Ok);
+
+    let signature_start = token.rfind('.').unwrap() + 1;
+    let mut tampered = token.clone().into_bytes();
+    tampered[signature_start] = if tampered[signature_start] == b'A' {
+        b'B'
+    } else {
+        b'A'
+    };
+    let tampered = String::from_utf8(tampered).unwrap();
+    assert_eq!(me_status_with_token(&client, &tampered), Status::Forbidden);
+
+    let foreign_session = logged_in_client(&database);
+    let foreign_token = session_token_of(&foreign_session);
+    assert_eq!(
+        me_status_with_token(&client, &foreign_token),
+        Status::Forbidden
+    );
+}
+
+fn login_from(client: &Client, ip: &str, username: &str, password: &str) -> Status {
+    client
+        .post("/v1/auth/token")
+        .header(ContentType::JSON)
+        .header(Header::new("X-Real-IP", ip.to_string()))
+        .body(json!({ "username": username, "password": password }).to_string())
+        .dispatch()
+        .status()
+}
+
+#[test]
+fn an_oversized_username_is_rejected_without_counting_against_the_rate_limit() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+    let ip = "192.0.2.40";
+
+    for oversized in ["u".repeat(65), "€".repeat(22)] {
+        for _ in 0..6 {
+            assert_eq!(
+                login_from(&client, ip, &oversized, PICKING_USER_PASSWORD),
+                Status::BadRequest
+            );
+        }
+    }
+    assert_eq!(
+        login_from(&client, ip, &"u".repeat(64), PICKING_USER_PASSWORD),
+        Status::Unauthorized
+    );
+    assert_eq!(
+        login_from(&client, ip, &database.picking_user, PICKING_USER_PASSWORD),
+        Status::Ok
+    );
+}
+
+#[test]
+fn an_oversized_password_is_rejected_without_counting_against_the_rate_limit() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+    let ip = "192.0.2.41";
+
+    for _ in 0..6 {
+        assert_eq!(
+            login_from(&client, ip, &database.picking_user, &"p".repeat(73)),
+            Status::BadRequest
+        );
+    }
+    assert_eq!(
+        login_from(&client, ip, &database.picking_user, &"p".repeat(72)),
+        Status::Unauthorized
+    );
+    assert_eq!(
+        login_from(&client, ip, &database.picking_user, PICKING_USER_PASSWORD),
+        Status::Ok
+    );
+}
+
+#[test]
+fn a_login_body_larger_than_the_json_limit_is_refused() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client
+        .post("/v1/auth/token")
+        .header(ContentType::JSON)
+        .body(
+            json!({ "username": "someone", "password": "secret", "padding": "x".repeat(17 * 1024) })
+                .to_string(),
+        )
+        .dispatch();
+
+    assert_eq!(response.status(), Status::PayloadTooLarge);
+}
+
+#[test]
+fn the_username_rate_limit_allows_more_attempts_than_the_ip_rate_limit() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    for ip in [
+        "198.51.100.1",
+        "198.51.100.2",
+        "198.51.100.3",
+        "198.51.100.4",
+    ] {
+        for _ in 0..5 {
+            assert_eq!(
+                login_from(&client, ip, &database.picking_user, "wrong"),
+                Status::Unauthorized
+            );
+        }
+        assert_eq!(
+            login_from(&client, ip, &database.picking_user, "wrong"),
+            Status::TooManyRequests,
+            "each IP may only try five times"
+        );
+    }
+
+    assert_eq!(
+        login_from(
+            &client,
+            "198.51.100.5",
+            &database.picking_user,
+            PICKING_USER_PASSWORD
+        ),
+        Status::TooManyRequests,
+        "the username is locked after twenty attempts, even from a fresh IP"
+    );
+}
+
+#[test]
+fn ipv6_clients_of_the_same_64_prefix_share_a_rate_limit() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    for host in 1..=5 {
+        assert_eq!(
+            login_from(
+                &client,
+                &format!("2001:db8:40:1::{host}"),
+                &format!("ipv6-user-{host}"),
+                "wrong"
+            ),
+            Status::Unauthorized
+        );
+    }
+
+    assert_eq!(
+        login_from(&client, "2001:db8:40:1:ffff::1", "ipv6-user-final", "wrong"),
+        Status::TooManyRequests
+    );
+    assert_eq!(
+        login_from(&client, "2001:db8:40:2::1", "ipv6-user-other", "wrong"),
+        Status::Unauthorized
+    );
+}
+
+#[test]
+fn a_new_password_longer_than_72_bytes_is_rejected_with_a_reason() {
+    let database = TestDatabase::start(0);
+    let client = logged_in_client(&database);
+    let too_long = format!("{NEW_PASSWORD}{}", "x".repeat(73 - NEW_PASSWORD.len()));
+
+    let (status, _, body) =
+        change_password_reason(&client, PICKING_USER_PASSWORD, &too_long, &too_long);
+
+    assert_eq!(status, Status::UnprocessableEntity);
+    assert_eq!(body.unwrap()["reason"], json!("password_too_long"));
 }

@@ -42,6 +42,9 @@ struct Claims {
     /// The UNIX time (in seconds) of the original login of the session, which a refresh
     /// preserves so that the absolute session lifetime can be enforced.
     auth_time: usize,
+    /// The session epoch of the user at issuing time; the token is only valid as long as the
+    /// user's current epoch is still the same.
+    session_epoch: i32,
     sub: String,
     iss: String,
     aud: HashSet<String>,
@@ -211,11 +214,19 @@ pub fn record_action(
 
 pub fn get_token_for_user(
     subject: &str,
+    session_epoch: i32,
     audience: HashSet<String>,
     issuer: String,
     encoding_key: &EncodingKey,
 ) -> Option<(String, u64)> {
-    get_token_for_user_with_auth_time(subject, audience, issuer, encoding_key, unix_time_now())
+    get_token_for_user_with_auth_time(
+        subject,
+        session_epoch,
+        audience,
+        issuer,
+        encoding_key,
+        unix_time_now(),
+    )
 }
 
 /// Issues a token for `subject` which keeps the supplied `auth_time` (the UNIX time in seconds of
@@ -223,6 +234,7 @@ pub fn get_token_for_user(
 /// lifetime. Returns the expiry of the new token (UNIX seconds).
 pub fn get_token_for_user_with_auth_time(
     subject: &str,
+    session_epoch: i32,
     audience: HashSet<String>,
     issuer: String,
     encoding_key: &EncodingKey,
@@ -252,6 +264,7 @@ pub fn get_token_for_user_with_auth_time(
         iat: token_issued_at,
         nbf: token_issued_at + 1,
         auth_time,
+        session_epoch,
         sub: subject.to_owned(),
         iss: issuer,
         aud: audience,
@@ -284,12 +297,16 @@ pub fn session_lifetime_in_seconds() -> usize {
 
 /// Assembles the backend with all routes, fairings and managed state. The binary and the
 /// integration tests share it, so the tests exercise the same stack which runs in production.
+/// JSON bodies are limited to 16 KiB, since no route expects more.
 pub fn build_rocket<T: rocket::figment::Provider>(
     figment: T,
     configuration: fairings::BackendConfiguration,
     database: fairings::AdventskalenderDatabaseConnection,
     cors: cors::Cors,
 ) -> rocket::Rocket<rocket::Build> {
+    use rocket::data::ToByteUnit;
+
+    let figment = rocket::figment::Figment::from(figment).merge(("limits.json", 16.kibibytes()));
     routes::mount_routes(
         rocket::custom(figment)
             .attach(cors)
@@ -314,6 +331,7 @@ mod tests {
         let document = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new()).unwrap();
         let (token, _) = super::get_token_for_user(
             "someone",
+            0,
             HashSet::from(["https://example.com".to_string()]),
             "https://example.com".to_string(),
             &EncodingKey::from_ed_der(document.as_ref()),
