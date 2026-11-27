@@ -63,5 +63,23 @@ The frontend container runs behind an outer reverse proxy which terminates TLS. 
 ## Local diesel usage
 For running `diesel` commands locally, create the configuration file first: `cp adventskalender-backend/.env.example adventskalender-backend/.env`.
 
+## Backend configuration
+The backend reads its configuration from environment variables and refuses to start if a required variable is missing or empty, or if a value is invalid.
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `ADVENTSKALENDER_API_HOST` | yes | – | Base URL of the API without a path (e.g. `https://adventskalender.example.com`). It is the issuer of the tokens and the base of the advertised OpenID configuration and JWKS URL. |
+| `ADVENTSKALENDER_DB_CONNECTION` | yes | – | PostgreSQL connection URL (e.g. `postgres://user:password@host/adventskalender`). |
+| `ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT` | yes | – | UUID of the healthchecks.io check which the health endpoint pings. |
+| `ADVENTSKALENDER_TOKEN_AUDIENCE` | yes | – | Comma-separated audience of the issued tokens; incoming tokens must carry one of them. |
+| `ADVENTSKALENDER_CORS_ORIGINS` | yes | – | Comma-separated origins (scheme, host and port, e.g. `https://adventskalender.example.com`) which may call the API. |
+| `ADVENTSKALENDER_COOKIE_SECURE` | no | `true` | `true` or `false`; whether the `auth_token` cookie carries the `Secure` attribute. Set it to `false` only for local setups served over plain HTTP. |
+| `ADVENTSKALENDER_KEY_FILE_PATH` | no | `/data/adventskalender_ed25519.key` | Location of the token signing key, see below. |
+| `ADVENTSKALENDER_LOGGING_LEVEL` | no | `info` | One of `trace`, `debug`, `info`, `warn` or `error`. |
+
+`ADVENTSKALENDER_CORS_ORIGINS` doubles as the CSRF protection: the backend rejects every request whose `Origin` header is not listed with `403 Forbidden`. Browsers send `Origin` also on same-origin `POST`, `PUT` and `DELETE` requests, so the list must contain the public origin under which the frontend is served, otherwise the login and every change fail.
+
+Release builds of the backend send `Strict-Transport-Security: max-age=31536000` on every response, without `includeSubDomains` and `preload`.
+
 ## Token signing key
-The backend signs its tokens with an Ed25519 key stored at `ADVENTSKALENDER_KEY_FILE_PATH` (default `/data/adventskalender_ed25519.key`). If the file is missing or invalid, the backend generates a new key on startup and stores it there, which invalidates all previously issued tokens. Keep the file on a persistent volume.
+The backend signs its tokens with an Ed25519 key in the PKCS#8 DER format stored at `ADVENTSKALENDER_KEY_FILE_PATH`. Only if the file does not exist, the backend generates a new key on startup and stores it there with permissions for the owner only; the key is written to a temporary file next to it and renamed into place, so an interrupted start never leaves a partial key behind. If the file exists but cannot be read or does not contain a valid key (e.g. a PEM file or wrong permissions), the backend refuses to start and leaves the file untouched. Keep the file on a persistent volume, since a new key invalidates all previously issued tokens.
