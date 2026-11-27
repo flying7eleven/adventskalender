@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
 import { ApiAuthExpiredError, apiFetch, WinnerInformation } from '../../api.ts';
-import { Dispatch, ReactNode, SetStateAction, useEffect, useState } from 'react';
+import { Dispatch, ReactNode, SetStateAction, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
@@ -23,10 +23,12 @@ export const EditWinnerDialog = (props: Props) => {
     const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<{ [key: string]: boolean }>({});
     const auth = useAuthentication();
     const navigate = useNavigate();
-    const [packageSelections, setPackageSelections] = useState<StringMap>(Object.keys(props.packageSelections).length > 0 ? props.packageSelections : {});
-    useEffect(() => {
-        setPackageSelections(Object.keys(props.packageSelections).length > 0 ? props.packageSelections : {});
-    }, [props.packageSelections]);
+    const [packageSelections, setPackageSelections] = useState<StringMap>(props.packageSelections);
+    const [syncedPackageSelections, setSyncedPackageSelections] = useState<StringMap>(props.packageSelections);
+    if (syncedPackageSelections !== props.packageSelections) {
+        setSyncedPackageSelections(props.packageSelections);
+        setPackageSelections(props.packageSelections);
+    }
 
     const getPossiblePackageMenuItems = (userId: number, maxPackageCount: number) => {
         const alphabet = Array.from(Array(maxPackageCount))
