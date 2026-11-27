@@ -13,6 +13,7 @@ interface AuthContextType {
     expiresIn: number | null;
     signin: (user: string, password: string, callbacks: SigninCallbacks) => void;
     signout: (callback: VoidFunction) => void;
+    signoutLocally: (callback: VoidFunction) => void;
     refresh: (successCallback: (expiresIn: number) => void, failCallback: VoidFunction) => void;
 }
 
