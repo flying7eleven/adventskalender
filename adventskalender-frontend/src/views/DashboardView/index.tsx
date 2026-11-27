@@ -11,6 +11,7 @@ import { UnknownErrorDialog } from '../../dialogs/UnknownErrorDialog';
 import { toast } from 'sonner';
 import { NoParticipantsErrorDialog } from '../../dialogs/NoParticipantsErrorDialog';
 import { CountSchema, ParticipantCountSchema, ParticipantArraySchema } from '../../schemas';
+import { formatRaffleDay, getDefaultRaffleDay } from '../../utils/raffleDate';
 
 export const DashboardView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
@@ -20,15 +21,7 @@ export const DashboardView = () => {
     const [winnersOnSelectedDay, setWinnersOnSelectedDay] = useState<number>(0);
     const auth = useAuthentication();
     const navigate = useNavigate();
-    const [selectedDay, setSelectedDay] = useState<number>(() => {
-        const today = new Date().getDate();
-        if (today < 1) {
-            return 1;
-        } else if (today > 24) {
-            return 24;
-        }
-        return today;
-    });
+    const [selectedDay, setSelectedDay] = useState<number>(getDefaultRaffleDay);
     const [lastWinners, setLastWinners] = useState<WinnerInformation[]>([]);
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
     const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
@@ -99,7 +92,7 @@ export const DashboardView = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDay]);
 
-    const getSelectedDateAsString = () => `${new Date().getFullYear()}-12-${selectedDay}`;
+    const getSelectedDateAsString = () => formatRaffleDay(selectedDay);
 
     const getNumberOfWinnersToPick = (winnersOnThisDay: number) => {
         return MAX_WINNERS_PER_DAY - winnersOnThisDay;

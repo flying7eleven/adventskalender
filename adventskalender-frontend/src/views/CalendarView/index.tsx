@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiAuthExpiredError, apiFetch, MAX_WINNERS_PER_DAY } from '../../api';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
 import { WinnerCard } from '../../components/WinnerCard';
+import { LocalizedText } from '../../components/LocalizedText';
 import { WinnersOnDateMapSchema } from '../../schemas';
 
 export const CalendarView = () => {
     const [allWinners, setAllWinners] = useState<WinnersOnDateMap | null>(null);
+    const [hasLoadError, setHasLoadError] = useState<boolean>(false);
     const auth = useAuthentication();
     const navigate = useNavigate();
+    const winnersRequestIdRef = useRef<number>(0);
 
     const logoutUser = () => {
         auth.signout(() => navigate('/'));
@@ -20,15 +23,27 @@ export const CalendarView = () => {
             return;
         }
 
-        // since we have a token, we can query the backend for the winner count for the selected day
+        // each request gets an ID so that a late response of an outdated request cannot overwrite the current winners
+        const requestId = ++winnersRequestIdRef.current;
         apiFetch('/participants/won', WinnersOnDateMapSchema)
-            .then(setAllWinners)
+            .then((winners) => {
+                if (requestId !== winnersRequestIdRef.current) {
+                    return;
+                }
+                setAllWinners(winners);
+                setHasLoadError(false);
+            })
             .catch((error: unknown) => {
                 // if it seems that we are not authorized, invalidate the token. By invalidating the token,
                 // the user should automatically be redirected to the login page
                 if (error instanceof ApiAuthExpiredError) {
                     logoutUser();
+                    return;
                 }
+                if (requestId !== winnersRequestIdRef.current) {
+                    return;
+                }
+                setHasLoadError(true);
             });
     };
 
@@ -37,39 +52,50 @@ export const CalendarView = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const getWinnerCardsForAllDays = () => {
-        // if there are not winners in our array, return an element which indicates that there are no
-        // winners so far
-        if (!allWinners) {
-            // TODO: check the size as well and not only if it is an object or undefined
-            return <div>No Winners!</div>;
-        }
+    const loadError = (
+        <p role="alert" className="text-center text-destructive">
+            <LocalizedText translationKey={'calendar.load_error'} />
+        </p>
+    );
 
-        // since it seems that we have already winners, create corresponding UI elements and return them
-        // to be rendered for the user
-        const elements = [];
-        const sortedKeys = Object.keys(allWinners).sort();
-        for (const i in sortedKeys) {
-            const winnersForDay = allWinners[sortedKeys[i]].map((winnerEntry) => {
-                return {
-                    id: winnerEntry.id,
-                    firstName: winnerEntry.first_name,
-                    lastName: winnerEntry.last_name,
-                    presentIdentifier: winnerEntry.present_identifier,
-                };
-            });
-            elements.push(
-                <WinnerCard
-                    key={`winner-card-${sortedKeys[i]}`}
-                    numberOfMaxSubPackages={MAX_WINNERS_PER_DAY}
-                    winningDate={sortedKeys[i]}
-                    listOfWinner={winnersForDay}
-                    updateWinnerList={getWinnersForAllDays}
-                />
-            );
+    if (allWinners === null) {
+        if (hasLoadError) {
+            return loadError;
         }
-        return elements;
-    };
+        return (
+            <p role="status" className="text-center text-muted-foreground">
+                <LocalizedText translationKey={'calendar.loading'} />
+            </p>
+        );
+    }
 
-    return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr [&>*]:min-w-[320px]">{getWinnerCardsForAllDays()}</div>;
+    const sortedDates = Object.keys(allWinners).sort();
+
+    return (
+        <>
+            {hasLoadError && loadError}
+            {sortedDates.length === 0 ? (
+                <p className="text-center text-muted-foreground">
+                    <LocalizedText translationKey={'calendar.empty'} />
+                </p>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr [&>*]:min-w-[320px]">
+                    {sortedDates.map((winningDate) => (
+                        <WinnerCard
+                            key={`winner-card-${winningDate}`}
+                            numberOfMaxSubPackages={MAX_WINNERS_PER_DAY}
+                            winningDate={winningDate}
+                            listOfWinner={allWinners[winningDate].map((winnerEntry) => ({
+                                id: winnerEntry.id,
+                                firstName: winnerEntry.first_name,
+                                lastName: winnerEntry.last_name,
+                                presentIdentifier: winnerEntry.present_identifier,
+                            }))}
+                            updateWinnerList={getWinnersForAllDays}
+                        />
+                    ))}
+                </div>
+            )}
+        </>
+    );
 };
