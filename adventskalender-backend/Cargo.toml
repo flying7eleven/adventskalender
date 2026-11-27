@@ -64,28 +64,15 @@ version = "0.19.3"
 default-features = false
 features = ["std"]
 
-[dependencies.http]
-version = "1.5.0"
-default-features = false
-features = ["std"]
-
 [dependencies.jsonwebtoken]
 version = "12.0.0"
 default-features = false
 features = ["rust_crypto", "use_pem"]
 
-[dependencies.regex]
-version = "1.13.2"
-default-features = false
-
 [dependencies.ring]
 version = "0.17.14"
 default-features = false
 features = ["std"]
-
-[dependencies.unicase]
-version = "2.10.0"
-default-features = false
 
 [dependencies.url]
 version = "2.5.9"

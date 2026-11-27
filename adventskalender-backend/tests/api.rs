@@ -37,10 +37,7 @@ fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
         rocket::build()
             .manage(configuration)
             .manage(database.new_connection_pool())
-            .attach(
-                adventskalender_backend::cors_fairing(["http://localhost:5173".to_string()])
-                    .unwrap(),
-            ),
+            .attach(adventskalender_backend::cors::Cors::new(["http://localhost:5173"]).unwrap()),
     );
     Client::tracked(rocket).unwrap()
 }
@@ -182,6 +179,117 @@ fn a_normal_request_from_an_allowed_origin_gets_the_cors_headers() {
             .get_one("Access-Control-Allow-Credentials")
             .unwrap_or_default(),
         "true"
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get_one("Access-Control-Expose-Headers")
+            .unwrap_or_default(),
+        "Retry-After"
+    );
+    assert!(response
+        .headers()
+        .get("Vary")
+        .any(|value| value == "Origin"));
+}
+
+#[test]
+fn a_preflight_request_from_an_allowed_origin_lists_methods_and_echoes_the_requested_headers() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client
+        .req(rocket::http::Method::Options, "/v1/auth/password")
+        .header(Header::new("Origin", "http://localhost:5173"))
+        .header(Header::new("Access-Control-Request-Method", "PUT"))
+        .header(Header::new(
+            "Access-Control-Request-Headers",
+            "content-type, x-custom",
+        ))
+        .dispatch();
+    assert_eq!(response.status(), Status::NoContent);
+    let methods: HashSet<String> = response
+        .headers()
+        .get_one("Access-Control-Allow-Methods")
+        .unwrap_or_default()
+        .split(',')
+        .map(|method| method.trim().to_string())
+        .collect();
+    assert_eq!(
+        methods,
+        HashSet::from(["GET", "POST", "PUT", "DELETE"].map(String::from))
+    );
+    let headers: HashSet<String> = response
+        .headers()
+        .get_one("Access-Control-Allow-Headers")
+        .unwrap_or_default()
+        .split(',')
+        .map(|header| header.trim().to_lowercase())
+        .collect();
+    assert_eq!(
+        headers,
+        HashSet::from(["content-type", "x-custom"].map(String::from))
+    );
+    assert!(response
+        .headers()
+        .get("Vary")
+        .any(|value| value == "Origin"));
+    assert_eq!(response.into_string().unwrap_or_default(), "");
+}
+
+#[test]
+fn a_preflight_request_from_an_allowed_origin_for_a_disallowed_method_is_rejected() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client
+        .req(rocket::http::Method::Options, "/v1/auth/token")
+        .header(Header::new("Origin", "http://localhost:5173"))
+        .header(Header::new("Access-Control-Request-Method", "PATCH"))
+        .dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+    assert_eq!(
+        response.headers().get_one("Access-Control-Allow-Origin"),
+        None
+    );
+}
+
+#[test]
+fn a_normal_request_from_a_disallowed_origin_is_rejected_before_the_route_runs() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client
+        .post("/v1/auth/token")
+        .header(ContentType::JSON)
+        .header(Header::new("Origin", "http://evil.example"))
+        .body(
+            json!({ "username": database.picking_user, "password": PICKING_USER_PASSWORD })
+                .to_string(),
+        )
+        .dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+    assert_eq!(
+        response.headers().get_one("Access-Control-Allow-Origin"),
+        None
+    );
+    assert_eq!(response.headers().get_one("Set-Cookie"), None);
+    assert_eq!(client.cookies().iter().count(), 0);
+}
+
+#[test]
+fn a_request_without_an_origin_passes_without_cors_headers() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let (status, _) = login(&client, &database.picking_user, PICKING_USER_PASSWORD);
+    assert_eq!(status, Status::Ok);
+
+    let response = client.get("/v1/health").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    assert_eq!(
+        response.headers().get_one("Access-Control-Allow-Origin"),
+        None
     );
 }
 

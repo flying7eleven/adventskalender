@@ -21,20 +21,17 @@ dependencies = [
  "diesel_migrations",
  "fern",
  "healthchecks",
- "http 1.5.0",
  "jsonwebtoken",
  "lazy_static",
  "log",
  "passwords",
  "r2d2",
  "rand 0.10.4",
- "regex",
  "ring",
  "rocket",
  "serde",
  "testcontainers-modules",
  "time",
- "unicase",
  "url",
  "vergen",
  "vergen-git2",
@@ -3881,12 +3878,6 @@ dependencies = [
  "serde",
  "version_check",
 ]
-
-[[package]]
-name = "unicase"
-version = "2.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "357cc3acc6a036009fd6c973ed009037c732d60d0b4f6c673e9041497482a28f"
 
 [[package]]
 name = "unicode-ident"
