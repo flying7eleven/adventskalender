@@ -103,6 +103,9 @@
         }
     },
     "calendar": {
+        "loading": "Loading winners…",
+        "load_error": "The winners could not be loaded. Please try again later.",
+        "empty": "Nobody has won yet.",
         "cards": {
             "winners": {
                 "headline": "Winners for",

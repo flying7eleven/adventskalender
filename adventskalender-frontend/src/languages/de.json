@@ -103,6 +103,9 @@
         }
     },
     "calendar": {
+        "loading": "Gewinner:innen werden geladen…",
+        "load_error": "Die Gewinner:innen konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+        "empty": "Bisher hat noch niemand gewonnen.",
         "cards": {
             "winners": {
                 "headline": "Gewinner:innen für den",
