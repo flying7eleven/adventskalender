@@ -1,5 +1,6 @@
 .mcp.json
 .claude/
+.omp/
 .DS_Store
 .idea/
 .volumes/

@@ -15,18 +15,15 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
-# Vite will output to 'build' directory (or 'dist' - adjust if needed)
+# Build the application into the 'build' directory (see outDir in vite.config.mts)
 RUN npm run build
 
-# Runtime stage using minimal nginx alpine image
+# Runtime stage using the official nginx alpine image
 FROM nginx:1.30-alpine
-
-# Install dumb-init for proper signal handling (optional but recommended)
-RUN apk add --no-cache dumb-init
 
 # Copy custom nginx configuration
 COPY docker/default.conf /etc/nginx/conf.d/default.conf
+COPY docker/security-headers.conf /etc/nginx/snippets/security-headers.conf
 
 # Copy built static files from build stage
 # Note: nginx master process runs as root, worker processes as nginx user
@@ -35,8 +32,5 @@ COPY --from=build /usr/src/app/build /usr/share/nginx/html
 # Expose port 80
 EXPOSE 80
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-
-# Start nginx in foreground
+# The image's /docker-entrypoint.sh stays the entrypoint; nginx handles signals itself as PID 1
 CMD ["nginx", "-g", "daemon off;"]

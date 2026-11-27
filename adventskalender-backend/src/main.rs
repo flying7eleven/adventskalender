@@ -408,10 +408,11 @@ async fn main() {
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
-    let cors_header = adventskalender_backend::cors_fairing(origins_list).unwrap_or_else(|error| {
-        error!("Could not build the CORS fairing. The error was: {error}");
-        std::process::exit(-1);
-    });
+    let cors_header =
+        adventskalender_backend::cors::Cors::new(origins_list).unwrap_or_else(|error| {
+            error!("Could not build the CORS fairing. The error was: {error}");
+            std::process::exit(-1);
+        });
 
     // log the startup of the backend service
     log_action(

@@ -24,23 +24,26 @@ const mockFetch = (putStatus: number) => {
     );
 };
 
-const renderDialog = (updateWinnerList: () => void, setDialogOpenStateFunction: Dispatch<SetStateAction<boolean>>) =>
-    render(
-        <MemoryRouter>
-            <AuthenticationProvider>
-                <LocalizationProvider resources={{ english: English, german: English }}>
-                    <EditWinnerDialog
-                        isOpen={true}
-                        listOfWinner={winners}
-                        setDialogOpenStateFunction={setDialogOpenStateFunction}
-                        numberOfMaxSubPackages={5}
-                        packageSelections={{ '1': 'A', '2': '' }}
-                        updateWinnerList={updateWinnerList}
-                    />
-                </LocalizationProvider>
-            </AuthenticationProvider>
-        </MemoryRouter>
-    );
+const dialogTree = (updateWinnerList: () => void, setDialogOpenStateFunction: Dispatch<SetStateAction<boolean>>, packageSelections: { [key: string]: string } = { '1': 'A', '2': '' }) => (
+    <MemoryRouter>
+        <AuthenticationProvider>
+            <LocalizationProvider resources={{ english: English, german: English }}>
+                <EditWinnerDialog
+                    isOpen={true}
+                    listOfWinner={winners}
+                    setDialogOpenStateFunction={setDialogOpenStateFunction}
+                    numberOfMaxSubPackages={5}
+                    packageSelections={packageSelections}
+                    updateWinnerList={updateWinnerList}
+                />
+            </LocalizationProvider>
+        </AuthenticationProvider>
+    </MemoryRouter>
+);
+
+const renderDialog = (updateWinnerList: () => void, setDialogOpenStateFunction: Dispatch<SetStateAction<boolean>>) => render(dialogTree(updateWinnerList, setDialogOpenStateFunction));
+
+const packageOfRow = (userName: string) => screen.getByText(userName).closest('tr')!.querySelector('button[role="combobox"]')!;
 
 const selectPackageForUser = async (userName: string, optionName: string) => {
     const user = userEvent.setup();
@@ -97,5 +100,32 @@ describe('EditWinnerDialog', () => {
         const [, init] = (global.fetch as Mock).mock.calls.find(([url]) => url === `${API_BACKEND_URL}/participants/2`)!;
         expect(JSON.parse(init.body)).toEqual({ package: 'C' });
         await waitFor(() => expect(updateWinnerList).toHaveBeenCalledTimes(1));
+    });
+
+    test('shows the new packages when the package selections change', async () => {
+        mockFetch(204);
+        const { rerender } = render(dialogTree(vi.fn(), vi.fn()));
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+        rerender(dialogTree(vi.fn(), vi.fn(), { '1': 'B', '2': 'D' }));
+
+        expect(packageOfRow('Max Mustermann')).toHaveTextContent('B');
+        expect(packageOfRow('Erika Musterfrau')).toHaveTextContent('D');
+    });
+
+    test('keeps a successfully saved package until the package selections change', async () => {
+        mockFetch(204);
+        const packageSelections = { '1': 'A', '2': '' };
+        const { rerender } = render(dialogTree(vi.fn(), vi.fn(), packageSelections));
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+        await selectPackageForUser('Erika Musterfrau', 'C');
+        await waitFor(() => expect(packageOfRow('Erika Musterfrau')).toHaveTextContent('C'));
+
+        rerender(dialogTree(vi.fn(), vi.fn(), packageSelections));
+        expect(packageOfRow('Erika Musterfrau')).toHaveTextContent('C');
+
+        rerender(dialogTree(vi.fn(), vi.fn(), { '1': 'A', '2': 'E' }));
+        expect(packageOfRow('Erika Musterfrau')).toHaveTextContent('E');
     });
 });

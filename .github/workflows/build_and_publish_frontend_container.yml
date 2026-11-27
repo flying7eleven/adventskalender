@@ -1,4 +1,4 @@
-name: Build pubish frontend container
+name: Build and publish frontend container
 on:
   push:
     tags: '[0-9]+.[0-9]+.[0-9]+'
