@@ -154,11 +154,6 @@ pub fn log_action(
     executed_action: Action,
     possible_description: Option<String>,
 ) {
-    use crate::models::NewPerformedAction;
-    use crate::schema::performed_actions::dsl::performed_actions;
-    use chrono::Utc;
-    use diesel::RunQueryDsl;
-    use diesel::insert_into;
     use log::error;
 
     // failed logins are logged as "anonymous" to prevent username enumeration and have no user id
@@ -177,22 +172,41 @@ pub fn log_action(
         }
     };
 
-    // create the object we want to store in the database
-    let new_logging_entry = NewPerformedAction {
-        action: executed_action.to_string(),
-        time_of_action: Utc::now().naive_utc(),
-        description: possible_description,
+    if record_action(
+        db_connection,
         user_id,
-    };
-
-    // now we can actually insert the item
-    if insert_into(performed_actions)
-        .values(&new_logging_entry)
-        .execute(db_connection)
-        .is_err()
+        executed_action,
+        possible_description,
+    )
+    .is_err()
     {
         error!("Failed to store a new action history log entry due to a database error")
     };
+}
+
+/// Writes an audit log entry and reports a failure to the caller, so that it can be written in
+/// the same transaction as the audited state change and roll that change back on failure.
+pub fn record_action(
+    db_connection: &mut PgConnection,
+    user_id: Option<i32>,
+    executed_action: Action,
+    possible_description: Option<String>,
+) -> Result<(), diesel::result::Error> {
+    use crate::models::NewPerformedAction;
+    use crate::schema::performed_actions::dsl::performed_actions;
+    use chrono::Utc;
+    use diesel::RunQueryDsl;
+    use diesel::insert_into;
+
+    insert_into(performed_actions)
+        .values(&NewPerformedAction {
+            action: executed_action.to_string(),
+            time_of_action: Utc::now().naive_utc(),
+            description: possible_description,
+            user_id,
+        })
+        .execute(db_connection)
+        .map(|_| ())
 }
 
 pub fn get_token_for_user(
