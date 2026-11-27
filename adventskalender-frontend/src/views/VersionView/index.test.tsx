@@ -49,7 +49,7 @@ describe('VersionView', () => {
         renderView();
 
         await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
-        expect(screen.getByText('2024-11-30 18:30:00')).toBeInTheDocument();
+        expect(screen.getByText('2024-11-30 18:30:00 UTC')).toBeInTheDocument();
         const auditCall = (global.fetch as Mock).mock.calls.find((call) => String(call[0]) === `${API_BACKEND_URL}/audit/count`);
         expect(auditCall?.[1]).toEqual(expect.objectContaining({ credentials: 'include' }));
     });

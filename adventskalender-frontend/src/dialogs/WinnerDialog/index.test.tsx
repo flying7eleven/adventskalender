@@ -276,6 +276,57 @@ describe('WinnerDialog', () => {
         expect(deletedUrls).toEqual([`${API_BACKEND_URL}/participants/won/2`]);
     });
 
+    test('continuing after a partially failed un-pick ignores the errors of the un-picked winners', async () => {
+        let failFirstWinner = false;
+        (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+            if (url.endsWith('/participants/won/2026-12-06')) {
+                return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve([]) } as Response);
+            }
+            const fails = failFirstWinner && init?.method === 'DELETE' && url.endsWith('/participants/won/1');
+            return Promise.resolve({
+                status: url.endsWith('/auth/me') ? 200 : fails ? 500 : 204,
+                ok: !fails,
+                json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }),
+            } as Response);
+        });
+        const setDialogOpenStateFunction = vi.fn();
+        render(
+            <MemoryRouter>
+                <AuthenticationProvider>
+                    <LocalizationProvider resources={{ english: English, german: English }}>
+                        <WinnerDialog isOpen={true} winner={winners.slice(0, 3)} numberOfMaxSubPackages={5} date={'2026-12-06'} setDialogOpenStateFunction={setDialogOpenStateFunction} />
+                    </LocalizationProvider>
+                </AuthenticationProvider>
+            </MemoryRouter>
+        );
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+
+        const user = userEvent.setup();
+        for (const [name, option] of [
+            ['First1 Last1', 'A'],
+            ['First2 Last2', 'B'],
+        ]) {
+            const combobox = screen.getByText(name).closest('tr')!.querySelector('button[role="combobox"]')!;
+            await user.click(combobox);
+            await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+            await user.click(screen.getByRole('option', { name: option }));
+            await waitFor(() => expect(combobox).toHaveTextContent(option));
+        }
+        fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+        await waitFor(() => expect(screen.getByText('First3 Last3').closest('tr')!.querySelector('button[role="combobox"]')!).toHaveAttribute('aria-invalid', 'true'));
+
+        failFirstWinner = true;
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('could not be removed'), expect.anything()));
+        await waitFor(() => expect(screen.queryByText('First3 Last3')).not.toBeInTheDocument());
+        expect(screen.queryByText('First2 Last2')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Finish' })).toBeInTheDocument());
+        expect(setDialogOpenStateFunction).not.toHaveBeenCalledWith(false);
+    });
+
     test('keeps both selections when two packages are selected before the first request finishes', async () => {
         const pendingPuts: (() => void)[] = [];
         (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {

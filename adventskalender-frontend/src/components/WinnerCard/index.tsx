@@ -2,7 +2,8 @@ import { LocalizedText } from '../LocalizedText';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { WinnerInformation } from '../../api';
-import { useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
+import { LocalizationContext } from '../../provider/LocalizationContext';
 import { Edit, Eye } from 'lucide-react';
 import { PersonItem } from '../PersonItem';
 import { EditWinnerDialog } from '../../dialogs/EditWinnerDialog';
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export const WinnerCard = (props: Props) => {
+    const localizationContext = useContext(LocalizationContext);
     const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
     const [viewDialogOpen, setViewDialogOpen] = useState<boolean>(false);
     const packageSelections = useMemo(() => {
@@ -79,11 +81,23 @@ export const WinnerCard = (props: Props) => {
                             </p>
                             <p className="text-sm font-medium text-center">{getFormattedDate(props.winningDate)}</p>
                             <div className="flex gap-1">
-                                <Button variant={'outline'} size="icon" className="rounded-full h-8 w-8" onClick={handleViewClick}>
+                                <Button
+                                    variant={'outline'}
+                                    size="icon"
+                                    className="rounded-full h-8 w-8"
+                                    onClick={handleViewClick}
+                                    aria-label={localizationContext.translate('calendar.cards.winners.button_view')}
+                                >
                                     <Eye className="h-4 w-4" />
                                 </Button>
                                 {__DEV__ && (
-                                    <Button variant={'outline'} size="icon" className="rounded-full h-8 w-8" onClick={handleEditClick}>
+                                    <Button
+                                        variant={'outline'}
+                                        size="icon"
+                                        className="rounded-full h-8 w-8"
+                                        onClick={handleEditClick}
+                                        aria-label={localizationContext.translate('calendar.cards.winners.button_edit')}
+                                    >
                                         <Edit className="h-4 w-4" />
                                     </Button>
                                 )}

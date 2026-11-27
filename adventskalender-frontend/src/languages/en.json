@@ -95,6 +95,7 @@
                     "wrong_current_password": "The current password is wrong.",
                     "passwords_do_not_match": "The passwords do not match.",
                     "password_too_short": "The password must be at least 8 characters long.",
+                    "password_too_long": "The password is too long. It may be at most 72 bytes; umlauts, emoji and other special characters count as several bytes.",
                     "password_too_weak": "The password must be at least 8 characters long and strong enough.",
                     "rate_limited": "Too many attempts. Please wait {0} seconds before trying again.",
                     "unknown": "The password could not be changed."
@@ -121,7 +122,9 @@
         "cards": {
             "winners": {
                 "headline": "Winners for",
-                "button_remove": "Remove winner"
+                "button_remove": "Remove winner",
+                "button_view": "Show the winners of this day",
+                "button_edit": "Edit the winners of this day"
             }
         },
         "dialogs": {
