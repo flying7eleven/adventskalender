@@ -70,9 +70,9 @@ The backend reads its configuration from environment variables and refuses to st
 | --- | --- | --- | --- |
 | `ADVENTSKALENDER_API_HOST` | yes | – | Base URL of the API without a path (e.g. `https://adventskalender.example.com`). It is the issuer of the tokens and the base of the advertised OpenID configuration and JWKS URL. |
 | `ADVENTSKALENDER_DB_CONNECTION` | yes | – | PostgreSQL connection URL (e.g. `postgres://user:password@host/adventskalender`). |
-| `ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT` | yes | – | UUID of the healthchecks.io check which the health endpoint pings. |
-| `ADVENTSKALENDER_TOKEN_AUDIENCE` | yes | – | Comma-separated audience of the issued tokens; incoming tokens must carry one of them. |
+| `ADVENTSKALENDER_TOKEN_AUDIENCE` | yes | – | Comma-separated audience of the issued tokens (whitespace around entries is ignored); incoming tokens must carry one of them. |
 | `ADVENTSKALENDER_CORS_ORIGINS` | yes | – | Comma-separated origins (scheme, host and port, e.g. `https://adventskalender.example.com`) which may call the API. |
+| `ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT` | no | – | UUID of the healthchecks.io check which the health endpoint pings. Unset or empty disables the pings; any other value which is not a UUID prevents the start. |
 | `ADVENTSKALENDER_COOKIE_SECURE` | no | `true` | `true` or `false`; whether the `auth_token` cookie carries the `Secure` attribute. Set it to `false` only for local setups served over plain HTTP. |
 | `ADVENTSKALENDER_KEY_FILE_PATH` | no | `/data/adventskalender_ed25519.key` | Location of the token signing key, see below. |
 | `ADVENTSKALENDER_LOGGING_LEVEL` | no | `info` | One of `trace`, `debug`, `info`, `warn` or `error`. |
