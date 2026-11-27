@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
+import German from '../../languages/de.json';
 import { WinnerInformation } from '../../api';
 
 const winners = [
@@ -16,7 +17,7 @@ const winners = [
 const cardTree = (listOfWinner: WinnerInformation[]) => (
     <MemoryRouter>
         <AuthenticationProvider>
-            <LocalizationProvider resources={{ english: English, german: English }}>
+            <LocalizationProvider resources={{ english: English, german: German }}>
                 <WinnerCard winningDate="2024-12-06" listOfWinner={listOfWinner} numberOfMaxSubPackages={5} updateWinnerList={vi.fn()} />
             </LocalizationProvider>
         </AuthenticationProvider>
@@ -43,13 +44,14 @@ describe('WinnerCard', () => {
 
     afterEach(() => {
         (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+        vi.restoreAllMocks();
     });
 
     test('opens the edit dialog with the stored package preselected', async () => {
         renderCard();
 
         const user = userEvent.setup();
-        await user.click(screen.getAllByRole('button')[1]);
+        await user.click(screen.getByRole('button', { name: English.calendar.cards.winners.button_edit }));
 
         const dialog = await screen.findByRole('dialog');
         const firstRowCombobox = within(dialog)
@@ -70,7 +72,7 @@ describe('WinnerCard', () => {
         );
 
         const user = userEvent.setup();
-        await user.click(screen.getAllByRole('button')[1]);
+        await user.click(screen.getByRole('button', { name: English.calendar.cards.winners.button_edit }));
 
         const dialog = await screen.findByRole('dialog');
         const comboboxOf = (userName: string) =>
@@ -81,5 +83,21 @@ describe('WinnerCard', () => {
                 .querySelector('button[role="combobox"]')!;
         expect(comboboxOf('Max Mustermann')).toHaveTextContent('B');
         expect(comboboxOf('Erika Musterfrau')).toHaveTextContent('C');
+    });
+
+    test('opens the view dialog with the named view button', async () => {
+        renderCard();
+
+        await userEvent.setup().click(screen.getByRole('button', { name: English.calendar.cards.winners.button_view }));
+
+        expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    });
+
+    test('names the icon-only buttons in German for German browsers', () => {
+        vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('de-DE');
+        renderCard();
+
+        expect(screen.getByRole('button', { name: German.calendar.cards.winners.button_view })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: German.calendar.cards.winners.button_edit })).toBeInTheDocument();
     });
 });

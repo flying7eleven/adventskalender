@@ -122,7 +122,9 @@
         "cards": {
             "winners": {
                 "headline": "Winners for",
-                "button_remove": "Remove winner"
+                "button_remove": "Remove winner",
+                "button_view": "Show the winners of this day",
+                "button_edit": "Edit the winners of this day"
             }
         },
         "dialogs": {

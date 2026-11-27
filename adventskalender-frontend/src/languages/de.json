@@ -122,7 +122,9 @@
         "cards": {
             "winners": {
                 "headline": "Gewinner:innen für den",
-                "button_remove": "Gewinner:in entfernen"
+                "button_remove": "Gewinner:in entfernen",
+                "button_view": "Gewinner:innen dieses Tages anzeigen",
+                "button_edit": "Gewinner:innen dieses Tages bearbeiten"
             }
         },
         "dialogs": {
