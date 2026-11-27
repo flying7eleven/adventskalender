@@ -23,8 +23,8 @@ pub struct BackendConfiguration {
     pub decoding_key: DecodingKey,
     /// The base64url-encoded public key, served as the `x` parameter of the JWK.
     pub public_key_x: String,
-    /// The UUID used for the health check on  healthcheck.io.
-    pub healthcheck_project: String,
+    /// The UUID of the healthchecks.io check which is pinged, `None` disables the pings.
+    pub healthcheck_project: Option<uuid::Uuid>,
     /// A list of URLs which represent the audience for this token.
     pub token_audience: HashSet<String>,
     /// The precomputed parameter set which is used to validate incoming tokens.
@@ -41,7 +41,7 @@ impl BackendConfiguration {
         key_pkcs8: &[u8],
         api_host: String,
         jwks_uri: String,
-        healthcheck_project: String,
+        healthcheck_project: Option<uuid::Uuid>,
         token_audience: HashSet<String>,
         cookie_secure: bool,
     ) -> Result<Self, ring::error::KeyRejected> {
@@ -214,7 +214,7 @@ mod tests {
             key_pkcs8,
             "https://example.com".to_string(),
             "https://example.com/.well-known/jwks.json".to_string(),
-            "".to_string(),
+            None,
             HashSet::from(["https://example.com".to_string()]),
             true,
         )

@@ -1,5 +1,5 @@
 use adventskalender_backend::fairings::BackendConfiguration;
-use adventskalender_backend::{Action, build_rocket, log_action};
+use adventskalender_backend::{Action, build_rocket, record_action};
 use chrono::DateTime;
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
@@ -81,7 +81,7 @@ struct Settings {
     api_host: String,
     jwks_uri: String,
     database_connection_url: String,
-    healthcheck_io_project: String,
+    healthcheck_io_project: Option<uuid::Uuid>,
     token_audience: HashSet<String>,
     cors_origins: Vec<String>,
     key_file_path: PathBuf,
@@ -126,15 +126,31 @@ fn parse_settings(variable: impl Fn(&str) -> Option<String>) -> Result<Settings,
         },
     };
 
+    let healthcheck_io_project = optional("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT")
+        .map(|value| {
+            uuid::Uuid::parse_str(&value).map_err(|error| {
+                format!(
+                    "ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT '{value}' is not a valid UUID: {error}"
+                )
+            })
+        })
+        .transpose()?;
+
+    let token_audience: HashSet<String> = required("ADVENTSKALENDER_TOKEN_AUDIENCE")?
+        .split(',')
+        .map(|audience| audience.trim().to_string())
+        .filter(|audience| !audience.is_empty())
+        .collect();
+    if token_audience.is_empty() {
+        return Err("ADVENTSKALENDER_TOKEN_AUDIENCE must list at least one audience".to_string());
+    }
+
     Ok(Settings {
         api_host,
         jwks_uri,
         database_connection_url: required("ADVENTSKALENDER_DB_CONNECTION")?,
-        healthcheck_io_project: required("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT")?,
-        token_audience: required("ADVENTSKALENDER_TOKEN_AUDIENCE")?
-            .split(',')
-            .map(|audience| audience.to_string())
-            .collect(),
+        healthcheck_io_project,
+        token_audience,
         cors_origins,
         key_file_path: PathBuf::from(
             optional("ADVENTSKALENDER_KEY_FILE_PATH")
@@ -360,7 +376,7 @@ async fn main() {
                             info!(
                                 "Database connection attempt {retry_count}/{max_retries} failed, retrying in {backoff_duration:?}..."
                             );
-                            std::thread::sleep(backoff_duration);
+                            rocket::tokio::time::sleep(backoff_duration).await;
                             backoff_duration =
                                 std::cmp::min(backoff_duration * 2, Duration::from_secs(10));
                         }
@@ -377,7 +393,7 @@ async fn main() {
                     info!(
                         "Database pool creation attempt {retry_count}/{max_retries} failed, retrying in {backoff_duration:?}..."
                     );
-                    std::thread::sleep(backoff_duration);
+                    rocket::tokio::time::sleep(backoff_duration).await;
                     backoff_duration = std::cmp::min(backoff_duration * 2, Duration::from_secs(10));
                 }
             }
@@ -395,31 +411,23 @@ async fn main() {
     }
     info!("Database preparations finished");
 
-    // rocket configuration figment
+    // rocket configuration figment; the client IP is taken from Rocket's default `ip_header`,
+    // `X-Real-IP`, which the reverse proxy sets
+    let shutdown = Shutdown {
+        ctrlc: true,
+        signals: std::collections::HashSet::from([Sig::Term]),
+        grace: 2,
+        mercy: 3,
+        force: true,
+        ..Shutdown::default()
+    };
     let rocket_configuration_figment = RocketConfig::figment()
         .merge(("port", 5479))
         .merge(("address", std::net::Ipv4Addr::new(0, 0, 0, 0)))
-        // the client IP is taken from the reverse proxy header, so its name is part of the
-        // configuration to document the dependency on the proxy
-        .merge(("ip_header", "X-Real-IP"))
-        .merge((
-            "shutdown",
-            Shutdown {
-                ctrlc: true,
-                signals: {
-                    let mut set = std::collections::HashSet::new();
-                    set.insert(Sig::Term);
-                    set
-                },
-                grace: 2,
-                mercy: 3,
-                force: true,
-                __non_exhaustive: (),
-            },
-        ));
+        .merge(("shutdown", shutdown));
 
     // log the startup of the backend service
-    log_action(
+    if let Err(error) = record_action(
         &mut db_connection,
         None,
         Action::ServerStarted,
@@ -433,7 +441,9 @@ async fn main() {
                 .time()
                 .format("%H:%M:%S"),
         )),
-    );
+    ) {
+        error!("Could not log the startup of the backend service. The error was: {error}");
+    }
 
     // the connection was only held for the migrations and the startup audit log entry, so
     // return it to the pool instead of blocking one of its connections for the whole uptime
@@ -471,10 +481,16 @@ async fn main() {
     // the one used during startup was already returned to the pool
     match db_connection_pool.get() {
         Ok(mut db_connection) => {
-            log_action(&mut db_connection, None, Action::ServerTerminated, None);
+            if let Err(error) =
+                record_action(&mut db_connection, None, Action::ServerTerminated, None)
+            {
+                error!("Could not log the shutdown of the backend service. The error was: {error}");
+            }
         }
         Err(error) => {
-            error!("Could not log the shutdown of the backend service. The error was: {error}")
+            error!(
+                "Could not get a connection to log the shutdown of the backend service. The error was: {error}"
+            )
         }
     }
 }
@@ -592,10 +608,9 @@ mod settings_tests {
     use std::collections::{HashMap, HashSet};
     use std::path::PathBuf;
 
-    const REQUIRED_VARIABLES: [&str; 5] = [
+    const REQUIRED_VARIABLES: [&str; 4] = [
         "ADVENTSKALENDER_API_HOST",
         "ADVENTSKALENDER_DB_CONNECTION",
-        "ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT",
         "ADVENTSKALENDER_TOKEN_AUDIENCE",
         "ADVENTSKALENDER_CORS_ORIGINS",
     ];
@@ -648,10 +663,7 @@ mod settings_tests {
             settings.database_connection_url,
             "postgres://user:password@database/adventskalender"
         );
-        assert_eq!(
-            settings.healthcheck_io_project,
-            "00000000-0000-0000-0000-000000000000"
-        );
+        assert_eq!(settings.healthcheck_io_project, Some(uuid::Uuid::nil()));
         assert_eq!(
             settings.token_audience,
             HashSet::from([
@@ -744,6 +756,66 @@ mod settings_tests {
         let settings = parse(&with("ADVENTSKALENDER_KEY_FILE_PATH", "/keys/signing.der")).unwrap();
 
         assert_eq!(settings.key_file_path, PathBuf::from("/keys/signing.der"));
+    }
+
+    #[test]
+    fn the_healthcheck_project_is_disabled_when_unset_or_empty() {
+        let mut environment = minimal_environment();
+        environment.remove("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT");
+        assert_eq!(parse(&environment).unwrap().healthcheck_io_project, None);
+
+        let settings = parse(&with("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT", "")).unwrap();
+        assert_eq!(settings.healthcheck_io_project, None);
+    }
+
+    #[test]
+    fn a_valid_healthcheck_project_is_parsed_as_uuid() {
+        let settings = parse(&with(
+            "ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT",
+            "5f0c7b2e-8d3a-4b1e-9c6f-2a4d8e1b3c5a",
+        ))
+        .unwrap();
+
+        assert_eq!(
+            settings.healthcheck_io_project,
+            Some(uuid::Uuid::parse_str("5f0c7b2e-8d3a-4b1e-9c6f-2a4d8e1b3c5a").unwrap())
+        );
+    }
+
+    #[test]
+    fn an_invalid_healthcheck_project_is_an_error() {
+        for value in ["your-healthcheck-uuid-here", "1234", " "] {
+            let error =
+                parse(&with("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT", value)).expect_err(value);
+            assert!(
+                error.contains("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT"),
+                "{error}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_token_audience_entries_are_trimmed_and_empty_entries_dropped() {
+        let settings = parse(&with(
+            "ADVENTSKALENDER_TOKEN_AUDIENCE",
+            " https://example.com , ,https://admin.example.com ",
+        ))
+        .unwrap();
+
+        assert_eq!(
+            settings.token_audience,
+            HashSet::from([
+                "https://example.com".to_string(),
+                "https://admin.example.com".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn a_token_audience_without_any_entry_is_an_error() {
+        let error = parse(&with("ADVENTSKALENDER_TOKEN_AUDIENCE", " , ")).unwrap_err();
+
+        assert!(error.contains("ADVENTSKALENDER_TOKEN_AUDIENCE"), "{error}");
     }
 }
 
