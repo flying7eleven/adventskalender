@@ -42,7 +42,7 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
             (error: unknown) => {
                 setIsAuthenticated(false);
                 setExpiresIn(null);
-                if (error instanceof ApiAuthExpiredError) {
+                if (error instanceof ApiAuthExpiredError && error.status === 401) {
                     callbacks.onInvalidCredentials();
                 } else if (error instanceof ApiResponseError && error.status === 429) {
                     const retryAfter = Number.parseInt(error.response.headers.get('Retry-After') || '0', 10);
