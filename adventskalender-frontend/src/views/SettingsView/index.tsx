@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
 import { ChangeEvent, FormEvent, useContext, useRef, useState } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
-import { API_BACKEND_URL } from '../../api';
+import { ApiResponseError, apiFetch } from '../../api';
 import { PasswordChangedDialog } from '../../dialogs/PasswordChangedDialog';
 import { PasswordNotChangedDialog } from '../../dialogs/PasswordNotChangedDialog';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
@@ -90,23 +90,14 @@ export const SettingsView = () => {
         };
 
         // request settings a new password
-        fetch(`${API_BACKEND_URL}/auth/password`, {
-            method: 'PUT',
-            body: JSON.stringify(requestData),
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-        })
-            .then((response) => {
-                if (response.status === 204) {
-                    setIsPasswordChangedDialogOpen(true);
-                    return;
-                }
-
+        apiFetch('/auth/password', { method: 'PUT', body: requestData })
+            .then(() => {
+                setIsPasswordChangedDialogOpen(true);
+            })
+            .catch((error: unknown) => {
                 // the backend rejected the new password with a reason we can show to the user
-                if (response.status === 422) {
-                    return response
+                if (error instanceof ApiResponseError && error.status === 422) {
+                    return error.response
                         .json()
                         .catch(() => undefined)
                         .then((body) => {
@@ -120,8 +111,8 @@ export const SettingsView = () => {
                         });
                 }
 
-                if (response.status === 429) {
-                    const retryAfterSeconds = response.headers.get('Retry-After') ?? '0';
+                if (error instanceof ApiResponseError && error.status === 429) {
+                    const retryAfterSeconds = error.response.headers.get('Retry-After') ?? '0';
                     toast.error(localizationContext.translate('settings.cards.password.errors.rate_limited').replace('{0}', retryAfterSeconds), {
                         duration: 6000,
                     });
@@ -130,9 +121,6 @@ export const SettingsView = () => {
 
                 // in all other cases, we expect that there was an unknown error. We indicate that to the user by
                 // showing a proper error dialog
-                setIsPasswordChangeFailedDialogOpen(true);
-            })
-            .catch(() => {
                 setIsPasswordChangeFailedDialogOpen(true);
             });
     };

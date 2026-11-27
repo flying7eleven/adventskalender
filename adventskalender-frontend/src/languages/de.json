@@ -22,6 +22,9 @@
             },
             "rate_limited": {
                 "message": "Zu viele Anmeldeversuche. Bitte warten Sie {0} Sekunde(n), bevor Sie es erneut versuchen."
+            },
+            "unexpected_error": {
+                "message": "Die Anmeldung ist aufgrund eines unerwarteten Fehlers fehlgeschlagen. Bitte versuchen Sie es erneut."
             }
         }
     },
@@ -103,6 +106,9 @@
         }
     },
     "calendar": {
+        "loading": "Gewinner:innen werden geladen…",
+        "load_error": "Die Gewinner:innen konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+        "empty": "Bisher hat noch niemand gewonnen.",
         "cards": {
             "winners": {
                 "headline": "Gewinner:innen für den",

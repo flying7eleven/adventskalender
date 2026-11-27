@@ -190,4 +190,86 @@ describe('WinnerDialog', () => {
         await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/1`, expect.objectContaining({ method: 'PUT' })));
         await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Failed to select package'), expect.anything()));
     });
+
+    test('the summary step has no cancel button', async () => {
+        renderDialog(vi.fn());
+
+        await goToSecondStep();
+
+        expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+    });
+
+    test('the cancel button un-picks all winners on the first step and closes the dialog', async () => {
+        const setDialogOpenStateFunction = vi.fn();
+        renderDialog(setDialogOpenStateFunction);
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+        await waitFor(() => expect(setDialogOpenStateFunction).toHaveBeenCalledWith(false));
+        const deletedUrls = (global.fetch as Mock).mock.calls.filter(([, init]) => init?.method === 'DELETE').map(([url]) => url);
+        expect(deletedUrls).toEqual(winners.map((winner) => `${API_BACKEND_URL}/participants/won/${winner.id}`));
+    });
+
+    test('a partially failed un-pick only keeps the winners that are still picked', async () => {
+        let failSecondWinner = true;
+        (global.fetch as Mock).mockImplementation((url: string) => {
+            const fails = failSecondWinner && url.endsWith('/participants/won/2');
+            return Promise.resolve({
+                status: url.endsWith('/auth/me') ? 200 : fails ? 500 : 204,
+                ok: !fails,
+                json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }),
+            } as Response);
+        });
+        const setDialogOpenStateFunction = vi.fn();
+        renderDialog(setDialogOpenStateFunction);
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('could not be removed'), expect.anything()));
+        await waitFor(() => expect(screen.queryByText('First1 Last1')).not.toBeInTheDocument());
+        expect(screen.getByText('First2 Last2')).toBeInTheDocument();
+        expect(screen.queryByText('First5 Last5')).not.toBeInTheDocument();
+        expect(setDialogOpenStateFunction).not.toHaveBeenCalledWith(false);
+
+        failSecondWinner = false;
+        (global.fetch as Mock).mockClear();
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+        await waitFor(() => expect(setDialogOpenStateFunction).toHaveBeenCalledWith(false));
+        const deletedUrls = (global.fetch as Mock).mock.calls.filter(([, init]) => init?.method === 'DELETE').map(([url]) => url);
+        expect(deletedUrls).toEqual([`${API_BACKEND_URL}/participants/won/2`]);
+    });
+
+    test('keeps both selections when two packages are selected before the first request finishes', async () => {
+        const pendingPuts: (() => void)[] = [];
+        (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+            const response = { status: url.endsWith('/auth/me') ? 200 : 204, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) } as Response;
+            if (init?.method === 'PUT') {
+                return new Promise<Response>((resolve) => pendingPuts.push(() => resolve(response)));
+            }
+            return Promise.resolve(response);
+        });
+        renderDialog(vi.fn());
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+
+        const user = userEvent.setup();
+        for (const [name, option] of [
+            ['First1 Last1', 'A'],
+            ['First2 Last2', 'B'],
+        ]) {
+            await user.click(screen.getByText(name).closest('tr')!.querySelector('button[role="combobox"]')!);
+            await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+            await user.click(screen.getByRole('option', { name: option }));
+        }
+        await waitFor(() => expect(pendingPuts).toHaveLength(2));
+        pendingPuts.forEach((resolve) => resolve());
+
+        await waitFor(() => expect(screen.getByText('First2 Last2').closest('tr')!.querySelector('button[role="combobox"]')!).toHaveTextContent('B'));
+        expect(screen.getByText('First1 Last1').closest('tr')!.querySelector('button[role="combobox"]')!).toHaveTextContent('A');
+    });
 });

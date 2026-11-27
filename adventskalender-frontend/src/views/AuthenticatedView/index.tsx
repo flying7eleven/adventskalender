@@ -8,9 +8,10 @@ import { sessionManager } from '../../utils/SessionManager';
 import { SessionExpiryWarningDialog } from '../../dialogs/SessionExpiryWarningDialog';
 import { NavigationDrawer } from '../../components/NavigationDrawer';
 import { AppHeader } from '../../components/AppHeader';
-import { API_BACKEND_URL } from '../../api';
+import { apiFetch } from '../../api';
 import { SessionInformationSchema } from '../../schemas';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface Props {
     content: ReactElement;
@@ -60,7 +61,7 @@ export const AuthenticatedView = (props: Props) => {
             return;
         }
         sessionExpiredRef.current = true;
-        alert(localizationContext.translate('session.expired.message'));
+        toast.error(localizationContext.translate('session.expired.message'), { duration: 10000 });
         logoutUser();
     };
 
@@ -69,18 +70,9 @@ export const AuthenticatedView = (props: Props) => {
         // refreshed the cookie in the meantime. Ask the backend for the
         // session's remaining lifetime: if it is still valid, reschedule the
         // monitoring; otherwise the session really has expired.
-        fetch(`${API_BACKEND_URL}/auth/me`, {
-            method: 'GET',
-            credentials: 'include',
-        })
-            .then((response) => {
-                if (!response.ok) {
-                    return Promise.reject();
-                }
-                return response.json().then((data) => SessionInformationSchema.parse(data).expires_in);
-            })
-            .then((expiresIn) => {
-                sessionManager.startMonitoring(expiresIn, () => setShowExpiryWarning(true), handleSessionExpired);
+        apiFetch('/auth/me', SessionInformationSchema)
+            .then((sessionInformation) => {
+                sessionManager.startMonitoring(sessionInformation.expires_in, () => setShowExpiryWarning(true), handleSessionExpired);
             })
             .catch(() => {
                 handleSessionExpired();

@@ -7,7 +7,7 @@ import { LocalizedText } from '../../components/LocalizedText';
 import { ReactNode, useContext, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
-import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, WinnerInformation } from '../../api.ts';
+import { ApiAuthExpiredError, ApiResponseError, apiFetch, MAX_WINNERS_PER_DAY, WinnerInformation } from '../../api.ts';
 import { LocalizationContext } from '../../provider/LocalizationContext';
 import { format, parse } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -46,13 +46,15 @@ export const WinnerDialog = (props: Props) => {
     const [fetchedWinners, setFetchedWinners] = useState<WinnerInformation2[]>([]);
     const [fetchError, setFetchError] = useState<boolean>(false);
     const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<BooleanMap>({});
+    const [unpickedWinnerIds, setUnpickedWinnerIds] = useState<number[]>([]);
+    const remainingWinners = props.winner.filter((currentWinner) => !unpickedWinnerIds.includes(currentWinner.id));
     const USABLE_PACKAGE_ALPHABET = Array.from(Array(MAX_WINNERS_PER_DAY))
         .map((_, i) => i + 65)
         .map((x) => String.fromCharCode(x));
 
     const allSubPackagesAreSelected = () => {
         // ensure we have selected a package for each winner
-        if (Object.keys(packageSelections).length != props.winner.length) {
+        if (remainingWinners.some((currentWinner) => packageSelections[currentWinner.id] === undefined)) {
             return false;
         }
 
@@ -82,7 +84,7 @@ export const WinnerDialog = (props: Props) => {
 
         // for each not-selected package / participant, mark the field as 'error'
         // eslint-disable-next-line no-prototype-builtins
-        props.winner.filter((currentWinner) => !previouslySelectedPackages.hasOwnProperty(currentWinner.id)).map((winnerNotFound) => (previousErrorStates[winnerNotFound.id] = true));
+        remainingWinners.filter((currentWinner) => !previouslySelectedPackages.hasOwnProperty(currentWinner.id)).map((winnerNotFound) => (previousErrorStates[winnerNotFound.id] = true));
 
         // set the new error states
         setPackageSelectionErrorStates(previousErrorStates);
@@ -92,6 +94,7 @@ export const WinnerDialog = (props: Props) => {
         setActiveStep(0);
         setPackageSelections({});
         setPackageSelectionErrorStates({});
+        setUnpickedWinnerIds([]);
         props.setDialogOpenStateFunction(false);
     };
 
@@ -100,7 +103,7 @@ export const WinnerDialog = (props: Props) => {
             markPackagesNotSelectedAsError();
             return;
         }
-        prepareWinnerData(props.winner.length < MAX_WINNERS_PER_DAY);
+        prepareWinnerData(remainingWinners.length < MAX_WINNERS_PER_DAY);
         setActiveStep(activeStep + 1);
     };
 
@@ -135,7 +138,7 @@ export const WinnerDialog = (props: Props) => {
         if (__DEV__) {
             const selectedPackages: StringMap = {};
             let currentAlphabetIdx = 0;
-            props.winner
+            remainingWinners
                 .map((currentWinner) => currentWinner.id)
                 .forEach((id) => {
                     selectedPackages[id.toString()] = USABLE_PACKAGE_ALPHABET[currentAlphabetIdx++];
@@ -155,35 +158,24 @@ export const WinnerDialog = (props: Props) => {
             return;
         }
 
-        // get all ids of the winners
-        const winnerIds = props.winner.map((currentWinner) => currentWinner.id);
+        const winnerIds = remainingWinners.map((currentWinner) => currentWinner.id);
 
-        // since we have a token, we can now unselect all participants
-        Promise.all(
-            winnerIds.map(async (winnerId) => {
-                const res = await fetch(`${API_BACKEND_URL}/participants/won/${winnerId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-type': 'application/json; charset=UTF-8',
-                    },
-                    credentials: 'include',
-                });
-                if (res.status === 204) {
-                    return;
-                }
-                if (res.status === 401 || res.status === 403) {
-                    logoutUser();
-                    return Promise.reject();
-                }
-                return Promise.reject();
-            })
-        )
-            .then(handleDialogClose)
-            .catch(() => {
-                toast.error(localizationContext.translate('dashboard.dialogs.new_winners.error_unpick'), {
-                    duration: 6000,
-                });
+        Promise.allSettled(winnerIds.map((winnerId) => apiFetch(`/participants/won/${winnerId}`, { method: 'DELETE' }))).then((results) => {
+            const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+            if (failures.length === 0) {
+                handleDialogClose();
+                return;
+            }
+            if (failures.some((failure) => failure.reason instanceof ApiAuthExpiredError)) {
+                logoutUser();
+                return;
+            }
+            const newlyUnpickedIds = winnerIds.filter((_, index) => results[index].status === 'fulfilled');
+            setUnpickedWinnerIds((previousIds) => [...previousIds, ...newlyUnpickedIds]);
+            toast.error(localizationContext.translate('dashboard.dialogs.new_winners.error_unpick'), {
+                duration: 6000,
             });
+        });
     };
 
     const selectPackageForUser = (userId: number, selectedPackage: string, doUpdateState: boolean = true) => {
@@ -196,58 +188,27 @@ export const WinnerDialog = (props: Props) => {
         const packageValue = selectedPackage === '__none__' ? '' : selectedPackage;
 
         // since we have a token, we can update the package selection for the given user id
-        fetch(`${API_BACKEND_URL}/participants/${userId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-            body: JSON.stringify({ package: packageValue }),
-        })
-            .then((res) => {
-                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
-                // object and proceed processing it
-                if (res.status === 204) {
-                    return userId;
-                }
-
-                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                // the user should automatically be redirected to the login page
-                if (res.status === 401 || res.status === 403) {
-                    logoutUser();
-                    return Promise.reject();
-                }
-
-                // there should never be other status codes which have to be handled, but just in case, we'll handle
-                // them here too
-                if (res.status === 409) {
-                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.error_package_taken'), { duration: 6000 });
-                    return Promise.reject();
-                }
-                if (res.status === 422) {
-                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.table.error_package_selection'), { duration: 6000 });
-                    return Promise.reject();
-                }
-                return Promise.reject();
-            })
+        apiFetch(`/participants/${userId}`, { method: 'PUT', body: { package: packageValue } })
             .then(() => {
                 if (doUpdateState) {
-                    // update the value the user successfully set for the package
-                    const previousSelection = Object.assign({}, packageSelections); // recreate the json object so React sees a change
-                    previousSelection[userId] = packageValue;
-                    setPackageSelections(previousSelection);
-
-                    // clear a previous error state, if it existed
-                    const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
-                    previousErrorStates[userId] = false;
-                    setPackageSelectionErrorStates(previousErrorStates);
+                    setPackageSelections((previousSelections) => ({ ...previousSelections, [userId]: packageValue }));
+                    setPackageSelectionErrorStates((previousErrorStates) => ({ ...previousErrorStates, [userId]: false }));
                 }
             })
-            .catch(() => {
+            .catch((error: unknown) => {
+                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                // the user should automatically be redirected to the login page
+                if (error instanceof ApiAuthExpiredError) {
+                    logoutUser();
+                }
+                if (error instanceof ApiResponseError && error.status === 409) {
+                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.error_package_taken'), { duration: 6000 });
+                }
+                if (error instanceof ApiResponseError && error.status === 422) {
+                    toast.error(localizationContext.translate('dashboard.dialogs.new_winners.table.error_package_selection'), { duration: 6000 });
+                }
                 if (doUpdateState) {
-                    const previousErrorStates = Object.assign({}, packageSelectionErrorStates); // recreate the json object so React sees a change
-                    previousErrorStates[userId] = true;
-                    setPackageSelectionErrorStates(previousErrorStates);
+                    setPackageSelectionErrorStates((previousErrorStates) => ({ ...previousErrorStates, [userId]: true }));
                 }
             });
     };
@@ -255,36 +216,17 @@ export const WinnerDialog = (props: Props) => {
     const prepareWinnerData = (refetchWinners: boolean) => {
         if (refetchWinners) {
             // Fetch winners from backend to get all winners for the day
-            fetch(`${API_BACKEND_URL}/participants/won/${props.date}`, {
-                method: 'GET',
-                headers: {
-                    'Content-type': 'application/json; charset=UTF-8',
-                },
-                credentials: 'include',
-            })
-                .then((res) => {
-                    if (res.status === 200) {
-                        return res.json();
-                    }
-
-                    // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                    // the user should automatically be redirected to the login page
-                    if (res.status === 401 || res.status === 403) {
-                        logoutUser();
-                        return Promise.reject();
-                    }
-
-                    // there should never be other status codes which have to be handled, but just in case, we'll handle
-                    // them here too
-                    return Promise.reject();
-                })
-                .then((data) => {
-                    // Validate the response data using Zod schema
-                    const validated = z.array(WinnerInformation2Schema).parse(data);
-                    setFetchedWinners(validated);
+            apiFetch(`/participants/won/${props.date}`, z.array(WinnerInformation2Schema))
+                .then((winners) => {
+                    setFetchedWinners(winners);
                     setFetchError(false);
                 })
-                .catch(() => {
+                .catch((error: unknown) => {
+                    // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                    // the user should automatically be redirected to the login page
+                    if (error instanceof ApiAuthExpiredError) {
+                        logoutUser();
+                    }
                     setFetchError(true);
                 });
         } else {
@@ -314,7 +256,7 @@ export const WinnerDialog = (props: Props) => {
                       const packageB = b.present_identifier || '?';
                       return packageA > packageB ? 1 : -1;
                   })
-                : [...props.winner].sort((a, b) => {
+                : [...remainingWinners].sort((a, b) => {
                       const packageA = packageSelections[a.id] || '?';
                       const packageB = packageSelections[b.id] || '?';
                       return packageA > packageB ? 1 : -1;
@@ -335,7 +277,7 @@ export const WinnerDialog = (props: Props) => {
                         lastName = w.last_name;
                         presentId = w.present_identifier;
                     } else {
-                        // Using props.winner (WinnerInformation format)
+                        // Using the remaining winners (WinnerInformation format)
                         const w = winner as WinnerInformation;
                         firstName = w.firstName;
                         lastName = w.lastName;
@@ -387,7 +329,7 @@ export const WinnerDialog = (props: Props) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {props.winner.map((currentWinner) => {
+                                {remainingWinners.map((currentWinner) => {
                                     return (
                                         <TableRow key={currentWinner.id}>
                                             <TableCell>
@@ -430,9 +372,11 @@ export const WinnerDialog = (props: Props) => {
                             <LocalizedText translationKey={'dashboard.dialogs.new_winners.autofill_button'} />
                         </Button>
                     )}
-                    <Button variant="destructive" onClick={handleDialogCancelClick}>
-                        <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
-                    </Button>
+                    {activeStep === 0 && (
+                        <Button variant="destructive" onClick={handleDialogCancelClick}>
+                            <LocalizedText translationKey={'dashboard.dialogs.new_winners.cancel_button'} />
+                        </Button>
+                    )}
                     <Button onClick={activeStep === 0 ? handleDialogNextPage : handleDialogClose}>
                         <LocalizedText translationKey={activeStep === 0 ? 'dashboard.dialogs.new_winners.accept_button' : 'dashboard.dialogs.new_winners.finish_button'} />
                     </Button>

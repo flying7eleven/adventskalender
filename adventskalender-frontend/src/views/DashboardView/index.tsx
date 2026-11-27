@@ -1,7 +1,7 @@
 import { OutlinedCard } from '../../components/OutlinedCard';
 import { WinningDaySelector } from '../../components/WinningDaySelector';
 import { PickNewWinner } from '../../components/PickNewWinner';
-import { API_BACKEND_URL, MAX_WINNERS_PER_DAY, ParticipantCount, WinnerInformation } from '../../api';
+import { ApiAuthExpiredError, ApiResponseError, apiFetch, MAX_WINNERS_PER_DAY, ParticipantCount, WinnerInformation } from '../../api';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
@@ -11,6 +11,7 @@ import { UnknownErrorDialog } from '../../dialogs/UnknownErrorDialog';
 import { toast } from 'sonner';
 import { NoParticipantsErrorDialog } from '../../dialogs/NoParticipantsErrorDialog';
 import { CountSchema, ParticipantCountSchema, ParticipantArraySchema } from '../../schemas';
+import { formatRaffleDay, getDefaultRaffleDay } from '../../utils/raffleDate';
 
 export const DashboardView = () => {
     const [participantCount, setParticipantCount] = useState<ParticipantCount>({ number_of_participants: 0, number_of_participants_won: 0, number_of_participants_still_in_raffle: 0 });
@@ -20,15 +21,7 @@ export const DashboardView = () => {
     const [winnersOnSelectedDay, setWinnersOnSelectedDay] = useState<number>(0);
     const auth = useAuthentication();
     const navigate = useNavigate();
-    const [selectedDay, setSelectedDay] = useState<number>(() => {
-        const today = new Date().getDate();
-        if (today < 1) {
-            return 1;
-        } else if (today > 24) {
-            return 24;
-        }
-        return today;
-    });
+    const [selectedDay, setSelectedDay] = useState<number>(getDefaultRaffleDay);
     const [lastWinners, setLastWinners] = useState<WinnerInformation[]>([]);
     const [isUnknownErrorDialogOpen, setIsUnknownErrorDialogOpen] = useState(false);
     const [isNoParticipantsErrorDialogOpen, setIsNoParticipantsErrorDialogOpen] = useState(false);
@@ -58,47 +51,18 @@ export const DashboardView = () => {
         // since we are authenticated, we can query the backend for the winner count for the selected day. Each
         // request gets an ID so that a late response of an outdated request cannot overwrite the current value
         const requestId = ++winnerCounterRequestIdRef.current;
-        fetch(`${API_BACKEND_URL}/participants/won/${getSelectedDateAsString()}/count`, {
-            method: 'GET',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-        })
-            .then((res) => {
-                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
-                // object and proceed processing it
-                if (res.status === 200) {
-                    return res.json();
-                }
-
-                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                // the user should automatically be redirected to the login page
-                if (res.status === 401 || res.status === 403) {
-                    logoutUser();
-                    return Promise.reject();
-                }
-
-                // there should never be other status codes which have to be handled, but just in case, we'll stop
-                // processing the response here
-                return Promise.reject();
-            })
-            .then((data) => {
+        apiFetch(`/participants/won/${getSelectedDateAsString()}/count`, CountSchema)
+            .then((winnerCount) => {
                 // a newer request was started in the meantime, so this response is stale and must not be applied
                 if (requestId !== winnerCounterRequestIdRef.current) {
                     return;
                 }
-
-                // Validate the response data using Zod schema
-                const validated = CountSchema.parse(data);
-                setWinnersOnSelectedDay(validated);
+                setWinnersOnSelectedDay(winnerCount);
             })
-            .catch((error) => {
-                // Log validation errors for debugging
-                if (error?.name === 'ZodError') {
-                    console.error('API response validation failed:', error);
+            .catch((error: unknown) => {
+                if (error instanceof ApiAuthExpiredError) {
+                    logoutUser();
                 }
-                /* we do not have to anything here */
             });
     };
 
@@ -109,42 +73,12 @@ export const DashboardView = () => {
         }
 
         // since we are authenticated, we can query the backend for the participant count
-        fetch(`${API_BACKEND_URL}/participants/count`, {
-            method: 'GET',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-        })
-            .then((res) => {
-                // if we got a valid response from the backend, it should be JSON. We can convert it to a valid JSON
-                // object and proceed processing it
-                if (res.status === 200) {
-                    return res.json();
-                }
-
-                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                // the user should automatically be redirected to the login page
-                if (res.status === 401 || res.status === 403) {
+        apiFetch('/participants/count', ParticipantCountSchema)
+            .then(setParticipantCount)
+            .catch((error: unknown) => {
+                if (error instanceof ApiAuthExpiredError) {
                     logoutUser();
-                    return Promise.reject();
                 }
-
-                // there should never be other status codes which have to be handled, but just in case, we'll stop
-                // processing the response here
-                return Promise.reject();
-            })
-            .then((data) => {
-                // Validate the response data using Zod schema
-                const validated = ParticipantCountSchema.parse(data);
-                setParticipantCount(validated);
-            })
-            .catch((error) => {
-                // Log validation errors for debugging
-                if (error?.name === 'ZodError') {
-                    console.error('API response validation failed:', error);
-                }
-                /* we do not have to anything here */
             });
     };
 
@@ -158,7 +92,7 @@ export const DashboardView = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDay]);
 
-    const getSelectedDateAsString = () => `${new Date().getFullYear()}-12-${selectedDay}`;
+    const getSelectedDateAsString = () => formatRaffleDay(selectedDay);
 
     const getNumberOfWinnersToPick = (winnersOnThisDay: number) => {
         return MAX_WINNERS_PER_DAY - winnersOnThisDay;
@@ -184,78 +118,51 @@ export const DashboardView = () => {
         }
 
         // try to pick a new winner from the backend
-        fetch(`${API_BACKEND_URL}/participants/pick/${actualWinnersToPick}/for/${getSelectedDateAsString()}`, {
-            method: 'POST',
-            headers: {
-                'Content-type': 'application/json; charset=UTF-8',
-            },
-            credentials: 'include',
-        })
-            .then((res) => {
-                // if the call was successful, we expect to have received a valid JSON object. Convert it to an object
-                // and return it for further processing
-                if (res.status === 200) {
-                    return res.json();
-                }
-
-                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
-                // the user should automatically be redirected to the login page
-                if (res.status === 401 || res.status === 403) {
-                    logoutUser();
-                    return Promise.reject();
-                }
-
-                // if there are already the maximum number of winners on the day, the backend refuses to pick more
-                // winners. Show a message to the user and update the winner counter to reflect the actual value
-                if (res.status === 409) {
-                    toast.error(localizationContext.translate('dashboard.dialogs.max_winners_per_day'), {
-                        duration: 6000,
-                    });
-                    updateWinnerCounter();
-                    setLoadingNewWinner(false);
-                    return Promise.reject();
-                }
-
-                // if the status was 404, we do not have any participants left in the raffle which can be picked. Show
-                // a dialog to the user which indicates that
-                if (res.status === 404) {
-                    setIsNoParticipantsErrorDialogOpen(true);
-                    setLoadingNewWinner(false);
-                    return Promise.reject();
-                }
-
-                // in all other cases, we expect that there was an unknown error. We indicate that to the user by showing
-                // a proper error dialog
-                setIsUnknownErrorDialogOpen(true);
-                setLoadingNewWinner(false);
-                return Promise.reject();
-            })
-            .then((data) => {
-                // Validate the response data using Zod schema
-                const validated = ParticipantArraySchema.parse(data);
-
+        apiFetch(`/participants/pick/${actualWinnersToPick}/for/${getSelectedDateAsString()}`, ParticipantArraySchema, { method: 'POST' })
+            .then((pickedWinners) => {
                 // setup the dialog for the picked winners and return ensure the dialog is shown to the user, ...
-                const mappedWinners = validated.map((element) => {
+                const mappedWinners = pickedWinners.map((element) => {
                     return { id: element.id, firstName: element.first_name, lastName: element.last_name, presentIdentifier: element.present_identifier };
                 });
                 setLastWinners(mappedWinners);
                 setIsLastWinnerDialogOpen(true);
 
-                // ... re-enable the button, so the user can select another winner
-                setLoadingNewWinner(false);
-
                 // the last step is to ensure the counters will get updated
                 updateParticipantCounters();
                 updateWinnerCounter();
             })
-            .catch((error) => {
-                // Log validation errors for debugging
-                if (error?.name === 'ZodError') {
-                    console.error('API response validation failed:', error);
-                    setIsUnknownErrorDialogOpen(true);
-                    setLoadingNewWinner(false);
+            .catch((error: unknown) => {
+                // if it seems that we are not authorized, invalidate the token. By invalidating the token,
+                // the user should automatically be redirected to the login page
+                if (error instanceof ApiAuthExpiredError) {
+                    logoutUser();
+                    return;
                 }
-                /* we do not have to anything here */
+
+                // if there are already the maximum number of winners on the day, the backend refuses to pick more
+                // winners. Show a message to the user and update the winner counter to reflect the actual value
+                if (error instanceof ApiResponseError && error.status === 409) {
+                    toast.error(localizationContext.translate('dashboard.dialogs.max_winners_per_day'), {
+                        duration: 6000,
+                    });
+                    updateWinnerCounter();
+                    return;
+                }
+
+                // if the status was 404, we do not have any participants left in the raffle which can be picked. Show
+                // a dialog to the user which indicates that
+                if (error instanceof ApiResponseError && error.status === 404) {
+                    setIsNoParticipantsErrorDialogOpen(true);
+                    return;
+                }
+
+                // in all other cases, we expect that there was an unknown error. We indicate that to the user by showing
+                // a proper error dialog
+                setIsUnknownErrorDialogOpen(true);
+            })
+            .finally(() => {
+                // re-enable the button, so the user can select another winner
+                setLoadingNewWinner(false);
             });
     };
 

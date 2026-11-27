@@ -85,6 +85,85 @@ describe('DashboardView', () => {
         expect(screen.getByRole('button', { name: /Pick new winners/ })).not.toBeDisabled();
     });
 
+    const pickHandlers = (pick: () => MaybePromise<{ status: number; ok: boolean; json: () => Promise<unknown> }>) => ({
+        [`${API_BACKEND_URL}/auth/me`]: () => ({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 3600 }) }),
+        [`${API_BACKEND_URL}/participants/count`]: () => ({
+            status: 200,
+            ok: true,
+            json: () => Promise.resolve({ number_of_participants: 10, number_of_participants_won: 3, number_of_participants_still_in_raffle: 7 }),
+        }),
+        [`${API_BACKEND_URL}/participants/won/`]: () => ({ status: 200, ok: true, json: () => Promise.resolve(0) }),
+        [`${API_BACKEND_URL}/participants/pick/`]: pick,
+        [`${API_BACKEND_URL}/auth/logout`]: () => ({ status: 204, ok: true, json: () => Promise.reject(new Error('no body')) }),
+    });
+
+    test('shows the no participants dialog when nobody is left in the raffle', async () => {
+        mockFetchWith(pickHandlers(() => ({ status: 404, ok: false, json: () => Promise.resolve({}) })));
+        renderView();
+        await waitForAuth();
+
+        fireEvent.click(screen.getByRole('button', { name: /Pick new winners/ }));
+
+        await waitFor(() => expect(screen.getByText(/no participants left/)).toBeInTheDocument());
+        expect(screen.getByRole('button', { name: /Pick new winners/, hidden: true })).not.toBeDisabled();
+    });
+
+    test('shows the unknown error dialog when picking fails unexpectedly', async () => {
+        mockFetchWith(pickHandlers(() => ({ status: 500, ok: false, json: () => Promise.resolve({}) })));
+        renderView();
+        await waitForAuth();
+
+        fireEvent.click(screen.getByRole('button', { name: /Pick new winners/ }));
+
+        await waitFor(() => expect(screen.getByText(/unknown error occurred/)).toBeInTheDocument());
+        expect(screen.getByRole('button', { name: /Pick new winners/, hidden: true })).not.toBeDisabled();
+    });
+
+    test('shows the unknown error dialog when the picked winners cannot be read', async () => {
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        mockFetchWith(pickHandlers(() => ({ status: 200, ok: true, json: () => Promise.resolve({ not: 'a list' }) })));
+        renderView();
+        await waitForAuth();
+
+        fireEvent.click(screen.getByRole('button', { name: /Pick new winners/ }));
+
+        await waitFor(() => expect(screen.getByText(/unknown error occurred/)).toBeInTheDocument());
+        expect(screen.getByRole('button', { name: /Pick new winners/, hidden: true })).not.toBeDisabled();
+        consoleError.mockRestore();
+    });
+
+    test('shows the unknown error dialog and re-enables the button when the backend is unreachable', async () => {
+        mockFetchWith(pickHandlers(() => Promise.reject(new TypeError('Failed to fetch'))));
+        renderView();
+        await waitForAuth();
+
+        fireEvent.click(screen.getByRole('button', { name: /Pick new winners/ }));
+
+        await waitFor(() => expect(screen.getByText(/unknown error occurred/)).toBeInTheDocument());
+        expect(screen.getByRole('button', { name: /Pick new winners/, hidden: true })).not.toBeDisabled();
+    });
+
+    test('logs the user out when picking is rejected as unauthenticated', async () => {
+        mockFetchWith(pickHandlers(() => ({ status: 401, ok: false, json: () => Promise.resolve({}) })));
+        renderView();
+        await waitForAuth();
+
+        fireEvent.click(screen.getByRole('button', { name: /Pick new winners/ }));
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/logout`, expect.anything()));
+        expect(screen.queryByText(/unknown error occurred/)).not.toBeInTheDocument();
+    });
+
+    test('requests the counters without a Content-Type header', async () => {
+        mockFetchWith(pickHandlers(() => ({ status: 409, ok: false, json: () => Promise.resolve({}) })));
+        renderView();
+        await waitForAuth();
+
+        const [, init] = (global.fetch as Mock).mock.calls.find(([url]) => url === `${API_BACKEND_URL}/participants/count`)!;
+        expect(init).toEqual(expect.objectContaining({ method: 'GET', credentials: 'include' }));
+        expect(init.headers).toBeUndefined();
+    });
+
     test('ignores stale winner counter responses and applies the latest one', async () => {
         let resolveFirst!: (value: { status: number; ok: boolean; json: () => Promise<unknown> }) => void;
         const firstCount = new Promise<{ status: number; ok: boolean; json: () => Promise<unknown> }>((resolve) => {
@@ -110,15 +189,52 @@ describe('DashboardView', () => {
         await waitForAuth();
 
         await selectDay(/December 02/);
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${new Date().getFullYear()}-12-2/count`, expect.anything()));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${new Date().getFullYear()}-12-02/count`, expect.anything()));
 
         await selectDay(/December 03/);
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${new Date().getFullYear()}-12-3/count`, expect.anything()));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${new Date().getFullYear()}-12-03/count`, expect.anything()));
         await waitFor(() => expect(screen.getByText(/There are 5 winner/)).toBeInTheDocument());
 
         resolveFirst({ status: 200, ok: true, json: () => Promise.resolve(0) });
         await new Promise((resolve) => setTimeout(resolve, 200));
         expect(screen.getByText(/There are 5 winner/)).toBeInTheDocument();
         expect(screen.queryByText(/There are 0 winner/)).not.toBeInTheDocument();
+    });
+
+    describe('default raffle day', () => {
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        const today = (year: number, monthIndex: number, day: number) => {
+            vi.useFakeTimers({ toFake: ['Date'] });
+            vi.setSystemTime(new Date(year, monthIndex, day, 12, 0, 0));
+        };
+
+        test.each([
+            { label: 'November 27', date: [2026, 10, 27], expectedDate: '2026-12-01', expectedOption: /December 01, 2026/ },
+            { label: 'December 5', date: [2026, 11, 5], expectedDate: '2026-12-05', expectedOption: /December 05, 2026/ },
+            { label: 'December 26', date: [2026, 11, 26], expectedDate: '2026-12-24', expectedOption: /December 24, 2026/ },
+            { label: 'January 3', date: [2027, 0, 3], expectedDate: '2027-12-01', expectedOption: /December 01, 2027/ },
+        ])('preselects $expectedDate on $label', async ({ date: [year, monthIndex, day], expectedDate, expectedOption }) => {
+            today(year, monthIndex, day);
+            mockFetchWith(pickHandlers(() => ({ status: 409, ok: false, json: () => Promise.resolve({}) })));
+            renderView();
+            await waitForAuth();
+
+            await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${expectedDate}/count`, expect.anything()));
+            expect(screen.getAllByRole('combobox')[0]).toHaveTextContent(expectedOption);
+        });
+
+        test('picks winners for the zero padded raffle date', async () => {
+            today(2026, 10, 27);
+            mockFetchWith(pickHandlers(() => ({ status: 409, ok: false, json: () => Promise.resolve({}) })));
+            renderView();
+            await waitForAuth();
+
+            fireEvent.click(screen.getByRole('button', { name: /Pick new winners/ }));
+
+            await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^${API_BACKEND_URL}/participants/pick/\\d+/for/2026-12-01$`)), expect.anything()));
+        });
     });
 });

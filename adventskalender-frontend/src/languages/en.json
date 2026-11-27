@@ -22,6 +22,9 @@
             },
             "rate_limited": {
                 "message": "Too many login attempts. Please wait {0} second(s) before trying again."
+            },
+            "unexpected_error": {
+                "message": "Signing in failed because of an unexpected error. Please try again."
             }
         }
     },
@@ -103,6 +106,9 @@
         }
     },
     "calendar": {
+        "loading": "Loading winners…",
+        "load_error": "The winners could not be loaded. Please try again later.",
+        "empty": "Nobody has won yet.",
         "cards": {
             "winners": {
                 "headline": "Winners for",

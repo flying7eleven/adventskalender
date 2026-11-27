@@ -1,10 +1,10 @@
-import { FormEvent, useContext, useRef } from 'react';
+import { FormEvent, useContext, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { LockKeyhole } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router';
+import { Navigate, useLocation, useNavigate, type Location, type To } from 'react-router';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { toast } from 'sonner';
 import { LocalizedText } from '../../components/LocalizedText';
@@ -19,21 +19,35 @@ export const LoginView = () => {
     const auth = useAuthentication();
     const localizationContext = useContext(LocalizationContext);
 
-    const state = location.state as { from: Location };
-    const from = state ? state.from.pathname : '/';
+    const state = location.state as { from?: Location } | null;
+    const from: To = state?.from ? { pathname: state.from.pathname, search: state.from.search, hash: state.from.hash } : '/';
+
+    const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
+    const signinPending = useRef<boolean>(false);
 
     const usernameField = useRef<HTMLInputElement>(null);
     const passwordField = useRef<HTMLInputElement>(null);
+
+    const finishSignin = () => {
+        signinPending.current = false;
+        setIsSigningIn(false);
+    };
 
     const requestAuthorizationToken = (event: FormEvent) => {
         // ensure that we do not handle the actual submit event anymore
         event.preventDefault();
 
+        // the ref blocks a second submit before the disabled button is rendered
+        if (signinPending.current) {
+            return;
+        }
+        signinPending.current = true;
+        setIsSigningIn(true);
+
         // try to authenticate against the API backend
-        auth.signin(
-            usernameField?.current?.value || '',
-            passwordField?.current?.value || '',
-            () => {
+        auth.signin(usernameField?.current?.value || '', passwordField?.current?.value || '', {
+            onSuccess: () => {
+                finishSignin();
                 // Send them back to the page they tried to visit when they were
                 // redirected to the login page. Use { replace: true } so we don't create
                 // another entry in the history stack for the login page.  This means that
@@ -42,18 +56,27 @@ export const LoginView = () => {
                 // user experience.
                 navigate(from, { replace: true });
             },
-            () =>
+            onInvalidCredentials: () => {
+                finishSignin();
                 toast.error(localizationContext.translate('login.alerts.failed_login.message'), {
                     duration: 6000,
-                }),
-            (waitTimeSeconds: number) => {
+                });
+            },
+            onRateLimited: (waitTimeSeconds: number) => {
+                finishSignin();
                 // Rate limit hit - show user how long to wait (Retry-After seconds from the backend)
                 const rateLimitMessage = localizationContext.translate('login.alerts.rate_limited.message').replace('{0}', String(waitTimeSeconds));
                 toast.warning(rateLimitMessage, {
                     duration: 10000,
                 });
-            }
-        );
+            },
+            onError: () => {
+                finishSignin();
+                toast.error(localizationContext.translate('login.alerts.unexpected_error.message'), {
+                    duration: 6000,
+                });
+            },
+        });
     };
 
     const getCorrectImage = () => {
@@ -62,6 +85,10 @@ export const LoginView = () => {
         }
         return 'images/loginLight.jpg';
     };
+
+    if (auth.isAuthenticated) {
+        return <Navigate to={from} replace />;
+    }
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-12 h-screen">
@@ -99,7 +126,7 @@ export const LoginView = () => {
                                 </Label>
                                 <Input id="password" name="password" type="password" required autoComplete="current-password" ref={passwordField} className="w-full" />
                             </div>
-                            <Button type="submit" variant="default" className="w-full mt-6">
+                            <Button type="submit" variant="default" className="w-full mt-6" disabled={isSigningIn}>
                                 <LocalizedText translationKey={'login.form.sign_in_button'} />
                             </Button>
                         </form>
