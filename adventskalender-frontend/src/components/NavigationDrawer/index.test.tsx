@@ -2,6 +2,9 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { NavigationDrawer } from './index';
+import { LocalizationProvider } from '../../provider/LocalizationProvider';
+import English from '../../languages/en.json';
+import German from '../../languages/de.json';
 
 const createItems = () => ({
     items: [
@@ -14,10 +17,23 @@ const createItems = () => ({
     ],
 });
 
+const renderDrawer = ({ open, onToggle = vi.fn() }: { open: boolean; onToggle?: () => void }) => {
+    const { items, settingsItems } = createItems();
+    render(
+        <LocalizationProvider resources={{ english: English, german: German }}>
+            <NavigationDrawer open={open} onToggle={onToggle} items={items} settingsItems={settingsItems} />
+        </LocalizationProvider>
+    );
+    return { items, settingsItems };
+};
+
 describe('NavigationDrawer', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     test('navigates with the clicked entry only', async () => {
-        const { items, settingsItems } = createItems();
-        render(<NavigationDrawer open={true} onToggle={vi.fn()} items={items} settingsItems={settingsItems} />);
+        const { items, settingsItems } = renderDrawer({ open: true });
         const user = userEvent.setup();
 
         await user.click(screen.getByRole('button', { name: 'Calendar' }));
@@ -30,8 +46,7 @@ describe('NavigationDrawer', () => {
     });
 
     test('hides the labels when collapsed but keeps every entry reachable by its name', async () => {
-        const { items, settingsItems } = createItems();
-        render(<NavigationDrawer open={false} onToggle={vi.fn()} items={items} settingsItems={settingsItems} />);
+        const { items, settingsItems } = renderDrawer({ open: false });
         const user = userEvent.setup();
 
         expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
@@ -44,15 +59,21 @@ describe('NavigationDrawer', () => {
     });
 
     test('toggles with its toggle button without navigating', async () => {
-        const { items, settingsItems } = createItems();
         const onToggle = vi.fn();
-        render(<NavigationDrawer open={true} onToggle={onToggle} items={items} settingsItems={settingsItems} />);
+        const { items, settingsItems } = renderDrawer({ open: true, onToggle });
 
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Toggle navigation drawer' }));
+        await userEvent.setup().click(screen.getByRole('button', { name: English.global.navigation_buttons.toggle_drawer }));
 
         expect(onToggle).toHaveBeenCalledTimes(1);
         for (const item of [...items, ...settingsItems]) {
             expect(item.onClick).not.toHaveBeenCalled();
         }
+    });
+
+    test('names the toggle button in German for German browsers', () => {
+        vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('de-DE');
+        renderDrawer({ open: false });
+
+        expect(screen.getByRole('button', { name: German.global.navigation_buttons.toggle_drawer })).toBeInTheDocument();
     });
 });

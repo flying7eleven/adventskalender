@@ -10,6 +10,10 @@
             "switch_to_light": "Zum hellen Design wechseln",
             "switch_to_dark": "Zum dunklen Design wechseln",
             "switch_to_system": "Design des Systems verwenden"
+        },
+        "navigation_buttons": {
+            "open_menu": "Navigationsmenü öffnen",
+            "toggle_drawer": "Navigationsleiste ein- oder ausklappen"
         }
     },
     "login": {

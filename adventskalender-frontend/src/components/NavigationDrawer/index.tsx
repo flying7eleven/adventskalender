@@ -2,7 +2,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ChevronLeft } from 'lucide-react';
-import { ReactNode } from 'react';
+import { ReactNode, useContext } from 'react';
+import { LocalizationContext } from '../../provider/LocalizationContext';
 
 interface NavigationItem {
     key: string;
@@ -20,6 +21,8 @@ interface NavigationDrawerProps {
 }
 
 export const NavigationDrawer = ({ open, onToggle, items, settingsItems }: NavigationDrawerProps) => {
+    const localizationContext = useContext(LocalizationContext);
+
     return (
         <aside
             className={cn(
@@ -35,7 +38,7 @@ export const NavigationDrawer = ({ open, onToggle, items, settingsItems }: Navig
         >
             {/* Drawer Header - matches AppBar height (64px) */}
             <div className={cn('flex items-center h-16 px-2', open ? 'justify-end' : 'justify-center')}>
-                <Button variant="ghost" size="icon" onClick={onToggle} aria-label="Toggle navigation drawer">
+                <Button variant="ghost" size="icon" onClick={onToggle} aria-label={localizationContext.translate('global.navigation_buttons.toggle_drawer')}>
                     <ChevronLeft className={cn('h-5 w-5 transition-transform duration-300', !open && 'rotate-180')} />
                 </Button>
             </div>
