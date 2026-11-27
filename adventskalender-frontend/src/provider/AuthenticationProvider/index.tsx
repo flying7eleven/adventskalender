@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, ReactNode } from 'react';
-import { AuthenticationContext } from '../../hooks/useAuthentication';
-import { ApiResponseError, ApiSchemaError, apiFetch } from '../../api';
+import { AuthenticationContext, type SigninCallbacks } from '../../hooks/useAuthentication';
+import { ApiAuthExpiredError, ApiResponseError, apiFetch } from '../../api';
 import { SessionInformationSchema } from '../../schemas';
 
 export const AuthenticationProvider = ({ children }: { children: ReactNode }) => {
@@ -16,12 +16,7 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
                 setIsAuthenticated(true);
                 setExpiresIn(sessionInformation.expires_in);
             })
-            .catch((error: unknown) => {
-                // the session cookie was accepted, only its remaining lifetime is unknown
-                if (error instanceof ApiSchemaError) {
-                    setIsAuthenticated(true);
-                    return;
-                }
+            .catch(() => {
                 setIsAuthenticated(false);
                 setExpiresIn(null);
             })
@@ -30,27 +25,33 @@ export const AuthenticationProvider = ({ children }: { children: ReactNode }) =>
             });
     }, []);
 
-    const signin = (username: string, password: string, successCallback: VoidFunction, failCallback: VoidFunction, rateLimitCallback?: (waitTimeSeconds: number) => void) => {
+    const signin = (username: string, password: string, callbacks: SigninCallbacks) => {
         const requestData = {
             username,
             password,
         };
 
-        apiFetch('/auth/token', SessionInformationSchema, { method: 'POST', body: requestData })
-            .then((sessionInformation) => {
+        // the rejection handler sits beside the success handler so that a throwing
+        // onSuccess is never reported as a failed login
+        apiFetch('/auth/token', SessionInformationSchema, { method: 'POST', body: requestData }).then(
+            (sessionInformation) => {
                 setExpiresIn(sessionInformation.expires_in);
                 setIsAuthenticated(true);
-                successCallback();
-            })
-            .catch((error: unknown) => {
+                callbacks.onSuccess();
+            },
+            (error: unknown) => {
                 setIsAuthenticated(false);
-                if (error instanceof ApiResponseError && error.status === 429 && rateLimitCallback) {
+                setExpiresIn(null);
+                if (error instanceof ApiAuthExpiredError) {
+                    callbacks.onInvalidCredentials();
+                } else if (error instanceof ApiResponseError && error.status === 429) {
                     const retryAfter = Number.parseInt(error.response.headers.get('Retry-After') || '0', 10);
-                    rateLimitCallback(Number.isNaN(retryAfter) ? 0 : retryAfter);
+                    callbacks.onRateLimited(Number.isNaN(retryAfter) ? 0 : retryAfter);
                 } else {
-                    failCallback();
+                    callbacks.onError();
                 }
-            });
+            }
+        );
     };
 
     const signout = (callback: VoidFunction) => {
