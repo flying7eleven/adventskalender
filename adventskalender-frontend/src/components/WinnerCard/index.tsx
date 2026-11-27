@@ -42,15 +42,7 @@ export const WinnerCard = (props: Props) => {
         });
         const winningDayFromDate = Number.parseInt(props.winningDate.substring(8)); // TODO: ugly, we should parse the date here instead
         for (let i = 0; i < sortedWinners.length; i++) {
-            elements.push(
-                <PersonItem
-                    key={`person-item-${sortedWinners[i].id}`}
-                    numberOfMaxSubPackages={props.numberOfMaxSubPackages}
-                    winner={sortedWinners[i]}
-                    winningDay={winningDayFromDate}
-                    updateWinnerList={props.updateWinnerList}
-                />
-            );
+            elements.push(<PersonItem key={`person-item-${sortedWinners[i].id}`} winner={sortedWinners[i]} winningDay={winningDayFromDate} updateWinnerList={props.updateWinnerList} />);
             if (i !== sortedWinners.length - 1) {
                 elements.push(<Separator key={`divider-${sortedWinners[i].id}`} className="my-2" />);
             }

@@ -1,17 +1,17 @@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
-import { ReactNode, useContext, useState } from 'react';
+import { PackageSelectItems } from '../../components/PackageSelectItems';
+import { SpecialTextItem, WinnerSummary } from '../../components/WinnerSummary';
+import { useContext, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
 import { ApiAuthExpiredError, ApiResponseError, apiFetch, MAX_WINNERS_PER_DAY, WinnerInformation } from '../../api.ts';
 import { LocalizationContext } from '../../provider/LocalizationContext';
-import { format, parse } from 'date-fns';
-import { de } from 'date-fns/locale';
-import { WinnerInformation2Schema } from '../../schemas';
+import { Participant, ParticipantSchema } from '../../schemas';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
@@ -24,28 +24,15 @@ interface Props {
     setDialogOpenStateFunction: (shouldBeOpen: boolean) => void;
 }
 
-export const SpecialTextItem = ({ date }: { date: string }) => {
-    const parsedDate = parse(date, 'yyyy-MM-dd', new Date());
-    const winningDay = format(parsedDate, 'd');
-    switch (winningDay) {
-        case '6':
-            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2_special1'} variables={[winningDay]} />;
-        case '24':
-            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2_special2'} variables={[winningDay]} />;
-        default:
-            return <LocalizedText translationKey={'dashboard.dialogs.new_winners.title2'} variables={[winningDay]} />;
-    }
-};
-
 export const WinnerDialog = (props: Props) => {
     const auth = useAuthentication();
     const navigate = useNavigate();
     const localizationContext = useContext(LocalizationContext);
     const [activeStep, setActiveStep] = useState(0);
-    const [packageSelections, setPackageSelections] = useState<StringMap>({});
-    const [fetchedWinners, setFetchedWinners] = useState<WinnerInformation2[]>([]);
+    const [packageSelections, setPackageSelections] = useState<Record<string, string>>({});
+    const [fetchedWinners, setFetchedWinners] = useState<Participant[]>([]);
     const [fetchError, setFetchError] = useState<boolean>(false);
-    const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<BooleanMap>({});
+    const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<Record<string, boolean>>({});
     const [unpickedWinnerIds, setUnpickedWinnerIds] = useState<number[]>([]);
     const remainingWinners = props.winner.filter((currentWinner) => !unpickedWinnerIds.includes(currentWinner.id));
     const USABLE_PACKAGE_ALPHABET = Array.from(Array(MAX_WINNERS_PER_DAY))
@@ -111,32 +98,9 @@ export const WinnerDialog = (props: Props) => {
         unselectAllWinnersForDay();
     };
 
-    const getPossiblePackageMenuItems = (userId: number, maxPackageCount: number) => {
-        const items: ReactNode[] = [];
-        const alphabet = Array.from(Array(maxPackageCount))
-            .map((_, i) => i + 65)
-            .map((x) => String.fromCharCode(x));
-
-        items.push(
-            <SelectItem key={`menu-item-not-selected-for-user-${userId}`} value="__none__">
-                -
-            </SelectItem>
-        );
-
-        alphabet.map((character) => {
-            items.push(
-                <SelectItem key={`menu-item-${character}-for-user-${userId}`} value={character}>
-                    {character}
-                </SelectItem>
-            );
-        });
-
-        return items;
-    };
-
     const handleFillPackageSelectionAutomatically = () => {
         if (__DEV__) {
-            const selectedPackages: StringMap = {};
+            const selectedPackages: Record<string, string> = {};
             let currentAlphabetIdx = 0;
             remainingWinners
                 .map((currentWinner) => currentWinner.id)
@@ -216,7 +180,7 @@ export const WinnerDialog = (props: Props) => {
     const prepareWinnerData = (refetchWinners: boolean) => {
         if (refetchWinners) {
             // Fetch winners from backend to get all winners for the day
-            apiFetch(`/participants/won/${props.date}`, z.array(WinnerInformation2Schema))
+            apiFetch(`/participants/won/${props.date}`, z.array(ParticipantSchema))
                 .then((winners) => {
                     setFetchedWinners(winners);
                     setFetchError(false);
@@ -237,66 +201,16 @@ export const WinnerDialog = (props: Props) => {
     };
 
     const renderWinnerText = () => {
-        const parsedDate = parse(props.date, 'yyyy-MM-dd', new Date());
-        // Determine locale based on browser language (German or English)
-        const locale = window.navigator.language.startsWith('de') ? de : undefined;
-        const winningDate = format(parsedDate, localizationContext.translate('dashboard.dialogs.new_winners.date_format'), { locale });
-        const winningDay = format(parsedDate, 'd');
-
-        // Check if we have an error
         if (fetchError) {
             return <span className="text-destructive">Error loading winners</span>;
         }
 
-        // Determine which winners to display and sort them by package identifier
-        const sortedWinners =
+        const summarizedWinners: WinnerInformation[] =
             fetchedWinners.length > 0
-                ? [...fetchedWinners].sort((a, b) => {
-                      const packageA = a.present_identifier || '?';
-                      const packageB = b.present_identifier || '?';
-                      return packageA > packageB ? 1 : -1;
-                  })
-                : [...remainingWinners].sort((a, b) => {
-                      const packageA = packageSelections[a.id] || '?';
-                      const packageB = packageSelections[b.id] || '?';
-                      return packageA > packageB ? 1 : -1;
-                  });
+                ? fetchedWinners.map((winner) => ({ id: winner.id, firstName: winner.first_name, lastName: winner.last_name, presentIdentifier: winner.present_identifier }))
+                : remainingWinners.map((winner) => ({ ...winner, presentIdentifier: packageSelections[winner.id] }));
 
-        return (
-            <>
-                {localizationContext.translate('dashboard.dialogs.new_winners.winner_paragraph_prefix')} {winningDate}:{' '}
-                {sortedWinners.map((winner, index) => {
-                    let firstName: string;
-                    let lastName: string;
-                    let presentId: string | null | undefined;
-
-                    if (fetchedWinners.length > 0) {
-                        // Using fetched winners (WinnerInformation2 format)
-                        const w = winner as WinnerInformation2;
-                        firstName = w.first_name;
-                        lastName = w.last_name;
-                        presentId = w.present_identifier;
-                    } else {
-                        // Using the remaining winners (WinnerInformation format)
-                        const w = winner as WinnerInformation;
-                        firstName = w.firstName;
-                        lastName = w.lastName;
-                        presentId = packageSelections[w.id];
-                    }
-
-                    return (
-                        <span key={index}>
-                            {index > 0 && ', '}
-                            <strong>
-                                {firstName} {lastName}
-                            </strong>{' '}
-                            ({winningDay}
-                            {presentId})
-                        </span>
-                    );
-                })}
-            </>
-        );
+        return <WinnerSummary date={props.date} winners={summarizedWinners} />;
     };
 
     return (
@@ -348,7 +262,9 @@ export const WinnerDialog = (props: Props) => {
                                                         >
                                                             <SelectValue placeholder="-" />
                                                         </SelectTrigger>
-                                                        <SelectContent>{getPossiblePackageMenuItems(currentWinner.id, props.numberOfMaxSubPackages)}</SelectContent>
+                                                        <SelectContent>
+                                                            <PackageSelectItems userId={currentWinner.id} maxPackageCount={props.numberOfMaxSubPackages} />
+                                                        </SelectContent>
                                                     </Select>
                                                     {packageSelectionErrorStates[currentWinner.id] && (
                                                         <p className="text-sm text-destructive" role="alert">
