@@ -1,5 +1,6 @@
 use crate::schema::{participants, performed_actions};
 use chrono::{NaiveDate, NaiveDateTime};
+use diesel::{AsChangeset, Insertable, Queryable};
 
 #[derive(Queryable, Clone)]
 pub struct Participant {

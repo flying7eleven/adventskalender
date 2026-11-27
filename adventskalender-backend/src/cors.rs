@@ -2,7 +2,7 @@ use log::warn;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::{Method, Status};
 use rocket::route::{Handler, Outcome, Route};
-use rocket::{uri, Build, Data, Request, Response, Rocket};
+use rocket::{Build, Data, Request, Response, Rocket, uri};
 use std::collections::HashSet;
 use std::fmt;
 

@@ -1,5 +1,5 @@
-use rocket::request::{FromRequest, Outcome};
 use rocket::Request;
+use rocket::request::{FromRequest, Outcome};
 
 /// The client IP of the request, honouring the reverse proxy's `X-Real-IP` header via Rocket's
 /// `client_ip()`.
@@ -44,8 +44,8 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
     async fn from_request(
         request: &'r Request<'_>,
     ) -> Outcome<AuthenticatedUser, AuthorizationError> {
-        use crate::fairings::BackendConfiguration;
         use crate::Claims;
+        use crate::fairings::BackendConfiguration;
         use jsonwebtoken::decode;
         use log::error;
         use rocket::http::Status;
@@ -62,7 +62,10 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                         let authorization_information =
                             maybe_authorization.split(' ').collect::<Vec<&str>>();
                         if authorization_information.len() != 2 {
-                            error!("It seems that the authorization header is malformed. There were 2 parts expected but we got {}", authorization_information.len());
+                            error!(
+                                "It seems that the authorization header is malformed. There were 2 parts expected but we got {}",
+                                authorization_information.len()
+                            );
                             return Outcome::Error((
                                 Status::Forbidden,
                                 AuthorizationError::MalformedAuthorizationHeader,
@@ -71,7 +74,10 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
 
                         // ensure that the token type is marked as 'bearer' token
                         if authorization_information[0].to_lowercase() != "bearer" {
-                            error!("It seems that the authorization header is malformed. We expected as token type 'bearer' but got '{}'", authorization_information[0].to_lowercase());
+                            error!(
+                                "It seems that the authorization header is malformed. We expected as token type 'bearer' but got '{}'",
+                                authorization_information[0].to_lowercase()
+                            );
                             return Outcome::Error((
                                 Status::Forbidden,
                                 AuthorizationError::MalformedAuthorizationHeader,

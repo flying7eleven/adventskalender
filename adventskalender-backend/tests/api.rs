@@ -2,13 +2,13 @@ mod common;
 
 use adventskalender_backend::fairings::BackendConfiguration;
 use adventskalender_backend::routes::mount_routes;
-use common::{TestDatabase, PICKING_USER_PASSWORD};
+use common::{PICKING_USER_PASSWORD, TestDatabase};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use ring::rand::SystemRandom;
 use ring::signature::{Ed25519KeyPair, KeyPair};
 use rocket::http::{ContentType, Header, Status};
 use rocket::local::blocking::Client;
-use rocket::serde::json::{json, Value};
+use rocket::serde::json::{Value, json};
 use std::collections::HashSet;
 
 fn fresh_key_bytes() -> Vec<u8> {
@@ -187,10 +187,12 @@ fn a_normal_request_from_an_allowed_origin_gets_the_cors_headers() {
             .unwrap_or_default(),
         "Retry-After"
     );
-    assert!(response
-        .headers()
-        .get("Vary")
-        .any(|value| value == "Origin"));
+    assert!(
+        response
+            .headers()
+            .get("Vary")
+            .any(|value| value == "Origin")
+    );
 }
 
 #[test]
@@ -230,10 +232,12 @@ fn a_preflight_request_from_an_allowed_origin_lists_methods_and_echoes_the_reque
         headers,
         HashSet::from(["content-type", "x-custom"].map(String::from))
     );
-    assert!(response
-        .headers()
-        .get("Vary")
-        .any(|value| value == "Origin"));
+    assert!(
+        response
+            .headers()
+            .get("Vary")
+            .any(|value| value == "Origin")
+    );
     assert_eq!(response.into_string().unwrap_or_default(), "");
 }
 

@@ -1,7 +1,7 @@
 [package]
 name = "adventskalender-backend"
-version = "2024.12.1"
-edition = "2021"
+version = "2025.12.1"
+edition = "2024"
 authors = ["Tim Janke <tim+github@janke.biz>"]
 description = "A simple tool for organizing a christmas raffle (like a advent calendar)"
 license = "MIT"
@@ -14,10 +14,6 @@ rust-version = "1.96"
 
 [badges]
 maintenance = { status = "actively-developed" }
-
-[dependencies.lazy_static]
-version = "1.5.1"
-default-features = false
 
 [dependencies.rocket]
 version = "0.5.4"
@@ -90,11 +86,6 @@ default-features = false
 [dependencies.r2d2]
 version = "0.8.10"
 default-features = false
-
-[dependencies.cookie]
-version = "0.18"
-default-features = false
-features = ["secure", "private"]
 
 [dependencies.time]
 version = "0.3"

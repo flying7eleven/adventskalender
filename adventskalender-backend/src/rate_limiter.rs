@@ -76,7 +76,7 @@ pub fn cleanup_old_entries(config: &RateLimitConfig) {
 #[cfg(test)]
 mod tests {
     use super::{
-        check_rate_limit, reset_rate_limit, RateLimitConfig, RateLimitDecision, RATE_LIMITER,
+        RATE_LIMITER, RateLimitConfig, RateLimitDecision, check_rate_limit, reset_rate_limit,
     };
     use chrono::{Duration, Utc};
 

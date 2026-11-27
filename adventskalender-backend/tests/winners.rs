@@ -1,9 +1,9 @@
 mod common;
 
 use adventskalender_backend::routes::{
-    mark_participant_as_not_won, pick_winners, PickWinnersError, RemoveWinnerError,
+    PickWinnersError, RemoveWinnerError, mark_participant_as_not_won, pick_winners,
 };
-use common::{christmas_eve, TestDatabase};
+use common::{TestDatabase, christmas_eve};
 use std::collections::HashSet;
 use std::sync::{Arc, Barrier};
 
