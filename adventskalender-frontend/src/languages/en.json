@@ -182,7 +182,8 @@
                 "autofill_button": "Select automatically",
                 "finish_button": "Finish",
                 "error_unpick": "The winners could not be removed. Please try again.",
-                "error_package_taken": "This package is already taken on that day. Please select another one."
+                "error_package_taken": "This package is already taken on that day. Please select another one.",
+                "error_loading_winners": "The winners of this day could not be loaded."
             },
             "no_participants_left": {
                 "title": "Error on picking a new winner",

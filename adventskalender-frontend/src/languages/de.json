@@ -182,7 +182,8 @@
                 "autofill_button": "Automatisch auswählen",
                 "finish_button": "Fertig",
                 "error_unpick": "Die Gewinner:innen konnten nicht entfernt werden. Bitte versuche es erneut.",
-                "error_package_taken": "Dieses Paket ist an diesem Tag bereits vergeben. Bitte wähle ein anderes."
+                "error_package_taken": "Dieses Paket ist an diesem Tag bereits vergeben. Bitte wähle ein anderes.",
+                "error_loading_winners": "Die Gewinner:innen dieses Tages konnten nicht geladen werden."
             },
             "no_participants_left": {
                 "title": "Fehler beim ziehen einer neuen Person",

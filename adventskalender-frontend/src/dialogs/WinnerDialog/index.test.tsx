@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
+import German from '../../languages/de.json';
 import { API_BACKEND_URL } from '../../api';
 
 vi.mock('sonner', () => ({
@@ -198,6 +199,36 @@ describe('WinnerDialog', () => {
 
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+    });
+
+    test.each([
+        ['English', English],
+        ['German', German],
+    ])('shows a translated error in %s when the winners of the day cannot be loaded', async (_, language) => {
+        global.fetch = vi.fn().mockImplementation((url: string) => {
+            if (url.endsWith('/auth/me')) {
+                return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ username: 'test', expires_in: 60 * 60 }) } as Response);
+            }
+            if (url.endsWith('/participants/won/2026-12-06')) {
+                return Promise.resolve({ status: 500, ok: false } as Response);
+            }
+            return Promise.resolve({ status: 204, ok: true } as Response);
+        });
+        render(
+            <MemoryRouter>
+                <AuthenticationProvider>
+                    <LocalizationProvider resources={{ english: language, german: language }}>
+                        <WinnerDialog isOpen={true} winner={winners.slice(0, 4)} numberOfMaxSubPackages={5} date={'2026-12-06'} setDialogOpenStateFunction={vi.fn()} />
+                    </LocalizationProvider>
+                </AuthenticationProvider>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/auth/me`, expect.anything()));
+        fireEvent.click(screen.getByRole('button', { name: language.dashboard.dialogs.new_winners.autofill_button }));
+        fireEvent.click(screen.getByRole('button', { name: language.dashboard.dialogs.new_winners.accept_button }));
+
+        expect(await screen.findByText(language.dashboard.dialogs.new_winners.error_loading_winners)).toBeInTheDocument();
     });
 
     test('the cancel button un-picks all winners on the first step and closes the dialog', async () => {

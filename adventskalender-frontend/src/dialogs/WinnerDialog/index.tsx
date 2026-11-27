@@ -202,7 +202,11 @@ export const WinnerDialog = (props: Props) => {
 
     const renderWinnerText = () => {
         if (fetchError) {
-            return <span className="text-destructive">Error loading winners</span>;
+            return (
+                <span className="text-destructive">
+                    <LocalizedText translationKey={'dashboard.dialogs.new_winners.error_loading_winners'} />
+                </span>
+            );
         }
 
         const summarizedWinners: WinnerInformation[] =
