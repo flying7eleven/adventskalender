@@ -212,3 +212,86 @@ fn removing_an_unknown_participant_reports_it_as_unknown() {
         0
     );
 }
+
+fn fail_every_audit_insert(database: &TestDatabase) {
+    database.execute(
+        "CREATE FUNCTION reject_audit() RETURNS trigger AS $$ \
+         BEGIN RAISE EXCEPTION 'audit rejected'; END; $$ LANGUAGE plpgsql",
+    );
+    database.execute(
+        "CREATE TRIGGER reject_audit BEFORE INSERT ON performed_actions \
+         FOR EACH ROW EXECUTE FUNCTION reject_audit()",
+    );
+}
+
+#[test]
+fn picking_logs_one_audit_entry_per_winner_with_the_picking_user() {
+    let database = TestDatabase::start(2);
+
+    let winners = rocket::execute(pick_winners(
+        &database.pool,
+        2,
+        christmas_eve(),
+        &database.picking_user,
+    ))
+    .expect("the pick should succeed");
+
+    for winner in winners {
+        assert_eq!(
+            database.count(&format!(
+                "SELECT COUNT(*) AS count FROM performed_actions a JOIN users u ON a.user_id = u.id \
+                 WHERE a.action = 'picked_winner' AND u.username = '{}' \
+                 AND a.description LIKE '%id {} was%'",
+                database.picking_user, winner.id
+            )),
+            1
+        );
+    }
+}
+
+#[test]
+fn a_failing_audit_insert_rolls_back_the_pick() {
+    let database = TestDatabase::start(2);
+    fail_every_audit_insert(&database);
+
+    let result = rocket::execute(pick_winners(
+        &database.pool,
+        1,
+        christmas_eve(),
+        &database.picking_user,
+    ));
+
+    assert!(matches!(result, Err(PickWinnersError::Database(_))));
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
+        0
+    );
+}
+
+#[test]
+fn a_failing_audit_insert_rolls_back_the_removal_of_a_winner() {
+    let database = TestDatabase::start(1);
+    let winner_id = rocket::execute(pick_winners(
+        &database.pool,
+        1,
+        christmas_eve(),
+        &database.picking_user,
+    ))
+    .expect("the pick should succeed")[0]
+        .id;
+    fail_every_audit_insert(&database);
+
+    let result = rocket::execute(mark_participant_as_not_won(
+        &database.pool,
+        winner_id,
+        database.picking_user.clone(),
+    ));
+
+    assert!(matches!(result, Err(RemoveWinnerError::Database(_))));
+    assert_eq!(
+        database.count(&format!(
+            "SELECT COUNT(*) AS count FROM participants WHERE id = {winner_id} AND won_on IS NOT NULL"
+        )),
+        1
+    );
+}

@@ -1,8 +1,8 @@
 mod common;
 
+use adventskalender_backend::build_rocket;
 use adventskalender_backend::fairings::BackendConfiguration;
-use adventskalender_backend::routes::mount_routes;
-use common::{PICKING_USER_PASSWORD, TestDatabase};
+use common::{PICKING_USER_PASSWORD, TestDatabase, date_this_year};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use ring::rand::SystemRandom;
 use ring::signature::{Ed25519KeyPair, KeyPair};
@@ -18,28 +18,33 @@ fn fresh_key_bytes() -> Vec<u8> {
         .to_vec()
 }
 
-fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
-    let configuration = BackendConfiguration::new(
+fn configuration_with_key_bytes(key_bytes: &[u8], cookie_secure: bool) -> BackendConfiguration {
+    BackendConfiguration::from_pkcs8(
+        key_bytes,
         "http://localhost:5479".to_string(),
         "http://localhost:5479/.well-known/jwks.json".to_string(),
-        EncodingKey::from_ed_der(key_bytes),
-        DecodingKey::from_ed_der(
-            Ed25519KeyPair::from_pkcs8(key_bytes)
-                .unwrap()
-                .public_key()
-                .as_ref(),
-        ),
-        key_bytes.to_vec(),
         "".to_string(),
         HashSet::from(["http://localhost:5173".to_string()]),
-    );
-    let rocket = mount_routes(
-        rocket::build()
-            .manage(configuration)
-            .manage(database.new_connection_pool())
-            .attach(adventskalender_backend::cors::Cors::new(["http://localhost:5173"]).unwrap()),
+        cookie_secure,
+    )
+    .unwrap()
+}
+
+fn client_with_configuration(
+    database: &TestDatabase,
+    configuration: BackendConfiguration,
+) -> Client {
+    let rocket = build_rocket(
+        rocket::Config::figment(),
+        configuration,
+        database.new_connection_pool(),
+        adventskalender_backend::cors::Cors::new(["http://localhost:5173"]).unwrap(),
     );
     Client::tracked(rocket).unwrap()
+}
+
+fn client_with_key_bytes(database: &TestDatabase, key_bytes: &[u8]) -> Client {
+    client_with_configuration(database, configuration_with_key_bytes(key_bytes, false))
 }
 
 fn client(database: &TestDatabase) -> Client {
@@ -303,12 +308,18 @@ fn winners_are_picked_with_post_only() {
     let client = logged_in_client(&database);
 
     let get_response = client
-        .get("/v1/participants/pick/2/for/2026-12-24")
+        .get(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
     assert_eq!(get_response.status(), Status::NotFound);
 
     let post_response = client
-        .post("/v1/participants/pick/2/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
     assert_eq!(post_response.status(), Status::Ok);
     let winners: Vec<Value> = post_response.into_json().unwrap();
@@ -328,7 +339,10 @@ fn the_participant_count_reflects_the_won_participants() {
     assert_eq!(body["number_of_participants_still_in_raffle"], 5);
 
     let response = client
-        .post("/v1/participants/pick/2/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
     assert_eq!(response.status(), Status::Ok);
 
@@ -346,7 +360,10 @@ fn picking_more_winners_than_participants_left_is_not_found() {
     let client = logged_in_client(&database);
 
     let response = client
-        .post("/v1/participants/pick/2/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
 
     assert_eq!(response.status(), Status::NotFound);
@@ -358,7 +375,10 @@ fn picking_for_an_invalid_date_is_a_bad_request() {
     let client = logged_in_client(&database);
 
     let response = client
-        .post("/v1/participants/pick/1/for/2026-12-32")
+        .post(format!(
+            "/v1/participants/pick/1/for/{}",
+            date_this_year(12, 32)
+        ))
         .dispatch();
 
     assert_eq!(response.status(), Status::BadRequest);
@@ -368,15 +388,19 @@ fn picking_for_an_invalid_date_is_a_bad_request() {
 fn picking_more_winners_than_the_day_allows_is_a_conflict() {
     let database = TestDatabase::start(7);
     let client = logged_in_client(&database);
+    pick_winners(&client, 4, &date_this_year(12, 24));
 
     let response = client
-        .post("/v1/participants/pick/6/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
 
     assert_eq!(response.status(), Status::Conflict);
     assert_eq!(
         database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
-        0
+        4
     );
 }
 
@@ -404,7 +428,7 @@ fn pick_winners(client: &Client, count: usize, date: &str) -> Vec<i32> {
 fn assigning_a_package_stores_it_and_clearing_it_stores_null() {
     let database = TestDatabase::start(2);
     let client = logged_in_client(&database);
-    let winner_ids = pick_winners(&client, 2, "2026-12-24");
+    let winner_ids = pick_winners(&client, 2, &date_this_year(12, 24));
 
     assert_eq!(
         select_package(&client, winner_ids[0], "A"),
@@ -444,7 +468,7 @@ fn assigning_a_package_stores_it_and_clearing_it_stores_null() {
 fn the_same_package_can_only_be_assigned_once_per_day() {
     let database = TestDatabase::start(2);
     let client = logged_in_client(&database);
-    let winner_ids = pick_winners(&client, 2, "2026-12-24");
+    let winner_ids = pick_winners(&client, 2, &date_this_year(12, 24));
 
     assert_eq!(
         select_package(&client, winner_ids[0], "A"),
@@ -467,8 +491,8 @@ fn the_same_package_can_only_be_assigned_once_per_day() {
 fn the_same_package_can_be_assigned_on_different_days() {
     let database = TestDatabase::start(2);
     let client = logged_in_client(&database);
-    let first_day_winner = pick_winners(&client, 1, "2026-12-24")[0];
-    let second_day_winner = pick_winners(&client, 1, "2026-12-25")[0];
+    let first_day_winner = pick_winners(&client, 1, &date_this_year(12, 24))[0];
+    let second_day_winner = pick_winners(&client, 1, &date_this_year(12, 23))[0];
 
     assert_eq!(
         select_package(&client, first_day_winner, "A"),
@@ -484,7 +508,7 @@ fn the_same_package_can_be_assigned_on_different_days() {
 fn only_a_single_uppercase_letter_is_a_valid_package() {
     let database = TestDatabase::start(1);
     let client = logged_in_client(&database);
-    let winner_id = pick_winners(&client, 1, "2026-12-24")[0];
+    let winner_id = pick_winners(&client, 1, &date_this_year(12, 24))[0];
 
     assert_eq!(
         select_package(&client, winner_id, "AB"),
@@ -510,7 +534,7 @@ fn only_a_single_uppercase_letter_is_a_valid_package() {
 fn clearing_both_packages_of_one_day_is_possible_after_an_assignment() {
     let database = TestDatabase::start(2);
     let client = logged_in_client(&database);
-    let winner_ids = pick_winners(&client, 2, "2026-12-24");
+    let winner_ids = pick_winners(&client, 2, &date_this_year(12, 24));
 
     assert_eq!(
         select_package(&client, winner_ids[0], "A"),
@@ -822,6 +846,155 @@ fn the_openid_configuration_advertises_only_the_supported_fields() {
 }
 
 #[test]
+fn issued_tokens_carry_the_key_id_and_verify_with_the_key_the_jwks_advertises() {
+    use base64::Engine;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = logged_in
+        .cookies()
+        .get("auth_token")
+        .expect("a login must set the auth_token cookie")
+        .value()
+        .to_string();
+
+    let key_set: Value = logged_in
+        .get("/.well-known/jwks.json")
+        .dispatch()
+        .into_json()
+        .unwrap();
+    let advertised_key = &key_set["keys"][0];
+
+    assert_eq!(
+        jsonwebtoken::decode_header(&token).unwrap().kid.as_deref(),
+        advertised_key["kid"].as_str()
+    );
+    let advertised_x = advertised_key["x"].as_str().unwrap();
+    assert_eq!(
+        URL_SAFE_NO_PAD.decode(advertised_x).unwrap(),
+        Ed25519KeyPair::from_pkcs8(&key_bytes)
+            .unwrap()
+            .public_key()
+            .as_ref()
+    );
+    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::EdDSA);
+    validation.set_audience(&["http://localhost:5173"]);
+    validation.set_issuer(&["http://localhost:5479"]);
+    jsonwebtoken::decode::<Value>(
+        &token,
+        &DecodingKey::from_ed_components(advertised_x).unwrap(),
+        &validation,
+    )
+    .expect("the token must verify with the advertised key");
+}
+
+fn assert_security_headers(response: &rocket::local::blocking::LocalResponse<'_>) {
+    let headers = response.headers();
+    assert_eq!(headers.get_one("X-Content-Type-Options"), Some("nosniff"));
+    assert_eq!(headers.get_one("X-Frame-Options"), Some("DENY"));
+    assert_eq!(
+        headers.get_one("Referrer-Policy"),
+        Some("strict-origin-when-cross-origin")
+    );
+    assert!(headers.get_one("Content-Security-Policy").is_some());
+    assert!(headers.get_one("Permissions-Policy").is_some());
+    let expected_hsts = if cfg!(debug_assertions) {
+        None
+    } else {
+        Some("max-age=31536000")
+    };
+    assert_eq!(headers.get_one("Strict-Transport-Security"), expected_hsts);
+}
+
+#[test]
+fn successful_and_rejected_responses_carry_the_security_headers() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+
+    let response = client.get("/.well-known/openid-configuration").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    assert_security_headers(&response);
+
+    let response = client.get("/v1/auth/me").dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+    assert_security_headers(&response);
+}
+
+fn auth_cookie_set_by(
+    response: &rocket::local::blocking::LocalResponse<'_>,
+) -> rocket::http::Cookie<'static> {
+    response
+        .headers()
+        .get("Set-Cookie")
+        .map(|value| rocket::http::Cookie::parse(value.to_string()).unwrap())
+        .find(|cookie| cookie.name() == "auth_token")
+        .expect("the response must set the auth_token cookie")
+}
+
+fn login_response<'c>(
+    client: &'c Client,
+    database: &TestDatabase,
+) -> rocket::local::blocking::LocalResponse<'c> {
+    client
+        .post("/v1/auth/token")
+        .header(ContentType::JSON)
+        .body(
+            json!({ "username": database.picking_user, "password": PICKING_USER_PASSWORD })
+                .to_string(),
+        )
+        .dispatch()
+}
+
+#[test]
+fn the_session_cookie_is_secure_when_configured_on_login_and_refresh() {
+    let database = TestDatabase::start(0);
+    let client = client_with_configuration(
+        &database,
+        configuration_with_key_bytes(&fresh_key_bytes(), true),
+    );
+
+    let response = login_response(&client, &database);
+    assert_eq!(response.status(), Status::Ok);
+    let login_cookie = auth_cookie_set_by(&response);
+    assert_eq!(login_cookie.secure(), Some(true));
+    assert_eq!(login_cookie.http_only(), Some(true));
+    assert_eq!(
+        login_cookie.same_site(),
+        Some(rocket::http::SameSite::Strict)
+    );
+
+    let response = client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", login_cookie.value().to_string()))
+        .dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    assert_eq!(auth_cookie_set_by(&response).secure(), Some(true));
+}
+
+#[test]
+fn the_session_cookie_is_not_secure_when_disabled_on_login_and_refresh() {
+    let database = TestDatabase::start(0);
+    let client = client_with_configuration(
+        &database,
+        configuration_with_key_bytes(&fresh_key_bytes(), false),
+    );
+
+    let response = login_response(&client, &database);
+    assert_eq!(response.status(), Status::Ok);
+    let login_cookie = auth_cookie_set_by(&response);
+    assert_ne!(login_cookie.secure(), Some(true));
+
+    let response = client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", login_cookie.value().to_string()))
+        .dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    assert_ne!(auth_cookie_set_by(&response).secure(), Some(true));
+}
+
+#[test]
 fn the_audit_event_count_requires_an_authenticated_user() {
     let database = TestDatabase::start(0);
     let unauthenticated_client = client(&database);
@@ -895,7 +1068,10 @@ fn picking_without_logging_in_is_forbidden_and_marks_nobody() {
     let client = client(&database);
 
     let response = client
-        .post("/v1/participants/pick/1/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/1/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
 
     assert_eq!(response.status(), Status::Forbidden);
@@ -958,7 +1134,7 @@ fn me_reports_the_username_and_the_remaining_token_lifetime() {
 fn removing_a_winner_over_http_resets_the_participant_and_logs_it() {
     let database = TestDatabase::start(1);
     let client = logged_in_client(&database);
-    let winner_id = pick_winners(&client, 1, "2026-12-24")[0];
+    let winner_id = pick_winners(&client, 1, &date_this_year(12, 24))[0];
 
     let response = client
         .delete(format!("/v1/participants/won/{winner_id}"))
@@ -1141,7 +1317,7 @@ fn a_rate_limited_password_change_exposes_the_retry_after_header_to_cross_origin
 fn only_the_packages_the_ui_offers_are_valid() {
     let database = TestDatabase::start(1);
     let client = logged_in_client(&database);
-    let winner_id = pick_winners(&client, 1, "2026-12-24")[0];
+    let winner_id = pick_winners(&client, 1, &date_this_year(12, 24))[0];
 
     assert_eq!(
         select_package(&client, winner_id, "F"),
@@ -1337,5 +1513,164 @@ fn a_login_cookie_expires_together_with_its_token() {
     assert!(
         expires_at > now && expires_at <= now + 3602,
         "the cookie must expire together with the roughly one hour token, got {expires_at} at {now}"
+    );
+}
+
+fn pick_status(client: &Client, count: &str, date: &str) -> Status {
+    client
+        .post(format!("/v1/participants/pick/{count}/for/{date}"))
+        .dispatch()
+        .status()
+}
+
+fn number_of_winners(database: &TestDatabase) -> i64 {
+    database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL")
+}
+
+#[test]
+fn picking_an_invalid_number_of_winners_is_a_bad_request_and_marks_nobody() {
+    let database = TestDatabase::start(7);
+    let client = logged_in_client(&database);
+    let christmas_eve = date_this_year(12, 24);
+
+    for count in [
+        "0".to_string(),
+        (adventskalender_backend::routes::MAX_WINNERS_PER_DAY + 1).to_string(),
+        usize::MAX.to_string(),
+        "99999999999999999999999999".to_string(),
+        "-1".to_string(),
+        "two".to_string(),
+    ] {
+        assert_eq!(
+            pick_status(&client, &count, &christmas_eve),
+            Status::BadRequest,
+            "count {count}"
+        );
+    }
+    assert_eq!(number_of_winners(&database), 0);
+}
+
+#[test]
+fn picking_for_a_date_outside_the_advent_days_of_this_year_is_a_bad_request() {
+    use chrono::Datelike;
+    let database = TestDatabase::start(2);
+    let client = logged_in_client(&database);
+    let year = chrono::Utc::now().year();
+
+    for date in [
+        date_this_year(11, 24),
+        date_this_year(12, 25),
+        date_this_year(12, 31),
+        format!("{}-12-24", year - 1),
+        format!("{}-12-24", year + 1),
+    ] {
+        assert_eq!(
+            pick_status(&client, "1", &date),
+            Status::BadRequest,
+            "date {date}"
+        );
+    }
+    assert_eq!(number_of_winners(&database), 0);
+}
+
+#[test]
+fn picking_on_the_first_and_the_last_advent_day_succeeds() {
+    let database = TestDatabase::start(2);
+    let client = logged_in_client(&database);
+
+    assert_eq!(
+        pick_status(&client, "1", &date_this_year(12, 1)),
+        Status::Ok
+    );
+    assert_eq!(
+        pick_status(&client, "1", &date_this_year(12, 24)),
+        Status::Ok
+    );
+    assert_eq!(number_of_winners(&database), 2);
+}
+
+#[test]
+fn picking_the_maximum_number_of_winners_succeeds() {
+    let max = adventskalender_backend::routes::MAX_WINNERS_PER_DAY;
+    let database = TestDatabase::start(max as i32);
+    let client = logged_in_client(&database);
+
+    assert_eq!(
+        pick_status(&client, &max.to_string(), &date_this_year(12, 24)),
+        Status::Ok
+    );
+    assert_eq!(number_of_winners(&database), max as i64);
+}
+
+#[test]
+fn selecting_a_package_for_a_participant_who_did_not_win_is_a_conflict() {
+    let database = TestDatabase::start(1);
+    let client = logged_in_client(&database);
+    let participant_id =
+        database.count("SELECT CAST(MIN(id) AS BIGINT) AS count FROM participants") as i32;
+
+    assert_eq!(
+        select_package(&client, participant_id, "A"),
+        Status::Conflict
+    );
+    assert_eq!(
+        database.count(
+            "SELECT COUNT(*) AS count FROM participants WHERE present_identifier IS NOT NULL"
+        ),
+        0
+    );
+    assert_eq!(
+        database
+            .count("SELECT COUNT(*) AS count FROM performed_actions WHERE action LIKE 'package_%'"),
+        0
+    );
+}
+
+#[test]
+fn selecting_a_package_for_an_unknown_participant_is_not_found() {
+    let database = TestDatabase::start(1);
+    let client = logged_in_client(&database);
+
+    assert_eq!(select_package(&client, 4711, "A"), Status::NotFound);
+}
+
+#[test]
+fn selecting_and_changing_a_package_of_a_winner_is_audited_with_the_user() {
+    let database = TestDatabase::start(1);
+    let client = logged_in_client(&database);
+    let winner_id = pick_winners(&client, 1, &date_this_year(12, 24))[0];
+
+    assert_eq!(select_package(&client, winner_id, "A"), Status::NoContent);
+    assert_eq!(select_package(&client, winner_id, "B"), Status::NoContent);
+
+    assert_eq!(
+        database.count(
+            "SELECT COUNT(*) AS count FROM performed_actions \
+             WHERE action = 'package_selected' AND user_id IS NOT NULL"
+        ),
+        1
+    );
+    assert_eq!(
+        database.count(
+            "SELECT COUNT(*) AS count FROM performed_actions \
+             WHERE action = 'package_changed' AND user_id IS NOT NULL AND description LIKE '%previous package was A%'"
+        ),
+        1
+    );
+}
+
+#[test]
+fn picking_winners_over_http_logs_one_audit_entry_per_winner() {
+    let database = TestDatabase::start(3);
+    let client = logged_in_client(&database);
+
+    pick_winners(&client, 3, &date_this_year(12, 24));
+
+    assert_eq!(
+        database.count(
+            "SELECT COUNT(*) AS count FROM performed_actions \
+             WHERE action = 'picked_winner' AND user_id IS NOT NULL"
+        ),
+        3
     );
 }

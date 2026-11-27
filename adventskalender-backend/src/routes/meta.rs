@@ -1,4 +1,4 @@
-use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
+use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration, SIGNING_KEY_ID};
 use crate::{BACKOFF_HANDLER, ServiceStatus};
 use chrono::DateTime;
 use rocket::http::Status;
@@ -31,37 +31,17 @@ pub struct JwksResponse {
 }
 
 #[get("/jwks.json")]
-pub async fn get_jwks(config: &State<BackendConfiguration>) -> Result<Json<JwksResponse>, Status> {
-    use base64::Engine;
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    use log::error;
-    use ring::signature::{Ed25519KeyPair, KeyPair};
-
-    // parse the PKCS8 key to extract the public key
-    let key_pair = match Ed25519KeyPair::from_pkcs8(&config.ed25519_key_bytes) {
-        Ok(kp) => kp,
-        Err(e) => {
-            error!("Failed to parse Ed25519 key pair: {e}");
-            return Err(Status::InternalServerError);
-        }
-    };
-
-    // get the public key bytes (32 bytes for Ed25519)
-    let public_key_bytes = key_pair.public_key().as_ref();
-
-    // base64url encode the public key
-    let public_key_base64 = URL_SAFE_NO_PAD.encode(public_key_bytes);
-
-    Ok(Json(JwksResponse {
+pub async fn get_jwks(config: &State<BackendConfiguration>) -> Json<JwksResponse> {
+    Json(JwksResponse {
         keys: vec![JsonWebKey {
             kty: "OKP".to_string(),
             use_: "sig".to_string(),
-            kid: "adventskalender-key-1".to_string(),
+            kid: SIGNING_KEY_ID.to_string(),
             alg: "EdDSA".to_string(),
             crv: "Ed25519".to_string(),
-            x: public_key_base64,
+            x: config.public_key_x.clone(),
         }],
-    }))
+    })
 }
 
 #[get("/openid-configuration")]

@@ -256,142 +256,128 @@ pub async fn update_participant_values(
     current_participant_id: i32,
     new_package_selection: Json<NewPackageSelection>,
 ) -> Status {
-    use crate::log_action;
-    use crate::models::Participant as DatabaseParticipant;
-    use crate::schema::participants::dsl::{id, participants, present_identifier};
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
+    use crate::schema::participants::dsl::{id, participants, present_identifier, won_on};
+    use crate::{lookup_user_by_name, record_action};
+    use diesel::result::{DatabaseErrorKind, Error as DieselError};
+    use diesel::{Connection, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, update};
     use log::error;
 
-    /// The outcome of trying to update the package selection of a participant.
-    enum PackageSelectionOutcome {
-        Success,
-        NotFound,
-        Conflict,
-        UnprocessableEntity,
-        InternalServerError,
+    /// The reasons why updating the package selection of a participant can fail.
+    enum PackageSelectionError {
+        UnknownParticipant,
+        NotAWinner,
+        PackageAlreadyAssigned,
+        Database(DieselError),
+    }
+
+    impl From<DieselError> for PackageSelectionError {
+        fn from(error: DieselError) -> Self {
+            PackageSelectionError::Database(error)
+        }
     }
 
     let username = authenticated_user.username.clone();
     let package = new_package_selection.package.clone();
 
-    // all database work for this request runs on a blocking thread so that neither the queries
-    // nor the audit log insert block the async runtime
-    let outcome = match db_connection_pool
-        .run_blocking(move |db_connection| {
-            // get the participant on which the package should be selected on
-            let participant_won = match participants
-                .filter(id.eq(current_participant_id))
-                .load::<DatabaseParticipant>(db_connection)
-            {
-                Ok(users) => {
-                    if users.len() != 1 {
-                        error!("Tried to fetch the participant with the id {} from the database but got {} participants as a result", current_participant_id, users.len());
-                        return PackageSelectionOutcome::NotFound;
-                    }
-                    users.first().unwrap().clone()
-                }
-                Err(error) => {
-                    error!("Tried to fetch the participant with the id {current_participant_id} from the database but an error occurred. The error was: {error}");
-                    return PackageSelectionOutcome::InternalServerError;
-                }
-            };
-
-            //
-            if participant_won.won_on.is_none() {
-                error!("Tried to select a package for the participant with the id {current_participant_id} but the participant was not picked before");
-                return PackageSelectionOutcome::Conflict;
-            }
-
-            // a package is one of the letters the UI offers: A up to the letter matching the
-            // maximum number of winners per day; an empty string clears the selection and is
-            // stored as NULL
-            let highest_package_letter = b'A' + MAX_WINNERS_PER_DAY as u8 - 1;
-            let selected_package: Option<String> = if package.is_empty() {
-                None
-            } else if package.len() == 1
-                && (b'A'..=highest_package_letter).contains(&package.as_bytes()[0])
-            {
-                Some(package.clone())
-            } else {
-                return PackageSelectionOutcome::UnprocessableEntity;
-            };
-
-            // set the selected package for the participant. A unique partial index on the database
-            // ensures that a package is only assigned once per day, which we report as a conflict
-            match update(participants.filter(id.eq(current_participant_id)))
-                .set(present_identifier.eq(selected_package))
-                .execute(db_connection)
-            {
-                Ok(rows_updated) => {
-                    if rows_updated != 1 {
-                        error!("Tried to save the sub-packages {package} for the user {current_participant_id} but it failed and {rows_updated} rows were updated");
-                        return PackageSelectionOutcome::InternalServerError;
-                    }
-                }
-                Err(diesel::result::Error::DatabaseError(
-                    diesel::result::DatabaseErrorKind::UniqueViolation,
-                    _,
-                )) => {
-                    error!("Tried to select the package {package} for the user {current_participant_id} but the package was already assigned to another user for the date of this win");
-                    return PackageSelectionOutcome::Conflict;
-                }
-                Err(error) => {
-                    error!("Tried to save the sub-packages {package} for the user {current_participant_id} but it failed. The error was: {error}");
-                    return PackageSelectionOutcome::InternalServerError;
-                }
-            }
-
-            // if we get here we successfully selected a package; log it with the same connection
-            if participant_won.present_identifier.is_none() {
-                log_action(
-                    db_connection,
-                    Some(username),
-                    Action::PackageSelected,
-                    Some(format!(
-                        "The participant with the id {} was assigned to package {package}",
-                        current_participant_id,
-                    )),
-                );
-            } else if package.is_empty() {
-                log_action(
-                    db_connection,
-                    Some(username),
-                    Action::PackageChanged,
-                    Some(format!(
-                        "The package selection of the participant with the id {} was removed. The previous package was {}",
-                        current_participant_id,
-                        participant_won.present_identifier.clone().unwrap()
-                    )),
-                );
-            } else {
-                log_action(
-                    db_connection,
-                    Some(username),
-                    Action::PackageChanged,
-                    Some(format!(
-                        "The participant with the id {} was assigned a new package {package}. The previous package was {}",
-                        current_participant_id,
-                        participant_won.present_identifier.clone().unwrap()
-                    )),
-                );
-            }
-            PackageSelectionOutcome::Success
-        })
-        .await
+    // a package is one of the letters the UI offers: A up to the letter matching the maximum
+    // number of winners per day; an empty string clears the selection and is stored as NULL
+    let highest_package_letter = b'A' + MAX_WINNERS_PER_DAY as u8 - 1;
+    let selected_package: Option<String> = if package.is_empty() {
+        None
+    } else if package.len() == 1 && (b'A'..=highest_package_letter).contains(&package.as_bytes()[0])
     {
-        Ok(outcome) => outcome,
-        Err(error) => {
-            error!("Could not update the package selection for the participant with the id {current_participant_id}. The error was: {error}");
-            PackageSelectionOutcome::InternalServerError
-        }
+        Some(package.clone())
+    } else {
+        return Status::UnprocessableEntity;
     };
 
+    // the update and its audit log entry run in one transaction on a blocking thread, so that a
+    // failing audit insert rolls the update back and the async runtime is not blocked
+    let outcome = db_connection_pool
+        .run_blocking(move |db_connection| {
+            db_connection.transaction(|connection| {
+                let user = lookup_user_by_name(connection, &username)?;
+
+                let previous_package = participants
+                    .filter(id.eq(current_participant_id))
+                    .select(present_identifier)
+                    .for_update()
+                    .first::<Option<String>>(connection)
+                    .optional()?
+                    .ok_or(PackageSelectionError::UnknownParticipant)?;
+
+                // only winners can get a package; a unique partial index on the database ensures
+                // that a package is only assigned once per day
+                let rows_updated = update(
+                    participants
+                        .filter(id.eq(current_participant_id))
+                        .filter(won_on.is_not_null()),
+                )
+                .set(present_identifier.eq(selected_package))
+                .execute(connection)
+                .map_err(|error| match error {
+                    DieselError::DatabaseError(DatabaseErrorKind::UniqueViolation, _) => {
+                        PackageSelectionError::PackageAlreadyAssigned
+                    }
+                    error => PackageSelectionError::Database(error),
+                })?;
+                if rows_updated == 0 {
+                    return Err(PackageSelectionError::NotAWinner);
+                }
+
+                let (action, description) = match previous_package {
+                    None => (
+                        Action::PackageSelected,
+                        format!(
+                            "The participant with the id {current_participant_id} was assigned to package {package}"
+                        ),
+                    ),
+                    Some(previous_package) if package.is_empty() => (
+                        Action::PackageChanged,
+                        format!(
+                            "The package selection of the participant with the id {current_participant_id} was removed. The previous package was {previous_package}"
+                        ),
+                    ),
+                    Some(previous_package) => (
+                        Action::PackageChanged,
+                        format!(
+                            "The participant with the id {current_participant_id} was assigned a new package {package}. The previous package was {previous_package}"
+                        ),
+                    ),
+                };
+                record_action(connection, Some(user.id), action, Some(description))?;
+                Ok(())
+            })
+        })
+        .await;
+
     match outcome {
-        PackageSelectionOutcome::Success => Status::NoContent,
-        PackageSelectionOutcome::NotFound => Status::NotFound,
-        PackageSelectionOutcome::Conflict => Status::Conflict,
-        PackageSelectionOutcome::UnprocessableEntity => Status::UnprocessableEntity,
-        PackageSelectionOutcome::InternalServerError => Status::InternalServerError,
+        Ok(Ok(())) => Status::NoContent,
+        Ok(Err(PackageSelectionError::UnknownParticipant)) => Status::NotFound,
+        Ok(Err(PackageSelectionError::NotAWinner)) => {
+            error!(
+                "Tried to select a package for the participant with the id {current_participant_id} but the participant was not picked before"
+            );
+            Status::Conflict
+        }
+        Ok(Err(PackageSelectionError::PackageAlreadyAssigned)) => {
+            error!(
+                "Tried to select a package for the participant with the id {current_participant_id} but the package was already assigned to another participant for the date of this win"
+            );
+            Status::Conflict
+        }
+        Ok(Err(PackageSelectionError::Database(error))) => {
+            error!(
+                "Could not update the package selection for the participant with the id {current_participant_id}. The error was: {error}"
+            );
+            Status::InternalServerError
+        }
+        Err(error) => {
+            error!(
+                "Could not update the package selection for the participant with the id {current_participant_id}. The error was: {error}"
+            );
+            Status::InternalServerError
+        }
     }
 }
 
@@ -483,9 +469,9 @@ pub async fn pick_winners(
     user_who_picked: &str,
 ) -> Result<Vec<Participant>, PickWinnersError> {
     use crate::fairings::BlockingDatabaseError;
-    use crate::lookup_user_by_name;
     use crate::models::{Participant as DatabaseParticipant, ParticipantPicking};
     use crate::schema::participants::dsl::{id, participants, won_on};
+    use crate::{lookup_user_by_name, record_action};
     use chrono::Utc;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::error;
@@ -520,7 +506,10 @@ pub async fn pick_winners(
                         .count()
                         .get_result::<i64>(connection)?
                         as usize;
-                    if winners_on_day + count > MAX_WINNERS_PER_DAY {
+                    if winners_on_day
+                        .checked_add(count)
+                        .is_none_or(|total| total > MAX_WINNERS_PER_DAY)
+                    {
                         return Err(PickWinnersError::TooManyWinnersForDay);
                     }
 
@@ -547,6 +536,18 @@ pub async fn pick_winners(
                         })
                         .execute(connection)?;
 
+                    for winner in &winners {
+                        record_action(
+                            connection,
+                            Some(user.id),
+                            Action::PickedWinner,
+                            Some(format!(
+                                "The participant with the id {} was marked as won",
+                                winner.id
+                            )),
+                        )?;
+                    }
+
                     Ok(winners)
                 })
         })
@@ -567,17 +568,29 @@ pub async fn pick_winners(
 pub async fn pick_multiple_random_participant_from_raffle_list(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
-    count: usize,
+    count: &str,
     date: &str,
 ) -> Result<Json<Vec<Participant>>, Status> {
-    use crate::log_action;
+    use chrono::{Datelike, Utc};
     use log::{debug, error};
     use std::str::FromStr;
 
-    // if we cannot parse the input date, we received a bad parameter and we have to react to it
+    let Ok(count) = count.parse::<usize>() else {
+        return Err(Status::BadRequest);
+    };
+    if !(1..=MAX_WINNERS_PER_DAY).contains(&count) {
+        return Err(Status::BadRequest);
+    }
+
     let Ok(picked_for_date) = NaiveDate::from_str(date) else {
         return Err(Status::BadRequest);
     };
+    if picked_for_date.year() != Utc::now().year()
+        || picked_for_date.month() != 12
+        || picked_for_date.day() > 24
+    {
+        return Err(Status::BadRequest);
+    }
 
     let winners = match pick_winners(
         db_connection_pool,
@@ -612,27 +625,6 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         }
     };
 
-    // log the picked winners on a blocking thread so that neither the inserts nor the audit log
-    // block the async runtime, and return them
-    let username = authenticated_user.username.clone();
-    let winner_ids = winners.iter().map(|winner| winner.id).collect::<Vec<_>>();
-    if let Err(error) = db_connection_pool
-        .run_blocking(move |db_connection| {
-            for winner_id in winner_ids {
-                log_action(
-                    db_connection,
-                    Some(username.clone()),
-                    Action::PickedWinner,
-                    Some(format!(
-                        "The participant with the id {winner_id} was marked as won"
-                    )),
-                );
-            }
-        })
-        .await
-    {
-        error!("Could not log the picked winners. The error was: {error}");
-    }
     debug!(
         "The user {} picked the participants with the ids {:?} as new winners",
         authenticated_user.username,
@@ -649,45 +641,52 @@ pub enum RemoveWinnerError {
     Database(diesel::result::Error),
 }
 
+impl From<diesel::result::Error> for RemoveWinnerError {
+    fn from(error: diesel::result::Error) -> Self {
+        RemoveWinnerError::Database(error)
+    }
+}
+
 pub async fn mark_participant_as_not_won(
     db_connection_pool: &AdventskalenderDatabaseConnection,
     participant_id: i32,
     user_who_unpicked: String,
 ) -> Result<(), RemoveWinnerError> {
     use crate::fairings::BlockingDatabaseError;
-    use crate::log_action;
     use crate::models::ParticipantPicking;
     use crate::schema::participants::dsl::{id, participants};
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
+    use crate::{lookup_user_by_name, record_action};
+    use diesel::{Connection, ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::debug;
 
-    // reset the winning state of the participant and write the audit log entry on a blocking
-    // thread, so that the database work does not block the async runtime and both statements
-    // run on the same connection
+    // reset the winning state of the participant and write the audit log entry in one
+    // transaction on a blocking thread, so that a failing audit insert rolls the reset back
     let outcome = match db_connection_pool
         .run_blocking(move |db_connection| {
-            let rows_updated = update(participants.filter(id.eq(participant_id)))
-                .set(&ParticipantPicking {
-                    won_on: None,
-                    picking_time: None,
-                    picked_by: None,
-                    present_identifier: None,
-                })
-                .execute(db_connection)
-                .map_err(RemoveWinnerError::Database)?;
-            if rows_updated == 0 {
-                return Err(RemoveWinnerError::UnknownParticipant);
-            }
+            db_connection.transaction(|connection| {
+                let user = lookup_user_by_name(connection, &user_who_unpicked)?;
+                let rows_updated = update(participants.filter(id.eq(participant_id)))
+                    .set(&ParticipantPicking {
+                        won_on: None,
+                        picking_time: None,
+                        picked_by: None,
+                        present_identifier: None,
+                    })
+                    .execute(connection)?;
+                if rows_updated == 0 {
+                    return Err(RemoveWinnerError::UnknownParticipant);
+                }
 
-            log_action(
-                db_connection,
-                Some(user_who_unpicked),
-                Action::RemovedWinner,
-                Some(format!(
-                    "The participant with the id {participant_id} was marked removed from the list of winners"
-                )),
-            );
-            Ok(())
+                record_action(
+                    connection,
+                    Some(user.id),
+                    Action::RemovedWinner,
+                    Some(format!(
+                        "The participant with the id {participant_id} was marked removed from the list of winners"
+                    )),
+                )
+                .map_err(RemoveWinnerError::Database)
+            })
         })
         .await
     {

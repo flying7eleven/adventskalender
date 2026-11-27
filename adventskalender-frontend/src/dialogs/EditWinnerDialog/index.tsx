@@ -1,11 +1,12 @@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { LocalizedText } from '../../components/LocalizedText';
+import { PackageSelectItems } from '../../components/PackageSelectItems';
 import { ApiAuthExpiredError, apiFetch, WinnerInformation } from '../../api.ts';
-import { Dispatch, ReactNode, SetStateAction, useState } from 'react';
+import { Dispatch, SetStateAction, useState } from 'react';
 import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
@@ -15,7 +16,7 @@ interface Props {
     isOpen: boolean;
     numberOfMaxSubPackages: number;
     setDialogOpenStateFunction: Dispatch<SetStateAction<boolean>>;
-    packageSelections: StringMap;
+    packageSelections: Record<string, string>;
     updateWinnerList?: () => void;
 }
 
@@ -23,35 +24,12 @@ export const EditWinnerDialog = (props: Props) => {
     const [packageSelectionErrorStates, setPackageSelectionErrorStates] = useState<{ [key: string]: boolean }>({});
     const auth = useAuthentication();
     const navigate = useNavigate();
-    const [packageSelections, setPackageSelections] = useState<StringMap>(props.packageSelections);
-    const [syncedPackageSelections, setSyncedPackageSelections] = useState<StringMap>(props.packageSelections);
+    const [packageSelections, setPackageSelections] = useState<Record<string, string>>(props.packageSelections);
+    const [syncedPackageSelections, setSyncedPackageSelections] = useState<Record<string, string>>(props.packageSelections);
     if (syncedPackageSelections !== props.packageSelections) {
         setSyncedPackageSelections(props.packageSelections);
         setPackageSelections(props.packageSelections);
     }
-
-    const getPossiblePackageMenuItems = (userId: number, maxPackageCount: number) => {
-        const alphabet = Array.from(Array(maxPackageCount))
-            .map((_, i) => i + 65)
-            .map((x) => String.fromCharCode(x));
-        const items: ReactNode[] = [];
-
-        items.push(
-            <SelectItem key={`menu-item-not-selected-for-user-${userId}`} value="__none__">
-                -
-            </SelectItem>
-        );
-
-        alphabet.map((character) => {
-            items.push(
-                <SelectItem key={`menu-item-${character}-for-user-${userId}`} value={character}>
-                    {character}
-                </SelectItem>
-            );
-        });
-
-        return items;
-    };
 
     const selectPackageForUser = (userId: number, selectedPackage: string) => {
         // if we are not authenticated, skip fetching the infos
@@ -122,7 +100,9 @@ export const EditWinnerDialog = (props: Props) => {
                                                     >
                                                         <SelectValue placeholder="-" />
                                                     </SelectTrigger>
-                                                    <SelectContent>{getPossiblePackageMenuItems(currentWinner.id, props.numberOfMaxSubPackages)}</SelectContent>
+                                                    <SelectContent>
+                                                        <PackageSelectItems userId={currentWinner.id} maxPackageCount={props.numberOfMaxSubPackages} />
+                                                    </SelectContent>
                                                 </Select>
                                                 {packageSelectionErrorStates[currentWinner.id] && (
                                                     <p className="text-sm text-destructive" role="alert">

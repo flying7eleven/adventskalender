@@ -39,20 +39,11 @@ export const ParticipantArraySchema = z.array(ParticipantSchema);
 // Schema for simple count responses (just a number)
 export const CountSchema = z.number().int().nonnegative();
 
-// Schema for WinnerInformation2 (similar to Participant but from vite-env.d.ts)
-export const WinnerInformation2Schema = z.object({
-    id: z.number().int().positive(),
-    first_name: z.string().min(1).max(100),
-    last_name: z.string().min(1).max(100),
-    present_identifier: z
-        .string()
-        .regex(/^[A-Z]$/)
-        .nullable()
-        .optional(),
-});
-
 // Schema for WinnersOnDateMap - a map of dates to arrays of winners
-export const WinnersOnDateMapSchema = z.record(z.string(), z.array(WinnerInformation2Schema));
+export const WinnersOnDateMapSchema = z.record(z.string(), z.array(ParticipantSchema));
+
+export type Participant = z.infer<typeof ParticipantSchema>;
+export type WinnersOnDateMap = z.infer<typeof WinnersOnDateMapSchema>;
 
 // Schema for session information returned by /auth/token, /auth/me and /auth/refresh
 export const SessionInformationSchema = z.object({

@@ -154,11 +154,6 @@ pub fn log_action(
     executed_action: Action,
     possible_description: Option<String>,
 ) {
-    use crate::models::NewPerformedAction;
-    use crate::schema::performed_actions::dsl::performed_actions;
-    use chrono::Utc;
-    use diesel::RunQueryDsl;
-    use diesel::insert_into;
     use log::error;
 
     // failed logins are logged as "anonymous" to prevent username enumeration and have no user id
@@ -177,22 +172,41 @@ pub fn log_action(
         }
     };
 
-    // create the object we want to store in the database
-    let new_logging_entry = NewPerformedAction {
-        action: executed_action.to_string(),
-        time_of_action: Utc::now().naive_utc(),
-        description: possible_description,
+    if record_action(
+        db_connection,
         user_id,
-    };
-
-    // now we can actually insert the item
-    if insert_into(performed_actions)
-        .values(&new_logging_entry)
-        .execute(db_connection)
-        .is_err()
+        executed_action,
+        possible_description,
+    )
+    .is_err()
     {
         error!("Failed to store a new action history log entry due to a database error")
     };
+}
+
+/// Writes an audit log entry and reports a failure to the caller, so that it can be written in
+/// the same transaction as the audited state change and roll that change back on failure.
+pub fn record_action(
+    db_connection: &mut PgConnection,
+    user_id: Option<i32>,
+    executed_action: Action,
+    possible_description: Option<String>,
+) -> Result<(), diesel::result::Error> {
+    use crate::models::NewPerformedAction;
+    use crate::schema::performed_actions::dsl::performed_actions;
+    use chrono::Utc;
+    use diesel::RunQueryDsl;
+    use diesel::insert_into;
+
+    insert_into(performed_actions)
+        .values(&NewPerformedAction {
+            action: executed_action.to_string(),
+            time_of_action: Utc::now().naive_utc(),
+            description: possible_description,
+            user_id,
+        })
+        .execute(db_connection)
+        .map(|_| ())
 }
 
 pub fn get_token_for_user(
@@ -245,7 +259,8 @@ pub fn get_token_for_user_with_auth_time(
 
     // generate a new JWT for the supplied header and token claims. if we were successful, return
     // the token
-    let header = Header::new(Algorithm::EdDSA);
+    let mut header = Header::new(Algorithm::EdDSA);
+    header.kid = Some(crate::fairings::SIGNING_KEY_ID.to_string());
     if let Ok(token) = encode(&header, &token_claims, encoding_key) {
         return Some((token, token_expires_at as u64));
     }
@@ -267,10 +282,47 @@ pub fn session_lifetime_in_seconds() -> usize {
     SESSION_LIFETIME_IN_SECONDS
 }
 
+/// Assembles the backend with all routes, fairings and managed state. The binary and the
+/// integration tests share it, so the tests exercise the same stack which runs in production.
+pub fn build_rocket<T: rocket::figment::Provider>(
+    figment: T,
+    configuration: fairings::BackendConfiguration,
+    database: fairings::AdventskalenderDatabaseConnection,
+    cors: cors::Cors,
+) -> rocket::Rocket<rocket::Build> {
+    routes::mount_routes(
+        rocket::custom(figment)
+            .attach(cors)
+            .attach(fairings::SecurityHeaders)
+            .manage(configuration)
+            .manage(database),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{BackoffHandler, ServiceStatus};
     use std::time::Duration;
+
+    #[test]
+    fn an_issued_token_carries_the_key_id_of_the_signing_key() {
+        use jsonwebtoken::EncodingKey;
+        use ring::rand::SystemRandom;
+        use ring::signature::Ed25519KeyPair;
+        use std::collections::HashSet;
+
+        let document = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new()).unwrap();
+        let (token, _) = super::get_token_for_user(
+            "someone",
+            HashSet::from(["https://example.com".to_string()]),
+            "https://example.com".to_string(),
+            &EncodingKey::from_ed_der(document.as_ref()),
+        )
+        .unwrap();
+
+        let header = jsonwebtoken::decode_header(&token).unwrap();
+        assert_eq!(header.kid.as_deref(), Some(crate::fairings::SIGNING_KEY_ID));
+    }
 
     #[test]
     fn down_ping_is_sent_immediately_after_an_up_ping() {
