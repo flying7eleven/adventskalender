@@ -89,6 +89,7 @@ describe('SettingsView password change', () => {
             ['passwords_do_not_match', 'The passwords do not match.'],
             ['password_too_short', 'The password must be at least 8 characters long.'],
             ['password_too_weak', 'The password must be at least 8 characters long and strong enough.'],
+            ['password_too_long', 'The password is too long. It may be at most 72 bytes; umlauts, emoji and other special characters count as several bytes.'],
         ] as const;
         for (const [reason, message] of cases) {
             mockFetch(422, { reason });
@@ -147,6 +148,37 @@ describe('SettingsView password change', () => {
 
         await waitFor(() => expect(screen.getByText('Strength: Strong')).toBeInTheDocument());
         expect(screen.getByRole('button', { name: 'Change password' })).toBeDisabled();
+    });
+
+    test('rejects a new password longer than 72 UTF-8 bytes before submitting', async () => {
+        renderView();
+        const tooLongPassword = '🎄'.repeat(18) + 'a';
+        fireEvent.change(screen.getByLabelText('Current password'), { target: { value: 'old-password' } });
+        fireEvent.change(screen.getByLabelText('New password'), { target: { value: tooLongPassword } });
+        fireEvent.change(screen.getByLabelText('Repeat password'), { target: { value: tooLongPassword } });
+
+        await waitFor(() => expect(screen.getByText('Strength: Strong')).toBeInTheDocument());
+        expect(screen.getByRole('alert')).toHaveTextContent(English.settings.cards.password.errors.password_too_long);
+        expect(screen.getByLabelText('New password')).toHaveAttribute('aria-invalid', 'true');
+        expect(screen.getByRole('button', { name: 'Change password' })).toBeDisabled();
+    });
+
+    test('accepts a new password of exactly 72 UTF-8 bytes', async () => {
+        renderView();
+        const longestPassword = '🎄'.repeat(18);
+        fireEvent.change(screen.getByLabelText('Current password'), { target: { value: 'old-password' } });
+        fireEvent.change(screen.getByLabelText('New password'), { target: { value: longestPassword } });
+        fireEvent.change(screen.getByLabelText('Repeat password'), { target: { value: longestPassword } });
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Change password' })).toBeEnabled());
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    test.each([
+        ['English', English],
+        ['German', German],
+    ])('translates the too long password message in %s', (_, language) => {
+        expect(language.settings.cards.password.errors.password_too_long).toContain('72');
     });
 
     test('shows a rate limit message with the retry time on a 429 response', async () => {

@@ -12,13 +12,16 @@ import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-type PasswordChangeRejectReason = 'wrong_current_password' | 'passwords_do_not_match' | 'password_too_short' | 'password_too_weak';
+type PasswordChangeRejectReason = 'wrong_current_password' | 'passwords_do_not_match' | 'password_too_short' | 'password_too_long' | 'password_too_weak';
 
 const isPasswordChangeRejectReason = (reason: unknown): reason is PasswordChangeRejectReason => {
-    return reason === 'wrong_current_password' || reason === 'passwords_do_not_match' || reason === 'password_too_short' || reason === 'password_too_weak';
+    return reason === 'wrong_current_password' || reason === 'passwords_do_not_match' || reason === 'password_too_short' || reason === 'password_too_long' || reason === 'password_too_weak';
 };
 
 const MINIMUM_PASSWORD_LENGTH = 8;
+const MAXIMUM_PASSWORD_BYTES = 72;
+
+const utf8Encoder = new TextEncoder();
 
 const isTooShort = (password: string) => [...password].length < MINIMUM_PASSWORD_LENGTH;
 
@@ -33,6 +36,8 @@ export const SettingsView = () => {
     const [isPasswordNotEqualSecond, setIsPasswordNotEqualSecond] = useState<boolean>(false);
     const [passwordStrength, setPasswordStrength] = useState<number | null>(null);
     const latestFirstPassword = useRef<string>('');
+    const isFirstPasswordTooLong = utf8Encoder.encode(firstPassword).length > MAXIMUM_PASSWORD_BYTES;
+    const hasFirstPasswordError = isPasswordNotEqualFirst || isFirstPasswordTooLong;
 
     const handleCurrentPasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
         setCurrentPassword(event.target.value);
@@ -77,8 +82,8 @@ export const SettingsView = () => {
         // ensure that we do not handle the actual submit event anymore
         event.preventDefault();
 
-        // ensure the passwords are long enough, strong enough, and exactly the same
-        if (isTooShort(firstPassword) || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword) {
+        // ensure the passwords are within the length limits, strong enough, and exactly the same
+        if (isTooShort(firstPassword) || isFirstPasswordTooLong || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword) {
             return;
         }
 
@@ -148,13 +153,15 @@ export const SettingsView = () => {
                                         type="password"
                                         autoComplete="new-password"
                                         onChange={handleChangeOfFirstPassword}
-                                        className={cn('w-full', isPasswordNotEqualFirst && 'border-destructive focus-visible:ring-destructive')}
-                                        aria-invalid={isPasswordNotEqualFirst}
-                                        aria-describedby={isPasswordNotEqualFirst ? 'first-password-error' : undefined}
+                                        className={cn('w-full', hasFirstPasswordError && 'border-destructive focus-visible:ring-destructive')}
+                                        aria-invalid={hasFirstPasswordError}
+                                        aria-describedby={hasFirstPasswordError ? 'first-password-error' : undefined}
                                     />
-                                    {isPasswordNotEqualFirst && (
+                                    {hasFirstPasswordError && (
                                         <p id="first-password-error" className="text-sm text-destructive" role="alert">
-                                            <LocalizedText translationKey={'settings.cards.password.errors.password_too_weak'} />
+                                            <LocalizedText
+                                                translationKey={isFirstPasswordTooLong ? 'settings.cards.password.errors.password_too_long' : 'settings.cards.password.errors.password_too_weak'}
+                                            />
                                         </p>
                                     )}
                                 </div>
@@ -176,7 +183,12 @@ export const SettingsView = () => {
                                         </p>
                                     )}
                                 </div>
-                                <Button type="submit" variant="default" disabled={isTooShort(firstPassword) || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword} className="w-full">
+                                <Button
+                                    type="submit"
+                                    variant="default"
+                                    disabled={isTooShort(firstPassword) || isFirstPasswordTooLong || (passwordStrength ?? 0) < 2 || firstPassword !== secondPassword}
+                                    className="w-full"
+                                >
                                     <LocalizedText translationKey={'settings.cards.password.buttons.change'} />
                                 </Button>
                             </div>
