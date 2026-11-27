@@ -109,6 +109,18 @@ impl TestDatabase {
     }
 }
 
+pub fn day_this_year(month: u32, day: u32) -> NaiveDate {
+    use chrono::Datelike;
+    NaiveDate::from_ymd_opt(chrono::Utc::now().year(), month, day).unwrap()
+}
+
+/// Formats a date of the current year as the backend expects it in paths; an impossible day is
+/// kept verbatim, so tests can build invalid dates as well.
+pub fn date_this_year(month: u32, day: u32) -> String {
+    use chrono::Datelike;
+    format!("{}-{month:02}-{day:02}", chrono::Utc::now().year())
+}
+
 pub fn christmas_eve() -> NaiveDate {
-    NaiveDate::from_ymd_opt(2026, 12, 24).unwrap()
+    day_this_year(12, 24)
 }

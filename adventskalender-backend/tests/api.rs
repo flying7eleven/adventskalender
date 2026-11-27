@@ -2,7 +2,7 @@ mod common;
 
 use adventskalender_backend::fairings::BackendConfiguration;
 use adventskalender_backend::routes::mount_routes;
-use common::{PICKING_USER_PASSWORD, TestDatabase};
+use common::{PICKING_USER_PASSWORD, TestDatabase, date_this_year};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use ring::rand::SystemRandom;
 use ring::signature::{Ed25519KeyPair, KeyPair};
@@ -303,12 +303,18 @@ fn winners_are_picked_with_post_only() {
     let client = logged_in_client(&database);
 
     let get_response = client
-        .get("/v1/participants/pick/2/for/2026-12-24")
+        .get(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
     assert_eq!(get_response.status(), Status::NotFound);
 
     let post_response = client
-        .post("/v1/participants/pick/2/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
     assert_eq!(post_response.status(), Status::Ok);
     let winners: Vec<Value> = post_response.into_json().unwrap();
@@ -328,7 +334,10 @@ fn the_participant_count_reflects_the_won_participants() {
     assert_eq!(body["number_of_participants_still_in_raffle"], 5);
 
     let response = client
-        .post("/v1/participants/pick/2/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
     assert_eq!(response.status(), Status::Ok);
 
@@ -346,7 +355,10 @@ fn picking_more_winners_than_participants_left_is_not_found() {
     let client = logged_in_client(&database);
 
     let response = client
-        .post("/v1/participants/pick/2/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
 
     assert_eq!(response.status(), Status::NotFound);
@@ -358,7 +370,10 @@ fn picking_for_an_invalid_date_is_a_bad_request() {
     let client = logged_in_client(&database);
 
     let response = client
-        .post("/v1/participants/pick/1/for/2026-12-32")
+        .post(format!(
+            "/v1/participants/pick/1/for/{}",
+            date_this_year(12, 32)
+        ))
         .dispatch();
 
     assert_eq!(response.status(), Status::BadRequest);
@@ -368,10 +383,13 @@ fn picking_for_an_invalid_date_is_a_bad_request() {
 fn picking_more_winners_than_the_day_allows_is_a_conflict() {
     let database = TestDatabase::start(7);
     let client = logged_in_client(&database);
-    pick_winners(&client, 4, "2026-12-24");
+    pick_winners(&client, 4, &date_this_year(12, 24));
 
     let response = client
-        .post("/v1/participants/pick/2/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/2/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
 
     assert_eq!(response.status(), Status::Conflict);
@@ -405,7 +423,7 @@ fn pick_winners(client: &Client, count: usize, date: &str) -> Vec<i32> {
 fn assigning_a_package_stores_it_and_clearing_it_stores_null() {
     let database = TestDatabase::start(2);
     let client = logged_in_client(&database);
-    let winner_ids = pick_winners(&client, 2, "2026-12-24");
+    let winner_ids = pick_winners(&client, 2, &date_this_year(12, 24));
 
     assert_eq!(
         select_package(&client, winner_ids[0], "A"),
@@ -445,7 +463,7 @@ fn assigning_a_package_stores_it_and_clearing_it_stores_null() {
 fn the_same_package_can_only_be_assigned_once_per_day() {
     let database = TestDatabase::start(2);
     let client = logged_in_client(&database);
-    let winner_ids = pick_winners(&client, 2, "2026-12-24");
+    let winner_ids = pick_winners(&client, 2, &date_this_year(12, 24));
 
     assert_eq!(
         select_package(&client, winner_ids[0], "A"),
@@ -468,8 +486,8 @@ fn the_same_package_can_only_be_assigned_once_per_day() {
 fn the_same_package_can_be_assigned_on_different_days() {
     let database = TestDatabase::start(2);
     let client = logged_in_client(&database);
-    let first_day_winner = pick_winners(&client, 1, "2026-12-24")[0];
-    let second_day_winner = pick_winners(&client, 1, "2026-12-23")[0];
+    let first_day_winner = pick_winners(&client, 1, &date_this_year(12, 24))[0];
+    let second_day_winner = pick_winners(&client, 1, &date_this_year(12, 23))[0];
 
     assert_eq!(
         select_package(&client, first_day_winner, "A"),
@@ -485,7 +503,7 @@ fn the_same_package_can_be_assigned_on_different_days() {
 fn only_a_single_uppercase_letter_is_a_valid_package() {
     let database = TestDatabase::start(1);
     let client = logged_in_client(&database);
-    let winner_id = pick_winners(&client, 1, "2026-12-24")[0];
+    let winner_id = pick_winners(&client, 1, &date_this_year(12, 24))[0];
 
     assert_eq!(
         select_package(&client, winner_id, "AB"),
@@ -511,7 +529,7 @@ fn only_a_single_uppercase_letter_is_a_valid_package() {
 fn clearing_both_packages_of_one_day_is_possible_after_an_assignment() {
     let database = TestDatabase::start(2);
     let client = logged_in_client(&database);
-    let winner_ids = pick_winners(&client, 2, "2026-12-24");
+    let winner_ids = pick_winners(&client, 2, &date_this_year(12, 24));
 
     assert_eq!(
         select_package(&client, winner_ids[0], "A"),
@@ -896,7 +914,10 @@ fn picking_without_logging_in_is_forbidden_and_marks_nobody() {
     let client = client(&database);
 
     let response = client
-        .post("/v1/participants/pick/1/for/2026-12-24")
+        .post(format!(
+            "/v1/participants/pick/1/for/{}",
+            date_this_year(12, 24)
+        ))
         .dispatch();
 
     assert_eq!(response.status(), Status::Forbidden);
@@ -959,7 +980,7 @@ fn me_reports_the_username_and_the_remaining_token_lifetime() {
 fn removing_a_winner_over_http_resets_the_participant_and_logs_it() {
     let database = TestDatabase::start(1);
     let client = logged_in_client(&database);
-    let winner_id = pick_winners(&client, 1, "2026-12-24")[0];
+    let winner_id = pick_winners(&client, 1, &date_this_year(12, 24))[0];
 
     let response = client
         .delete(format!("/v1/participants/won/{winner_id}"))
@@ -1142,7 +1163,7 @@ fn a_rate_limited_password_change_exposes_the_retry_after_header_to_cross_origin
 fn only_the_packages_the_ui_offers_are_valid() {
     let database = TestDatabase::start(1);
     let client = logged_in_client(&database);
-    let winner_id = pick_winners(&client, 1, "2026-12-24")[0];
+    let winner_id = pick_winners(&client, 1, &date_this_year(12, 24))[0];
 
     assert_eq!(
         select_package(&client, winner_id, "F"),
@@ -1339,11 +1360,6 @@ fn a_login_cookie_expires_together_with_its_token() {
         expires_at > now && expires_at <= now + 3602,
         "the cookie must expire together with the roughly one hour token, got {expires_at} at {now}"
     );
-}
-
-fn date_this_year(month: u32, day: u32) -> String {
-    use chrono::Datelike;
-    format!("{}-{month:02}-{day:02}", chrono::Utc::now().year())
 }
 
 fn pick_status(client: &Client, count: &str, date: &str) -> Status {
