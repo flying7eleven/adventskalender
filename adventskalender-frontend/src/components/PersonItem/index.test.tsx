@@ -18,7 +18,7 @@ const renderItem = (winner: WinnerInformation, updateWinnerList = vi.fn()) => {
         <MemoryRouter>
             <AuthenticationProvider>
                 <LocalizationProvider resources={{ english: English, german: English }}>
-                    <PersonItem winner={winner} winningDay={6} numberOfMaxSubPackages={5} updateWinnerList={updateWinnerList} />
+                    <PersonItem winner={winner} winningDay={6} updateWinnerList={updateWinnerList} />
                 </LocalizationProvider>
             </AuthenticationProvider>
         </MemoryRouter>
