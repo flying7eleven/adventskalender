@@ -900,6 +900,7 @@ fn assert_security_headers(response: &rocket::local::blocking::LocalResponse<'_>
     );
     assert!(headers.get_one("Content-Security-Policy").is_some());
     assert!(headers.get_one("Permissions-Policy").is_some());
+    assert_eq!(headers.get_one("X-XSS-Protection"), Some("0"));
     let expected_hsts = if cfg!(debug_assertions) {
         None
     } else {
@@ -1914,7 +1915,7 @@ fn an_oversized_username_is_rejected_without_counting_against_the_rate_limit() {
     let client = client(&database);
     let ip = "192.0.2.40";
 
-    for oversized in ["u".repeat(65), "€".repeat(22)] {
+    for oversized in ["u".repeat(65), "€".repeat(65)] {
         for _ in 0..6 {
             assert_eq!(
                 login_from(&client, ip, &oversized, PICKING_USER_PASSWORD),
@@ -2157,4 +2158,66 @@ fn the_backend_version_is_served_without_authentication() {
             "{field}: {body}"
         );
     }
+}
+
+#[test]
+fn a_username_of_64_multi_byte_characters_can_log_in_and_65_characters_are_rejected() {
+    let database = TestDatabase::start(0);
+    let client = client(&database);
+    let ip = "192.0.2.41";
+    let username = "ä".repeat(64);
+    database.execute(&format!(
+        "UPDATE users SET username = '{username}' WHERE id = {}",
+        database.picking_user_id
+    ));
+
+    assert_eq!(
+        login_from(&client, ip, &username, PICKING_USER_PASSWORD),
+        Status::Ok
+    );
+    assert_eq!(
+        login_from(&client, ip, &"ä".repeat(65), PICKING_USER_PASSWORD),
+        Status::BadRequest
+    );
+}
+
+#[test]
+fn logging_out_with_a_token_within_the_leeway_keeps_the_other_sessions() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let other_session = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let auth_time =
+        unix_now() - (adventskalender_backend::session_lifetime_in_seconds() as u64 + 2);
+    let (token, expires_at) = adventskalender_backend::get_token_for_user_with_auth_time(
+        &database.picking_user,
+        database.picking_user_id,
+        0,
+        HashSet::from(["http://localhost:5173".to_string()]),
+        "http://localhost:5479".to_string(),
+        &EncodingKey::from_ed_der(&key_bytes),
+        auth_time as usize,
+    )
+    .expect("token creation must succeed");
+    assert!(expires_at < unix_now());
+    let expiring_client = client_with_key_bytes(&database, &key_bytes);
+
+    let response = expiring_client
+        .post("/v1/auth/logout")
+        .cookie(("auth_token", token))
+        .dispatch();
+
+    assert_eq!(response.status(), Status::NoContent);
+    let removal = response
+        .cookies()
+        .get("auth_token")
+        .expect("the logout must remove the auth_token cookie");
+    assert_eq!(removal.value(), "");
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM users WHERE session_epoch = 0"),
+        database.count("SELECT COUNT(*) AS count FROM users")
+    );
+    assert_eq!(
+        other_session.get("/v1/auth/me").dispatch().status(),
+        Status::Ok
+    );
 }
