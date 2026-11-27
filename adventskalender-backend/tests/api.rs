@@ -1929,23 +1929,18 @@ fn an_oversized_username_is_rejected_without_counting_against_the_rate_limit() {
 }
 
 #[test]
-fn an_oversized_password_is_rejected_without_counting_against_the_rate_limit() {
+fn a_user_whose_existing_password_is_longer_than_72_bytes_can_still_log_in() {
     let database = TestDatabase::start(0);
     let client = client(&database);
-    let ip = "192.0.2.41";
+    let long_password = format!("{PICKING_USER_PASSWORD}-{}", "p".repeat(80));
+    database.execute(&format!(
+        "UPDATE users SET password_hash = '{}' WHERE id = {}",
+        bcrypt::hash(&long_password, 4).unwrap(),
+        database.picking_user_id
+    ));
 
-    for _ in 0..6 {
-        assert_eq!(
-            login_from(&client, ip, &database.picking_user, &"p".repeat(73)),
-            Status::BadRequest
-        );
-    }
     assert_eq!(
-        login_from(&client, ip, &database.picking_user, &"p".repeat(72)),
-        Status::Unauthorized
-    );
-    assert_eq!(
-        login_from(&client, ip, &database.picking_user, PICKING_USER_PASSWORD),
+        login(&client, &database.picking_user, &long_password).0,
         Status::Ok
     );
 }

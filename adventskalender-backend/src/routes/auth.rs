@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 /// The longest username the backend accepts, matching the `users.username` column.
 const MAX_USERNAME_BYTES: usize = 64;
-/// The longest password the backend accepts, since bcrypt only uses the first 72 bytes.
+/// The longest new password the backend accepts, since bcrypt only uses the first 72 bytes.
 const MAX_PASSWORD_BYTES: usize = 72;
 
 #[derive(Serialize, Deserialize)]
@@ -161,7 +161,7 @@ pub async fn update_user_password(
                 return Err(PasswordChangeError::PasswordTooShort);
             }
 
-            // a longer password could not be used for a login
+            // bcrypt would silently ignore everything after the first 72 bytes
             if first_time.len() > MAX_PASSWORD_BYTES {
                 debug!("Password rejected: too long (maximum {MAX_PASSWORD_BYTES} bytes)");
                 return Err(PasswordChangeError::PasswordTooLong);
@@ -290,7 +290,7 @@ fn set_session_cookie(
 }
 
 pub enum LoginError {
-    /// The username or the password is longer than any valid one.
+    /// The username is longer than any valid one.
     BadRequest,
     Unauthorized,
     TooManyRequests {
@@ -346,11 +346,11 @@ pub async fn get_login_token(
     }
 
     // the login input is never logged, since a password might have been typed into the username
-    // field; oversized input is rejected before it reaches the rate limiter, the database or bcrypt
-    if login_information.username.len() > MAX_USERNAME_BYTES
-        || login_information.password.len() > MAX_PASSWORD_BYTES
-    {
-        debug!("Rejected a login request with an oversized username or password");
+    // field; an oversized username is rejected before it reaches the rate limiter or the database.
+    // passwords of any length are verified, since existing passwords may be longer than the limit
+    // for new ones and bcrypt only uses their first 72 bytes
+    if login_information.username.len() > MAX_USERNAME_BYTES {
+        debug!("Rejected a login request with an oversized username");
         return Err(LoginError::BadRequest);
     }
 
