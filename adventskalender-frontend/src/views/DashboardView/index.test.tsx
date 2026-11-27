@@ -189,15 +189,52 @@ describe('DashboardView', () => {
         await waitForAuth();
 
         await selectDay(/December 02/);
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${new Date().getFullYear()}-12-2/count`, expect.anything()));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${new Date().getFullYear()}-12-02/count`, expect.anything()));
 
         await selectDay(/December 03/);
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${new Date().getFullYear()}-12-3/count`, expect.anything()));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${new Date().getFullYear()}-12-03/count`, expect.anything()));
         await waitFor(() => expect(screen.getByText(/There are 5 winner/)).toBeInTheDocument());
 
         resolveFirst({ status: 200, ok: true, json: () => Promise.resolve(0) });
         await new Promise((resolve) => setTimeout(resolve, 200));
         expect(screen.getByText(/There are 5 winner/)).toBeInTheDocument();
         expect(screen.queryByText(/There are 0 winner/)).not.toBeInTheDocument();
+    });
+
+    describe('default raffle day', () => {
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        const today = (year: number, monthIndex: number, day: number) => {
+            vi.useFakeTimers({ toFake: ['Date'] });
+            vi.setSystemTime(new Date(year, monthIndex, day, 12, 0, 0));
+        };
+
+        test.each([
+            { label: 'November 27', date: [2026, 10, 27], expectedDate: '2026-12-01', expectedOption: /December 01, 2026/ },
+            { label: 'December 5', date: [2026, 11, 5], expectedDate: '2026-12-05', expectedOption: /December 05, 2026/ },
+            { label: 'December 26', date: [2026, 11, 26], expectedDate: '2026-12-24', expectedOption: /December 24, 2026/ },
+            { label: 'January 3', date: [2027, 0, 3], expectedDate: '2027-12-01', expectedOption: /December 01, 2027/ },
+        ])('preselects $expectedDate on $label', async ({ date: [year, monthIndex, day], expectedDate, expectedOption }) => {
+            today(year, monthIndex, day);
+            mockFetchWith(pickHandlers(() => ({ status: 409, ok: false, json: () => Promise.resolve({}) })));
+            renderView();
+            await waitForAuth();
+
+            await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${API_BACKEND_URL}/participants/won/${expectedDate}/count`, expect.anything()));
+            expect(screen.getAllByRole('combobox')[0]).toHaveTextContent(expectedOption);
+        });
+
+        test('picks winners for the zero padded raffle date', async () => {
+            today(2026, 10, 27);
+            mockFetchWith(pickHandlers(() => ({ status: 409, ok: false, json: () => Promise.resolve({}) })));
+            renderView();
+            await waitForAuth();
+
+            fireEvent.click(screen.getByRole('button', { name: /Pick new winners/ }));
+
+            await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^${API_BACKEND_URL}/participants/pick/\\d+/for/2026-12-01$`)), expect.anything()));
+        });
     });
 });

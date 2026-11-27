@@ -2,8 +2,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { useContext } from 'react';
 import { LocalizationContext } from '../../provider/LocalizationContext';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { FIRST_RAFFLE_DAY, getRaffleDate, LAST_RAFFLE_DAY } from '../../utils/raffleDate';
 
 interface Props {
     changeHandler?: (selected: number) => void;
@@ -26,14 +27,12 @@ export const WinningDaySelector = (props: Props) => {
         const translationFormat = localizationContext.translate('dashboard.date_format_dropdown');
         // Determine locale based on browser language (German or English)
         const locale = window.navigator.language.startsWith('de') ? de : undefined;
-        let currentDate = new Date(new Date().getFullYear(), 11, 1); // December 1st
-        for (let i = 1; i < 25; i++) {
+        for (let day = FIRST_RAFFLE_DAY; day <= LAST_RAFFLE_DAY; day++) {
             menuEntries.push(
-                <SelectItem key={`menu-item-${i}`} value={i.toString()}>
-                    {format(currentDate, translationFormat, { locale })}
+                <SelectItem key={`menu-item-${day}`} value={day.toString()}>
+                    {format(getRaffleDate(day), translationFormat, { locale })}
                 </SelectItem>
             );
-            currentDate = addDays(currentDate, 1);
         }
         return menuEntries;
     };
