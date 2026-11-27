@@ -23,6 +23,7 @@ FROM nginx:1.30-alpine
 
 # Copy custom nginx configuration
 COPY docker/default.conf /etc/nginx/conf.d/default.conf
+COPY docker/security-headers.conf /etc/nginx/snippets/security-headers.conf
 
 # Copy built static files from build stage
 # Note: nginx master process runs as root, worker processes as nginx user

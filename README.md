@@ -56,7 +56,9 @@ psql -h localhost -U adventskalender -d adventskalender -c \
 **Note**: The example hash above is for demonstration only. Always generate a fresh hash for your actual password.
 
 ## Reverse proxy requirement in production
-The backend takes the client IP for the login rate limit from the `X-Real-IP` header (via Rocket's `client_ip()`). In production, the backend must therefore only be reachable through a reverse proxy which sets this header, since otherwise clients could spoof their IP and bypass the rate limit.
+The backend takes the client IP for the login rate limit from the `X-Real-IP` header (via Rocket's `client_ip()`). In production, the backend must therefore only be reachable through the nginx of the frontend container, which proxies `/api/` and `/.well-known/` to the backend and sets this header, since otherwise clients could spoof their IP and bypass the rate limit.
+
+The frontend container runs behind an outer reverse proxy which terminates TLS. This outer proxy must append the client IP to the `X-Forwarded-For` header (e.g. nginx `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`). The frontend nginx trusts `X-Forwarded-For` only from peers in the loopback and private ranges `127.0.0.1`, `::1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and `fc00::/7`, takes the rightmost address outside these ranges as the client IP and passes it to the backend as `X-Real-IP`. For any other peer, the peer address itself is the client IP. The outer proxy must therefore reach the frontend container from one of these ranges, and clients within these ranges must not reach the frontend container directly, since they could spoof `X-Forwarded-For`.
 
 ## Local diesel usage
 For running `diesel` commands locally, create the configuration file first: `cp adventskalender-backend/.env.example adventskalender-backend/.env`.
