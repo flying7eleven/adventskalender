@@ -109,14 +109,14 @@ export const AuthenticatedView = (props: Props) => {
         {
             key: 'Dashboard',
             icon: <LayoutDashboard className="h-5 w-5" />,
-            label: <LocalizedText translationKey="global.navigation.dashboard" />,
+            label: localizationContext.translate('global.navigation.dashboard'),
             onClick: onClickOnDashboard,
             selected: isSelected('/'),
         },
         {
             key: 'Calendar',
             icon: <Calendar className="h-5 w-5" />,
-            label: <LocalizedText translationKey="global.navigation.calendar" />,
+            label: localizationContext.translate('global.navigation.calendar'),
             onClick: onClickOnCalendar,
             selected: isSelected('/calendar'),
         },
@@ -126,14 +126,14 @@ export const AuthenticatedView = (props: Props) => {
         {
             key: 'Settings',
             icon: <Settings className="h-5 w-5" />,
-            label: <LocalizedText translationKey="global.navigation.settings" />,
+            label: localizationContext.translate('global.navigation.settings'),
             onClick: onClickSettings,
             selected: isSelected('/settings'),
         },
         {
             key: 'Version',
             icon: <Info className="h-5 w-5" />,
-            label: <LocalizedText translationKey="global.navigation.version" />,
+            label: localizationContext.translate('global.navigation.version'),
             onClick: onClickOnVersion,
             selected: isSelected('/version'),
         },

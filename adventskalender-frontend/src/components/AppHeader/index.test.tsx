@@ -2,11 +2,17 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { AppHeader } from './index';
+import { LocalizationProvider } from '../../provider/LocalizationProvider';
+import English from '../../languages/en.json';
 
 const renderHeader = () => {
     const onMenuClick = vi.fn();
     const onLogout = vi.fn();
-    render(<AppHeader open={false} onMenuClick={onMenuClick} onLogout={onLogout} title="Adventskalender" logoutLabel="Logout" />);
+    render(
+        <LocalizationProvider resources={{ english: English, german: English }}>
+            <AppHeader open={false} onMenuClick={onMenuClick} onLogout={onLogout} title="Adventskalender" logoutLabel="Logout" />
+        </LocalizationProvider>
+    );
     return { onMenuClick, onLogout };
 };
 

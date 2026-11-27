@@ -56,14 +56,14 @@ describe('App routing', () => {
 
         expect(await screen.findByRole('button', { name: English.login.form.sign_in_button })).toBeInTheDocument();
         expect(window.location.pathname).toBe('/login');
-        expect(screen.queryByRole('button', { name: /Pick new winners/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole('combobox', { name: English.dashboard.day_selection })).not.toBeInTheDocument();
     });
 
     test('shows the dashboard to an authenticated user', async () => {
         mockBackend({ authenticated: true });
         openApp('/');
 
-        expect(await screen.findByRole('button', { name: /Pick new winners/ })).toBeInTheDocument();
+        expect(await screen.findByRole('combobox', { name: English.dashboard.day_selection })).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: English.dashboard.navigation.app_title })).toBeInTheDocument();
         expect(window.location.pathname).toBe('/');
     });

@@ -29,7 +29,7 @@ describe('NavigationDrawer', () => {
         expect(settingsItems[0].onClick).not.toHaveBeenCalled();
     });
 
-    test('hides the labels when collapsed but keeps every entry clickable', async () => {
+    test('hides the labels when collapsed but keeps every entry reachable by its name', async () => {
         const { items, settingsItems } = createItems();
         render(<NavigationDrawer open={false} onToggle={vi.fn()} items={items} settingsItems={settingsItems} />);
         const user = userEvent.setup();
@@ -37,14 +37,8 @@ describe('NavigationDrawer', () => {
         expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
         expect(screen.queryByText('Settings')).not.toBeInTheDocument();
 
-        const toggle = screen.getByRole('button', { name: 'Toggle navigation drawer' });
-        const entries = screen.getAllByRole('button').filter((button) => button !== toggle);
-        expect(entries).toHaveLength(4);
-        for (const entry of entries) {
-            await user.click(entry);
-        }
-
         for (const item of [...items, ...settingsItems]) {
+            await user.click(screen.getByRole('button', { name: item.label }));
             expect(item.onClick).toHaveBeenCalledTimes(1);
         }
     });

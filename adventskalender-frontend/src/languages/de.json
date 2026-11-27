@@ -5,6 +5,11 @@
             "calendar": "Vergangene Gewinner:innen",
             "settings": "Einstellungen",
             "version": "Versionsinformation"
+        },
+        "theme_toggle": {
+            "switch_to_light": "Zum hellen Design wechseln",
+            "switch_to_dark": "Zum dunklen Design wechseln",
+            "switch_to_system": "Design des Systems verwenden"
         }
     },
     "login": {
