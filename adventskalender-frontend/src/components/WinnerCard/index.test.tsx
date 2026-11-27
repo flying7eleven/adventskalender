@@ -6,22 +6,24 @@ import { MemoryRouter } from 'react-router';
 import { AuthenticationProvider } from '../../provider/AuthenticationProvider';
 import { LocalizationProvider } from '../../provider/LocalizationProvider';
 import English from '../../languages/en.json';
+import { WinnerInformation } from '../../api';
 
 const winners = [
     { id: 1, firstName: 'Max', lastName: 'Mustermann', presentIdentifier: 'A' },
     { id: 2, firstName: 'Erika', lastName: 'Musterfrau', presentIdentifier: null },
 ];
 
-const renderCard = () =>
-    render(
-        <MemoryRouter>
-            <AuthenticationProvider>
-                <LocalizationProvider resources={{ english: English, german: English }}>
-                    <WinnerCard winningDate="2024-12-06" listOfWinner={winners} numberOfMaxSubPackages={5} updateWinnerList={vi.fn()} />
-                </LocalizationProvider>
-            </AuthenticationProvider>
-        </MemoryRouter>
-    );
+const cardTree = (listOfWinner: WinnerInformation[]) => (
+    <MemoryRouter>
+        <AuthenticationProvider>
+            <LocalizationProvider resources={{ english: English, german: English }}>
+                <WinnerCard winningDate="2024-12-06" listOfWinner={listOfWinner} numberOfMaxSubPackages={5} updateWinnerList={vi.fn()} />
+            </LocalizationProvider>
+        </AuthenticationProvider>
+    </MemoryRouter>
+);
+
+const renderCard = () => render(cardTree(winners));
 
 describe('WinnerCard', () => {
     beforeEach(() => {
@@ -56,5 +58,28 @@ describe('WinnerCard', () => {
             .find((row) => row !== null)!
             .querySelector('button[role="combobox"]')!;
         expect(firstRowCombobox).toHaveTextContent('A');
+    });
+
+    test('preselects the updated packages after the winner list changes', async () => {
+        const { rerender } = render(cardTree(winners));
+        rerender(
+            cardTree([
+                { id: 1, firstName: 'Max', lastName: 'Mustermann', presentIdentifier: 'B' },
+                { id: 2, firstName: 'Erika', lastName: 'Musterfrau', presentIdentifier: 'C' },
+            ])
+        );
+
+        const user = userEvent.setup();
+        await user.click(screen.getAllByRole('button')[1]);
+
+        const dialog = await screen.findByRole('dialog');
+        const comboboxOf = (userName: string) =>
+            within(dialog)
+                .getAllByText(userName)
+                .map((element) => element.closest('tr'))
+                .find((row) => row !== null)!
+                .querySelector('button[role="combobox"]')!;
+        expect(comboboxOf('Max Mustermann')).toHaveTextContent('B');
+        expect(comboboxOf('Erika Musterfrau')).toHaveTextContent('C');
     });
 });
