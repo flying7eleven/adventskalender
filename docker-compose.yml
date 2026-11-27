@@ -46,6 +46,8 @@ services:
   adventskalender_frontend:
     container_name: adventskalender_frontend
     image: adventskalender-frontend:local
+    environment:
+      - NGINX_TRUSTED_PROXIES= # the local setup has no outer reverse proxy, so the direct peer is the client
     restart: "unless-stopped"
     depends_on:
       - adventskalender_backend
