@@ -151,42 +151,6 @@ pub fn lookup_user_by_name(
         .first::<User>(db_connection)
 }
 
-pub fn log_action(
-    db_connection: &mut PgConnection,
-    maybe_username_performing_action: Option<String>,
-    executed_action: Action,
-    possible_description: Option<String>,
-) {
-    use log::error;
-
-    // failed logins are logged as "anonymous" to prevent username enumeration and have no user id
-    let user_id = match maybe_username_performing_action.as_deref() {
-        None | Some("anonymous") => None,
-        Some(username_performing_action) => {
-            match lookup_user_by_name(db_connection, username_performing_action) {
-                Ok(user) => Some(user.id),
-                Err(error) => {
-                    error!(
-                        "Could not look up the user object for the user '{username_performing_action}'. The error was: {error}"
-                    );
-                    None
-                }
-            }
-        }
-    };
-
-    if record_action(
-        db_connection,
-        user_id,
-        executed_action,
-        possible_description,
-    )
-    .is_err()
-    {
-        error!("Failed to store a new action history log entry due to a database error")
-    };
-}
-
 /// Writes an audit log entry and reports a failure to the caller, so that it can be written in
 /// the same transaction as the audited state change and roll that change back on failure.
 pub fn record_action(
