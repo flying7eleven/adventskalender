@@ -27,7 +27,7 @@ fn parallel_picks_never_select_the_same_participant_twice() {
                     &database.pool,
                     WINNERS_PER_PICK,
                     christmas_eve() + chrono::Duration::days(index as i64),
-                    &database.picking_user,
+                    database.picking_user_id,
                 ))
             })
         })
@@ -63,7 +63,7 @@ fn picking_more_winners_than_participants_left_marks_nobody() {
         &database.pool,
         3,
         christmas_eve(),
-        &database.picking_user,
+        database.picking_user_id,
     ));
 
     assert!(matches!(
@@ -84,7 +84,7 @@ fn picking_more_winners_than_the_day_allows_marks_nobody() {
         &database.pool,
         adventskalender_backend::routes::MAX_WINNERS_PER_DAY + 1,
         christmas_eve(),
-        &database.picking_user,
+        database.picking_user_id,
     ));
 
     assert!(matches!(
@@ -116,7 +116,7 @@ fn parallel_picks_never_exceed_the_maximum_number_of_winners_per_day() {
                     &database.pool,
                     WINNERS_PER_PICK,
                     christmas_eve(),
-                    &database.picking_user,
+                    database.picking_user_id,
                 ))
             })
         })
@@ -141,27 +141,17 @@ fn parallel_picks_never_exceed_the_maximum_number_of_winners_per_day() {
 }
 
 #[test]
-fn picking_reports_database_errors_instead_of_an_unknown_user() {
-    let database = TestDatabase::start(1);
-    database.execute("ALTER TABLE users RENAME TO unreadable_users");
+fn picking_for_an_unknown_user_id_marks_nobody() {
+    let database = TestDatabase::start(5);
 
     let result = rocket::execute(pick_winners(
         &database.pool,
-        1,
+        2,
         christmas_eve(),
-        &database.picking_user,
+        database.picking_user_id + 1,
     ));
 
     assert!(matches!(result, Err(PickWinnersError::Database(_))));
-}
-
-#[test]
-fn picking_for_an_unknown_user_marks_nobody() {
-    let database = TestDatabase::start(5);
-
-    let result = rocket::execute(pick_winners(&database.pool, 2, christmas_eve(), "unknown"));
-
-    assert!(matches!(result, Err(PickWinnersError::UnknownUser)));
     assert_eq!(
         database.count("SELECT COUNT(*) AS count FROM participants WHERE won_on IS NOT NULL"),
         0
@@ -176,14 +166,14 @@ fn removing_a_winner_puts_the_participant_back_into_the_raffle() {
         &database.pool,
         1,
         christmas_eve(),
-        &database.picking_user,
+        database.picking_user_id,
     ))
     .expect("the pick should succeed");
 
     let result = rocket::execute(mark_participant_as_not_won(
         &database.pool,
         winners[0].id,
-        database.picking_user.clone(),
+        database.picking_user_id,
     ));
 
     assert!(result.is_ok());
@@ -203,7 +193,7 @@ fn removing_an_unknown_participant_reports_it_as_unknown() {
     let result = rocket::execute(mark_participant_as_not_won(
         &database.pool,
         123456,
-        database.picking_user.clone(),
+        database.picking_user_id,
     ));
 
     assert!(matches!(result, Err(RemoveWinnerError::UnknownParticipant)));
@@ -232,7 +222,7 @@ fn picking_logs_one_audit_entry_per_winner_with_the_picking_user() {
         &database.pool,
         2,
         christmas_eve(),
-        &database.picking_user,
+        database.picking_user_id,
     ))
     .expect("the pick should succeed");
 
@@ -258,7 +248,7 @@ fn a_failing_audit_insert_rolls_back_the_pick() {
         &database.pool,
         1,
         christmas_eve(),
-        &database.picking_user,
+        database.picking_user_id,
     ));
 
     assert!(matches!(result, Err(PickWinnersError::Database(_))));
@@ -275,7 +265,7 @@ fn a_failing_audit_insert_rolls_back_the_removal_of_a_winner() {
         &database.pool,
         1,
         christmas_eve(),
-        &database.picking_user,
+        database.picking_user_id,
     ))
     .expect("the pick should succeed")[0]
         .id;
@@ -284,7 +274,7 @@ fn a_failing_audit_insert_rolls_back_the_removal_of_a_winner() {
     let result = rocket::execute(mark_participant_as_not_won(
         &database.pool,
         winner_id,
-        database.picking_user.clone(),
+        database.picking_user_id,
     ));
 
     assert!(matches!(result, Err(RemoveWinnerError::Database(_))));

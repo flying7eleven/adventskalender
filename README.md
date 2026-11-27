@@ -19,9 +19,9 @@ The backend tests start their own PostgreSQL container, so Docker must be runnin
 ## Authenticate against the backend
 The backend answers a successful login with the username and the remaining token lifetime in seconds, and returns the token as the HTTP-only cookie `auth_token`; only this cookie is accepted, an `Authorization` header is ignored. The token is valid for one hour and can be refreshed until the session reaches its absolute lifetime of 12 hours after the original login, which also bounds a single token.
 
-A logout and a password change end all sessions of the user: every token carries the session epoch of its user, and both bump the epoch, so all previously issued tokens are rejected, also on refresh. The session which changed the password receives a new cookie and stays logged in.
+A logout and a password change end all sessions of the user: every token carries the id and the session epoch of its user, and both bump the epoch, so all previously issued tokens are rejected, also on refresh. A token is also rejected once its user was deleted, even if a new user with the same name was created. The session which changed the password receives a new cookie and stays logged in.
 
-Usernames longer than 64 bytes and passwords longer than 72 bytes (the bcrypt limit) are rejected with `400 Bad Request`, and new passwords longer than 72 bytes are refused. JSON request bodies are limited to 16 KiB. Logins are rate limited to 5 attempts per client IP and 20 attempts per username within 15 minutes; IPv6 clients are grouped by their /64 prefix. The limiter tracks at most 100,000 keys; when it is full and no entry has expired, logins with untracked keys are rate limited until entries expire.
+Usernames longer than 64 bytes are rejected with `400 Bad Request`, and new passwords longer than 72 bytes (the bcrypt limit) are refused. A login accepts longer existing passwords, of which bcrypt only checks the first 72 bytes. JSON request bodies are limited to 16 KiB. Logins are rate limited to 5 attempts per client IP and 20 attempts per username within 15 minutes; IPv6 clients are grouped by their /64 prefix. The limiter tracks at most 100,000 keys; when it is full and no entry has expired, logins with untracked keys are rate limited until entries expire.
 
 Store the cookie in a cookie jar and pass that jar to all following requests:
 ```shell
@@ -56,6 +56,12 @@ python3 -c "import bcrypt; print(bcrypt.hashpw(b'SecurePassword123', bcrypt.gens
 # Insert into database (example output: $2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy)
 psql -h localhost -U adventskalender -d adventskalender -c \
   "INSERT INTO users (username, password_hash) VALUES ('admin', '\$2b\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy');"
+```
+
+To set a new password for an existing user, also bump the session epoch, so that all sessions of the user end like after a password change in the application:
+```shell
+psql -h localhost -U adventskalender -d adventskalender -c \
+  "UPDATE users SET password_hash = '\$2b\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', session_epoch = session_epoch + 1 WHERE username = 'admin';"
 ```
 
 **Note**: The example hash above is for demonstration only. Always generate a fresh hash for your actual password.

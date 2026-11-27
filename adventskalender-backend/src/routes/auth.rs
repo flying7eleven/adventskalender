@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 /// The longest username the backend accepts, matching the `users.username` column.
 const MAX_USERNAME_BYTES: usize = 64;
-/// The longest password the backend accepts, since bcrypt only uses the first 72 bytes.
+/// The longest new password the backend accepts, since bcrypt only uses the first 72 bytes.
 const MAX_PASSWORD_BYTES: usize = 72;
 
 #[derive(Serialize, Deserialize)]
@@ -161,7 +161,7 @@ pub async fn update_user_password(
                 return Err(PasswordChangeError::PasswordTooShort);
             }
 
-            // a longer password could not be used for a login
+            // bcrypt would silently ignore everything after the first 72 bytes
             if first_time.len() > MAX_PASSWORD_BYTES {
                 debug!("Password rejected: too long (maximum {MAX_PASSWORD_BYTES} bytes)");
                 return Err(PasswordChangeError::PasswordTooLong);
@@ -220,6 +220,7 @@ pub async fn update_user_password(
     // the session which changed the password keeps working with a token for the new epoch
     match crate::get_token_for_user_with_auth_time(
         &authenticated_user.username,
+        user_id,
         new_session_epoch,
         config.token_audience.clone(),
         config.api_host.clone(),
@@ -245,10 +246,11 @@ pub struct LoginInformation {
     password: String,
 }
 
-/// Issues a fresh token for `username` and sets it as the `auth_token` cookie, exactly like a
+/// Issues a fresh token for the user and sets it as the `auth_token` cookie, exactly like a
 /// successful login does. Returns the expiry of the new token (UNIX seconds).
 pub fn issue_session_cookie(
     username: &str,
+    user_id: i32,
     session_epoch: i32,
     config: &BackendConfiguration,
     cookies: &CookieJar<'_>,
@@ -257,6 +259,7 @@ pub fn issue_session_cookie(
 
     let (token, expires_at) = get_token_for_user(
         username,
+        user_id,
         session_epoch,
         config.token_audience.clone(),
         config.api_host.clone(),
@@ -287,7 +290,7 @@ fn set_session_cookie(
 }
 
 pub enum LoginError {
-    /// The username or the password is longer than any valid one.
+    /// The username is longer than any valid one.
     BadRequest,
     Unauthorized,
     TooManyRequests {
@@ -343,11 +346,11 @@ pub async fn get_login_token(
     }
 
     // the login input is never logged, since a password might have been typed into the username
-    // field; oversized input is rejected before it reaches the rate limiter, the database or bcrypt
-    if login_information.username.len() > MAX_USERNAME_BYTES
-        || login_information.password.len() > MAX_PASSWORD_BYTES
-    {
-        debug!("Rejected a login request with an oversized username or password");
+    // field; an oversized username is rejected before it reaches the rate limiter or the database.
+    // passwords of any length are verified, since existing passwords may be longer than the limit
+    // for new ones and bcrypt only uses their first 72 bytes
+    if login_information.username.len() > MAX_USERNAME_BYTES {
+        debug!("Rejected a login request with an oversized username");
         return Err(LoginError::BadRequest);
     }
 
@@ -463,9 +466,13 @@ pub async fn get_login_token(
 
     // the user is known and the supplied password was valid, we can generate a new access
     // token and return it to the calling party
-    let Some(expires_at) =
-        issue_session_cookie(&login_information.username, session_epoch, config, cookies)
-    else {
+    let Some(expires_at) = issue_session_cookie(
+        &login_information.username,
+        user_id,
+        session_epoch,
+        config,
+        cookies,
+    ) else {
         error!("Could not issue a token for a successful login");
         return Err(LoginError::InternalServerError);
     };
@@ -504,20 +511,35 @@ pub async fn get_login_token(
     }))
 }
 
+/// Issues a new token for a valid session. A rejected token or an exceeded session lifetime
+/// removes the session cookie.
 #[post("/auth/refresh")]
 pub async fn refresh_session(
-    authenticated_user: AuthenticatedUser,
+    authenticated_user: Result<AuthenticatedUser, AuthorizationError>,
     config: &State<BackendConfiguration>,
     cookies: &CookieJar<'_>,
-) -> Result<Json<UserInfo>, Status> {
+) -> Result<Json<UserInfo>, Custom<()>> {
     use crate::{get_token_for_user_with_auth_time, session_lifetime_in_seconds, unix_time_now};
+
+    // the error responses below are no catchers, so the removal of the cookie reaches the client;
+    // a token which could not be validated may still be valid, so its cookie is kept
+    let authenticated_user = match authenticated_user {
+        Ok(user) => user,
+        Err(AuthorizationError::CannotValidateToken) => {
+            return Err(Custom(Status::InternalServerError, ()));
+        }
+        Err(_) => {
+            cookies.remove(Cookie::from("auth_token"));
+            return Err(Custom(Status::Forbidden, ()));
+        }
+    };
 
     // a session has an absolute lifetime which starts at the original login; if it is exceeded,
     // the session is terminated and the user has to log in again
     let now = unix_time_now() as u64;
     if now.saturating_sub(authenticated_user.auth_time) >= session_lifetime_in_seconds() as u64 {
         cookies.remove(Cookie::from("auth_token"));
-        return Err(Status::Forbidden);
+        return Err(Custom(Status::Forbidden, ()));
     }
 
     // the guard already ensured that the user still exists and that the session was not revoked;
@@ -525,6 +547,7 @@ pub async fn refresh_session(
     // original login, so the absolute session lifetime cannot be extended by refreshing
     match get_token_for_user_with_auth_time(
         &authenticated_user.username,
+        authenticated_user.user_id,
         authenticated_user.session_epoch,
         config.token_audience.clone(),
         config.api_host.clone(),
@@ -540,7 +563,7 @@ pub async fn refresh_session(
                 expires_in,
             }))
         }
-        None => Err(Status::InternalServerError),
+        None => Err(Custom(Status::InternalServerError, ())),
     }
 }
 

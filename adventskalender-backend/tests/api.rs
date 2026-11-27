@@ -1154,6 +1154,7 @@ fn refreshing_a_session_after_the_absolute_session_lifetime_is_forbidden() {
         unix_now() - (adventskalender_backend::session_lifetime_in_seconds() as u64 + 1);
     let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        database.picking_user_id,
         0,
         HashSet::from(["http://localhost:5173".to_string()]),
         "http://localhost:5479".to_string(),
@@ -1168,6 +1169,7 @@ fn refreshing_a_session_after_the_absolute_session_lifetime_is_forbidden() {
         .dispatch();
 
     assert_eq!(response.status(), Status::Forbidden);
+    assert_removes_the_auth_cookie(&response);
 }
 
 #[test]
@@ -1180,6 +1182,7 @@ fn refreshing_the_session_of_a_deleted_user_is_forbidden() {
     let response = logged_in.post("/v1/auth/refresh").dispatch();
 
     assert_eq!(response.status(), Status::Forbidden);
+    assert_removes_the_auth_cookie(&response);
 }
 
 #[test]
@@ -1383,6 +1386,7 @@ fn a_refresh_near_the_session_cap_returns_a_short_lived_token_which_keeps_the_or
     let auth_time = now - (adventskalender_backend::session_lifetime_in_seconds() as u64 - 60);
     let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        database.picking_user_id,
         0,
         audience.clone(),
         issuer.to_string(),
@@ -1444,6 +1448,7 @@ fn a_refresh_near_the_session_cap_returns_a_short_lived_token_which_keeps_the_or
 
     let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        database.picking_user_id,
         0,
         audience,
         "http://localhost:5479".to_string(),
@@ -1699,6 +1704,34 @@ fn refreshing_with_a_token_replayed_after_logout_is_rejected() {
         .dispatch();
 
     assert_eq!(response.status(), Status::Forbidden);
+    assert_removes_the_auth_cookie(&response);
+}
+
+#[test]
+fn a_token_of_a_deleted_user_is_rejected_after_the_username_was_recreated() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = session_token_of(&logged_in);
+    database.execute("DELETE FROM performed_actions");
+    database.execute("DELETE FROM users");
+    database.execute(&format!(
+        "INSERT INTO users (username, password_hash) VALUES ('{}', '{}')",
+        database.picking_user,
+        bcrypt::hash(PICKING_USER_PASSWORD, 4).unwrap()
+    ));
+
+    let replaying_client = client_with_key_bytes(&database, &key_bytes);
+    assert_eq!(
+        me_status_with_token(&replaying_client, &token),
+        Status::Forbidden
+    );
+    let response = replaying_client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", token))
+        .dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+    assert_removes_the_auth_cookie(&response);
 }
 
 #[test]
@@ -1712,6 +1745,51 @@ fn logging_out_without_a_valid_token_still_succeeds() {
         .dispatch();
 
     assert_eq!(response.status(), Status::NoContent);
+}
+
+fn assert_removes_the_auth_cookie(response: &rocket::local::blocking::LocalResponse<'_>) {
+    let cookie = auth_cookie_set_by(response);
+    assert_eq!(cookie.value(), "");
+    assert_eq!(cookie.max_age(), Some(rocket::time::Duration::ZERO));
+}
+
+#[test]
+fn logging_out_reports_a_server_error_but_removes_the_cookie_if_the_users_cannot_be_read() {
+    let database = TestDatabase::start(0);
+    let logged_in = logged_in_client(&database);
+    database.execute("ALTER TABLE users RENAME TO unreadable_users");
+
+    let response = logged_in.post("/v1/auth/logout").dispatch();
+
+    assert_eq!(response.status(), Status::InternalServerError);
+    assert_removes_the_auth_cookie(&response);
+}
+
+#[test]
+fn logging_out_reports_a_server_error_but_removes_the_cookie_if_the_epoch_cannot_be_bumped() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = session_token_of(&logged_in);
+    database.execute(
+        "CREATE FUNCTION reject_user_update() RETURNS trigger AS $$ \
+         BEGIN RAISE EXCEPTION 'update rejected'; END; $$ LANGUAGE plpgsql",
+    );
+    database.execute(
+        "CREATE TRIGGER reject_user_update BEFORE UPDATE ON users \
+         FOR EACH ROW EXECUTE FUNCTION reject_user_update()",
+    );
+
+    let response = logged_in.post("/v1/auth/logout").dispatch();
+
+    assert_eq!(response.status(), Status::InternalServerError);
+    assert_removes_the_auth_cookie(&response);
+    assert_eq!(
+        database.count("SELECT COUNT(*) AS count FROM users WHERE session_epoch = 0"),
+        1
+    );
+    let replaying_client = client_with_key_bytes(&database, &key_bytes);
+    assert_eq!(me_status_with_token(&replaying_client, &token), Status::Ok);
 }
 
 #[test]
@@ -1780,6 +1858,7 @@ fn an_expired_token_is_rejected() {
         unix_now() - (adventskalender_backend::session_lifetime_in_seconds() as u64 + 60 * 60);
     let (token, expires_at) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        database.picking_user_id,
         0,
         HashSet::from(["http://localhost:5173".to_string()]),
         "http://localhost:5479".to_string(),
@@ -1854,23 +1933,18 @@ fn an_oversized_username_is_rejected_without_counting_against_the_rate_limit() {
 }
 
 #[test]
-fn an_oversized_password_is_rejected_without_counting_against_the_rate_limit() {
+fn a_user_whose_existing_password_is_longer_than_72_bytes_can_still_log_in() {
     let database = TestDatabase::start(0);
     let client = client(&database);
-    let ip = "192.0.2.41";
+    let long_password = format!("{PICKING_USER_PASSWORD}-{}", "p".repeat(80));
+    database.execute(&format!(
+        "UPDATE users SET password_hash = '{}' WHERE id = {}",
+        bcrypt::hash(&long_password, 4).unwrap(),
+        database.picking_user_id
+    ));
 
-    for _ in 0..6 {
-        assert_eq!(
-            login_from(&client, ip, &database.picking_user, &"p".repeat(73)),
-            Status::BadRequest
-        );
-    }
     assert_eq!(
-        login_from(&client, ip, &database.picking_user, &"p".repeat(72)),
-        Status::Unauthorized
-    );
-    assert_eq!(
-        login_from(&client, ip, &database.picking_user, PICKING_USER_PASSWORD),
+        login(&client, &database.picking_user, &long_password).0,
         Status::Ok
     );
 }

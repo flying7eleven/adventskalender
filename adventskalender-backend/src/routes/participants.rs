@@ -214,7 +214,7 @@ pub async fn remove_participant_from_winner_list(
     match mark_participant_as_not_won(
         db_connection_pool,
         participant_id,
-        authenticated_user.username.clone(),
+        authenticated_user.user_id,
     )
     .await
     {
@@ -257,8 +257,8 @@ pub async fn update_participant_values(
     current_participant_id: i32,
     new_package_selection: Json<NewPackageSelection>,
 ) -> Status {
+    use crate::record_action;
     use crate::schema::participants::dsl::{id, participants, present_identifier, won_on};
-    use crate::{lookup_user_by_name, record_action};
     use diesel::result::{DatabaseErrorKind, Error as DieselError};
     use diesel::{Connection, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, update};
     use log::error;
@@ -277,7 +277,7 @@ pub async fn update_participant_values(
         }
     }
 
-    let username = authenticated_user.username.clone();
+    let user_id = authenticated_user.user_id;
     let package = new_package_selection.package.clone();
 
     // a package is one of the letters the UI offers: A up to the letter matching the maximum
@@ -297,8 +297,6 @@ pub async fn update_participant_values(
     let outcome = db_connection_pool
         .run_blocking(move |db_connection| {
             db_connection.transaction(|connection| {
-                let user = lookup_user_by_name(connection, &username)?;
-
                 let previous_package = participants
                     .filter(id.eq(current_participant_id))
                     .select(present_identifier)
@@ -346,7 +344,7 @@ pub async fn update_participant_values(
                         ),
                     ),
                 };
-                record_action(connection, Some(user.id), action, Some(description))?;
+                record_action(connection, Some(user_id), action, Some(description))?;
                 Ok(())
             })
         })
@@ -447,7 +445,6 @@ pub const MAX_WINNERS_PER_DAY: usize = 5;
 pub enum PickWinnersError {
     NotEnoughParticipants,
     TooManyWinnersForDay,
-    UnknownUser,
     NoDatabaseConnection(r2d2::Error),
     BlockingThread(rocket::tokio::task::JoinError),
     Database(diesel::result::Error),
@@ -467,17 +464,15 @@ pub async fn pick_winners(
     db_connection_pool: &AdventskalenderDatabaseConnection,
     count: usize,
     picked_for_date: NaiveDate,
-    user_who_picked: &str,
+    user_who_picked: i32,
 ) -> Result<Vec<Participant>, PickWinnersError> {
     use crate::fairings::BlockingDatabaseError;
     use crate::models::{Participant as DatabaseParticipant, ParticipantPicking};
+    use crate::record_action;
     use crate::schema::participants::dsl::{id, participants, won_on};
-    use crate::{lookup_user_by_name, record_action};
     use chrono::Utc;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::error;
-
-    let user_who_picked = user_who_picked.to_string();
 
     // the whole pick runs on a blocking thread so that the database work does not block the
     // async runtime. The open participants stay row-locked until the commit, so a parallel pick
@@ -490,14 +485,6 @@ pub async fn pick_winners(
                 .read_committed()
                 .read_write()
                 .run(|connection| {
-                    let user = match lookup_user_by_name(connection, &user_who_picked) {
-                        Ok(user) => user,
-                        Err(diesel::result::Error::NotFound) => {
-                            return Err(PickWinnersError::UnknownUser);
-                        }
-                        Err(error) => return Err(PickWinnersError::Database(error)),
-                    };
-
                     let participants_in_raffle = participants
                         .filter(won_on.is_null())
                         .for_update()
@@ -532,7 +519,7 @@ pub async fn pick_winners(
                         .set(&ParticipantPicking {
                             won_on: Some(picked_for_date),
                             picking_time: Some(Utc::now().naive_utc()),
-                            picked_by: Some(user.id),
+                            picked_by: Some(user_who_picked),
                             present_identifier: None,
                         })
                         .execute(connection)?;
@@ -540,7 +527,7 @@ pub async fn pick_winners(
                     for winner in &winners {
                         record_action(
                             connection,
-                            Some(user.id),
+                            Some(user_who_picked),
                             Action::PickedWinner,
                             Some(format!(
                                 "The participant with the id {} was marked as won",
@@ -597,7 +584,7 @@ pub async fn pick_multiple_random_participant_from_raffle_list(
         db_connection_pool,
         count,
         picked_for_date,
-        &authenticated_user.username,
+        authenticated_user.user_id,
     )
     .await
     {
@@ -651,12 +638,12 @@ impl From<diesel::result::Error> for RemoveWinnerError {
 pub async fn mark_participant_as_not_won(
     db_connection_pool: &AdventskalenderDatabaseConnection,
     participant_id: i32,
-    user_who_unpicked: String,
+    user_who_unpicked: i32,
 ) -> Result<(), RemoveWinnerError> {
     use crate::fairings::BlockingDatabaseError;
     use crate::models::ParticipantPicking;
+    use crate::record_action;
     use crate::schema::participants::dsl::{id, participants};
-    use crate::{lookup_user_by_name, record_action};
     use diesel::{Connection, ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::debug;
 
@@ -665,7 +652,6 @@ pub async fn mark_participant_as_not_won(
     let outcome = match db_connection_pool
         .run_blocking(move |db_connection| {
             db_connection.transaction(|connection| {
-                let user = lookup_user_by_name(connection, &user_who_unpicked)?;
                 let rows_updated = update(participants.filter(id.eq(participant_id)))
                     .set(&ParticipantPicking {
                         won_on: None,
@@ -680,7 +666,7 @@ pub async fn mark_participant_as_not_won(
 
                 record_action(
                     connection,
-                    Some(user.id),
+                    Some(user_who_unpicked),
                     Action::RemovedWinner,
                     Some(format!(
                         "The participant with the id {participant_id} was marked removed from the list of winners"

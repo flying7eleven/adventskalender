@@ -91,20 +91,20 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             }
         };
 
-        let subject = claims.sub.clone();
-        let current_user = database
+        let token_user_id = claims.uid;
+        let token_username = claims.sub.clone();
+        let current_epoch = database
             .run_blocking(move |db_connection| {
                 users
-                    .filter(username.eq(&subject))
-                    .select((id, session_epoch))
-                    .first::<(i32, i32)>(db_connection)
+                    .filter(id.eq(token_user_id))
+                    .filter(username.eq(&token_username))
+                    .select(session_epoch)
+                    .first::<i32>(db_connection)
                     .optional()
             })
             .await;
-        let user_id = match current_user {
-            Ok(Ok(Some((user_id, current_epoch)))) if current_epoch == claims.session_epoch => {
-                user_id
-            }
+        match current_epoch {
+            Ok(Ok(Some(current_epoch))) if current_epoch == claims.session_epoch => {}
             Ok(Ok(Some(_))) => {
                 debug!("The supplied token was revoked by a logout or a password change");
                 return Outcome::Error((Status::Forbidden, AuthorizationError::RevokedToken));
@@ -133,7 +133,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
         };
 
         Outcome::Success(AuthenticatedUser {
-            user_id,
+            user_id: claims.uid,
             username: claims.sub,
             session_epoch: claims.session_epoch,
             expires_at: claims.exp as u64,
