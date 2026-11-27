@@ -212,7 +212,7 @@ export const DashboardView = () => {
                             />
                         </div>
                     }
-                    description={localizationContext.translateWithPlaceholder('dashboard.cards.pick_new_winner.description', winnersOnSelectedDay.toString())}
+                    description={localizationContext.translate('dashboard.cards.pick_new_winner.description', [winnersOnSelectedDay])}
                 />
             </div>
         </>

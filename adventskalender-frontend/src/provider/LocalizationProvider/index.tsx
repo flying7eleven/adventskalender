@@ -1,12 +1,26 @@
-import { ReactNode } from 'react';
-import { LocalizationContext, ResourceDefinitions } from '../LocalizationContext';
+import { ReactNode, useEffect } from 'react';
+import { de, enUS } from 'date-fns/locale';
+import { Language, LocalizationContext, ResourceDefinitions, TranslationVariable } from '../LocalizationContext';
 
 interface Props {
     children: ReactNode | ReactNode[];
     resources: ResourceDefinitions;
 }
 
+const replaceVariables = (text: string, variables: TranslationVariable[]) =>
+    text.replace(/\{(\d+)\}/g, (placeholder, index: string) => {
+        const variable = variables[Number(index)];
+        return variable === undefined ? placeholder : String(variable);
+    });
+
 export const LocalizationProvider = (props: Props) => {
+    const language: Language = navigator.language.split('-')[0].toLowerCase() === 'de' ? 'de' : 'en';
+    const dateLocale = language === 'de' ? de : enUS;
+
+    useEffect(() => {
+        document.documentElement.lang = language;
+    }, [language]);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const deepFind = (obj: any, path: string) => {
         const paths = path.split('.');
@@ -21,37 +35,19 @@ export const LocalizationProvider = (props: Props) => {
         return current;
     };
 
-    const getTranslationLanguage = () => {
-        const navigatorLanguage = navigator.language.split('-');
-        switch (navigatorLanguage[0].toLowerCase()) {
-            case 'de':
-                return props.resources.german;
-            case 'en':
-            default:
-                return props.resources.english;
-        }
-    };
+    const translate = (key: string, variables: TranslationVariable[] = []) => {
+        const translationLanguage = language === 'de' ? props.resources.german : props.resources.english;
 
-    const getTranslatedString = (key: string) => {
-        // get the correct dictionary for the translation
-        const translationLanguage = getTranslationLanguage();
-
-        // get the translation for the key and handle if we did not find it
         const translatedValue = deepFind(translationLanguage, key);
         if (!translatedValue) {
             console.error(`Could not find localization for '${key}' (selected navigator language was ${navigator.language})`);
             return key;
         }
 
-        // return the translated value
-        return translatedValue;
+        return replaceVariables(translatedValue, variables);
     };
 
-    const getTranslatedStringWithPlaceholder = (key: string, placeholder: string) => {
-        return getTranslatedString(key).replace('%PLACEHOLDER%', placeholder);
-    };
-
-    const value = { resources: props.resources, translate: getTranslatedString, translateWithPlaceholder: getTranslatedStringWithPlaceholder };
+    const value = { resources: props.resources, language, dateLocale, translate };
 
     return <LocalizationContext.Provider value={value}>{props.children}</LocalizationContext.Provider>;
 };

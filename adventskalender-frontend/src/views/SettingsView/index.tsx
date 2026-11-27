@@ -113,7 +113,7 @@ export const SettingsView = () => {
 
                 if (error instanceof ApiResponseError && error.status === 429) {
                     const retryAfterSeconds = error.response.headers.get('Retry-After') ?? '0';
-                    toast.error(localizationContext.translate('settings.cards.password.errors.rate_limited').replace('{0}', retryAfterSeconds), {
+                    toast.error(localizationContext.translate('settings.cards.password.errors.rate_limited', [retryAfterSeconds]), {
                         duration: 6000,
                     });
                     return;

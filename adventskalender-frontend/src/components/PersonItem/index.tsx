@@ -5,7 +5,7 @@ import { DeleteWinnerDialog } from '../../dialogs/DeleteWinnerDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-export const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerInformation; winningDay: number; numberOfMaxSubPackages: number; updateWinnerList?: () => void }) => {
+export const PersonItem = ({ winner, winningDay, updateWinnerList }: { winner: WinnerInformation; winningDay: number; updateWinnerList?: () => void }) => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
     const [userToDelete, setUserToDelete] = useState<WinnerInformation>({ firstName: '', lastName: '', id: -1, presentIdentifier: '' });
 

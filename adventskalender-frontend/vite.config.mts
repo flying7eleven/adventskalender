@@ -6,7 +6,7 @@ import browserslistToEsbuild from 'browserslist-to-esbuild';
 export default defineConfig(({ mode }) => {
     return {
         define: {
-            __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0]),
+            __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 19).replace('T', ' ')),
             __DEV__: JSON.stringify(mode === 'development'),
             __PROD__: JSON.stringify(mode === 'production'),
         },
@@ -25,10 +25,6 @@ export default defineConfig(({ mode }) => {
             environment: 'jsdom',
             globals: true,
             setupFiles: ['./src/test/setup.ts', './src/setupTests.ts'],
-            define: {
-                __DEV__: 'false',
-                __PROD__: 'false',
-            },
         },
         plugins: [
             react(),

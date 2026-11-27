@@ -4,7 +4,7 @@ import { useAuthentication } from '../../hooks/useAuthentication';
 import { useNavigate } from 'react-router';
 import { WinnerCard } from '../../components/WinnerCard';
 import { LocalizedText } from '../../components/LocalizedText';
-import { WinnersOnDateMapSchema } from '../../schemas';
+import { WinnersOnDateMap, WinnersOnDateMapSchema } from '../../schemas';
 
 export const CalendarView = () => {
     const [allWinners, setAllWinners] = useState<WinnersOnDateMap | null>(null);

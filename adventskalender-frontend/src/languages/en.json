@@ -31,7 +31,7 @@
     "session": {
         "expiry_warning": {
             "title": "Session Expiring Soon",
-            "message": "Your session will expire in 5 minutes due to inactivity. Would you like to stay logged in?",
+            "message": "Your session will end in 5 minutes. Would you like to stay logged in?",
             "stay_logged_in_button": "Stay Logged In",
             "logout_button": "Log Out"
         },
@@ -112,8 +112,7 @@
         "cards": {
             "winners": {
                 "headline": "Winners for",
-                "button_remove": "Remove winner",
-                "button_edit": "Edit winner"
+                "button_remove": "Remove winner"
             }
         },
         "dialogs": {
@@ -158,7 +157,7 @@
             },
             "pick_new_winner": {
                 "title": "Pick new winners",
-                "description": "There are %PLACEHOLDER% winner(s) on the selected day already."
+                "description": "There are {0} winner(s) on the selected day already."
             }
         },
         "dialogs": {
@@ -168,7 +167,6 @@
                 "title2_special1": "🎅🏻🎅🏽🎅🏾 Door No. {0} 🤶🏻🤶🏻🤶🏾",
                 "title2_special2": "🎄🎁🎅🏻🎅🏽🎅🏾 Door No. {0} 🤶🏻🤶🏻🤶🏾🎁🎄",
                 "text": "The following participants won on the selected day. Please select the corresponding packages for the winner and click on 'continue':",
-                "winner_paragraph_template": "The winners for {0} are {1}.",
                 "winner_paragraph_prefix": "The winners for",
                 "date_format": "EEEE, MMMM dd, yyyy",
                 "table": {
@@ -179,22 +177,13 @@
                         "package_label": "Package"
                     }
                 },
-                "steps": {
-                    "selection_step": "Package selection",
-                    "finish_step": "List of winners"
-                },
                 "accept_button": "Continue",
                 "cancel_button": "Cancel",
                 "autofill_button": "Select automatically",
                 "finish_button": "Finish",
                 "error_unpick": "The winners could not be removed. Please try again.",
-                "error_package_taken": "This package is already taken on that day. Please select another one."
-            },
-            "already_picked": {
-                "title": "Already picked winners",
-                "text": "There are already <b>%PLACEHOLDER%</b> winners selected for the selected day. Are you sure that you want to pick more winners for this day?",
-                "accept_button": "Yes, pick winners",
-                "cancel_button": "No, cancel picking"
+                "error_package_taken": "This package is already taken on that day. Please select another one.",
+                "error_loading_winners": "The winners of this day could not be loaded."
             },
             "no_participants_left": {
                 "title": "Error on picking a new winner",
@@ -210,7 +199,6 @@
         },
         "pick_winner_button": "Pick new winners",
         "day_selection": "Day of the win",
-        "number_of_winners": "Number of winners",
         "date_format_dropdown": "EEE, MMMM dd, yyyy"
     }
 }
