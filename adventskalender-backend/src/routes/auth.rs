@@ -1,12 +1,17 @@
 use crate::Action;
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
-use crate::guards::{AuthenticatedUser, ClientIp};
+use crate::guards::{AuthenticatedUser, AuthorizationError, ClientIp};
 use rocket::http::{ContentType, Cookie, CookieJar, SameSite, Status};
 use rocket::response::Responder;
-use rocket::response::status::NoContent;
+use rocket::response::status::{Custom, NoContent};
 use rocket::serde::json::{Json, json};
 use rocket::{State, get, post, put};
 use serde::{Deserialize, Serialize};
+
+/// The longest username the backend accepts, matching the `users.username` column.
+const MAX_USERNAME_BYTES: usize = 64;
+/// The longest password the backend accepts, since bcrypt only uses the first 72 bytes.
+const MAX_PASSWORD_BYTES: usize = 72;
 
 #[derive(Serialize, Deserialize)]
 pub struct NewPassword {
@@ -24,6 +29,7 @@ pub enum PasswordChangeError {
     WrongCurrentPassword,
     PasswordsDoNotMatch,
     PasswordTooShort,
+    PasswordTooLong,
     PasswordTooWeak,
     TooManyRequests { retry_after_seconds: u64 },
     InternalServerError,
@@ -35,6 +41,7 @@ impl PasswordChangeError {
             PasswordChangeError::WrongCurrentPassword => "wrong_current_password",
             PasswordChangeError::PasswordsDoNotMatch => "passwords_do_not_match",
             PasswordChangeError::PasswordTooShort => "password_too_short",
+            PasswordChangeError::PasswordTooLong => "password_too_long",
             PasswordChangeError::PasswordTooWeak => "password_too_weak",
             PasswordChangeError::TooManyRequests { .. } => "too_many_requests",
             PasswordChangeError::InternalServerError => "internal_server_error",
@@ -77,17 +84,20 @@ pub async fn update_user_password(
     db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
     new_password: Json<NewPassword>,
+    config: &State<BackendConfiguration>,
+    cookies: &CookieJar<'_>,
 ) -> Result<NoContent, PasswordChangeError> {
-    use crate::log_action;
-    use crate::lookup_user_by_name;
+    use crate::models::User;
     use crate::rate_limiter::{
         RateLimitConfig, RateLimitDecision, check_rate_limit, reset_rate_limit,
     };
-    use crate::schema::users::dsl::{password_hash, username, users};
+    use crate::record_action;
+    use crate::schema::users::dsl::{password_hash, session_epoch, users};
     use bcrypt::{hash, verify};
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
+    use diesel::{Connection, ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::{debug, error, warn};
 
+    let user_id = authenticated_user.user_id;
     let target_username = authenticated_user.username.clone();
     let current_password = new_password.current_password.clone();
     let first_time = new_password.first_time.clone();
@@ -110,11 +120,9 @@ pub async fn update_user_password(
     // the user lookup, the bcrypt verification and hashing, the update and the audit log all run
     // on a blocking thread so that neither the database work nor the password hashing block the
     // async runtime
-    match db_connection_pool
-        .run_blocking(move |db_connection| -> Result<(), PasswordChangeError> {
-            // load the currently logged in user. Only if the user still exists, the supplied
-            // current password can be verified against the stored one
-            let current_user = match lookup_user_by_name(db_connection, &target_username) {
+    let new_session_epoch = match db_connection_pool
+        .run_blocking(move |db_connection| -> Result<i32, PasswordChangeError> {
+            let current_user = match users.find(user_id).first::<User>(db_connection) {
                 Ok(user) => user,
                 Err(error) => {
                     error!("Could not find the user '{target_username}' for a password change. The error was: {error}");
@@ -138,7 +146,6 @@ pub async fn update_user_password(
             // limiter is reset before the new password is even validated
             reset_rate_limit(&rate_limit_key);
 
-
             // check if the passwords are the same. If not, return an corresonding error
             if first_time.ne(&second_time) {
                 return Err(PasswordChangeError::PasswordsDoNotMatch);
@@ -152,6 +159,12 @@ pub async fn update_user_password(
             if first_time.chars().count() < 8 {
                 debug!("Password rejected: too short (minimum 8 characters)");
                 return Err(PasswordChangeError::PasswordTooShort);
+            }
+
+            // a longer password could not be used for a login
+            if first_time.len() > MAX_PASSWORD_BYTES {
+                debug!("Password rejected: too long (maximum {MAX_PASSWORD_BYTES} bytes)");
+                return Err(PasswordChangeError::PasswordTooLong);
             }
 
             // analyze password strength
@@ -176,31 +189,24 @@ pub async fn update_user_password(
                 }
             };
 
-            // update the corresponding row in the database
-            match update(users.filter(username.eq(&target_username)))
-                .set(password_hash.eq(hashed_password))
-                .execute(db_connection)
-            {
-                Ok(1) => {}
-                Ok(_) => {
-                    error!("Could not update the password since the user '{target_username}' does not exist anymore");
-                    return Err(PasswordChangeError::InternalServerError);
-                }
-                Err(error) => {
-                    error!("Could not update the password in the database. The error was: {error}");
-                    return Err(PasswordChangeError::InternalServerError);
-                }
-            }
-
-            // log that the user changed the own password
-            log_action(
-                db_connection,
-                Some(target_username),
-                Action::PasswordChanged,
-                None,
-            );
-
-            Ok(())
+            // the new password ends all sessions of the user by bumping the session epoch, and is
+            // audited in the same transaction
+            db_connection
+                .transaction(|connection| {
+                    let new_session_epoch = update(users.find(user_id))
+                        .set((
+                            password_hash.eq(hashed_password),
+                            session_epoch.eq(session_epoch + 1),
+                        ))
+                        .returning(session_epoch)
+                        .get_result::<i32>(connection)?;
+                    record_action(connection, Some(user_id), Action::PasswordChanged, None)?;
+                    Ok(new_session_epoch)
+                })
+                .map_err(|error: diesel::result::Error| {
+                    error!("Could not store the new password. The error was: {error}");
+                    PasswordChangeError::InternalServerError
+                })
         })
         .await
     {
@@ -211,8 +217,23 @@ pub async fn update_user_password(
         }
     }?;
 
-    // if we get here, the password was successfully updated
-    debug!("Password was successfully updated",);
+    // the session which changed the password keeps working with a token for the new epoch
+    match crate::get_token_for_user_with_auth_time(
+        &authenticated_user.username,
+        new_session_epoch,
+        config.token_audience.clone(),
+        config.api_host.clone(),
+        &config.encoding_key,
+        authenticated_user.auth_time as usize,
+    ) {
+        Some((token, expires_at)) => set_session_cookie(token, expires_at, config, cookies),
+        None => {
+            error!("Could not issue a new token after the password was changed");
+            return Err(PasswordChangeError::InternalServerError);
+        }
+    }
+
+    debug!("Password was successfully updated");
     Ok(NoContent)
 }
 
@@ -228,6 +249,7 @@ pub struct LoginInformation {
 /// successful login does. Returns the expiry of the new token (UNIX seconds).
 pub fn issue_session_cookie(
     username: &str,
+    session_epoch: i32,
     config: &BackendConfiguration,
     cookies: &CookieJar<'_>,
 ) -> Option<u64> {
@@ -235,6 +257,7 @@ pub fn issue_session_cookie(
 
     let (token, expires_at) = get_token_for_user(
         username,
+        session_epoch,
         config.token_audience.clone(),
         config.api_host.clone(),
         &config.encoding_key,
@@ -264,8 +287,12 @@ fn set_session_cookie(
 }
 
 pub enum LoginError {
+    /// The username or the password is longer than any valid one.
+    BadRequest,
     Unauthorized,
-    TooManyRequests { retry_after_seconds: u64 },
+    TooManyRequests {
+        retry_after_seconds: u64,
+    },
     InternalServerError,
 }
 
@@ -278,6 +305,7 @@ impl<'r> Responder<'r, 'static> for LoginError {
 
         let mut response = Response::new();
         match self {
+            LoginError::BadRequest => response.set_status(Status::BadRequest),
             LoginError::Unauthorized => response.set_status(Status::Unauthorized),
             LoginError::TooManyRequests {
                 retry_after_seconds,
@@ -299,48 +327,54 @@ pub async fn get_login_token(
     client_ip: ClientIp,
     cookies: &CookieJar<'_>,
 ) -> Result<Json<UserInfo>, LoginError> {
-    use crate::log_action;
-    use crate::lookup_user_by_name;
     use crate::rate_limiter::{
-        RateLimitConfig, RateLimitDecision, check_rate_limit, reset_rate_limit,
+        LOGIN_ATTEMPTS_PER_IP, LOGIN_ATTEMPTS_PER_USERNAME, RateLimitDecision, check_rate_limit,
+        client_ip_key, reset_rate_limit,
     };
+    use crate::{lookup_user_by_name, record_action};
     use bcrypt::verify;
-    use log::{error, warn};
+    use log::{debug, error, warn};
 
     /// The outcome of checking the supplied credentials against the database.
     enum LoginCheckOutcome {
-        Authenticated,
+        Authenticated { user_id: i32, session_epoch: i32 },
         Unauthorized,
         InternalServerError,
     }
 
-    let rate_limit_config = RateLimitConfig::default();
-    let client_ip = client_ip.0;
+    // the login input is never logged, since a password might have been typed into the username
+    // field; oversized input is rejected before it reaches the rate limiter, the database or bcrypt
+    if login_information.username.len() > MAX_USERNAME_BYTES
+        || login_information.password.len() > MAX_PASSWORD_BYTES
+    {
+        debug!("Rejected a login request with an oversized username or password");
+        return Err(LoginError::BadRequest);
+    }
+
+    let ip_key = client_ip.0.map(client_ip_key);
     let ip_for_logging = client_ip
+        .0
         .map(|ip| ip.to_string())
         .unwrap_or("unknown".to_string());
 
-    if let Some(ip) = client_ip {
-        let ip_key = format!("ip:{ip}");
-        if let RateLimitDecision::RateLimited {
+    if let Some(ip_key) = &ip_key
+        && let RateLimitDecision::RateLimited {
             retry_after_seconds,
-        } = check_rate_limit(&ip_key, &rate_limit_config)
-        {
-            warn!("Rate limit exceeded for IP: {ip}");
-            return Err(LoginError::TooManyRequests {
-                retry_after_seconds,
-            });
-        }
+        } = check_rate_limit(ip_key, &LOGIN_ATTEMPTS_PER_IP)
+    {
+        warn!("Rate limit exceeded for logins from {ip_key}");
+        return Err(LoginError::TooManyRequests {
+            retry_after_seconds,
+        });
     }
 
     let username_key = format!("user:{}", login_information.username);
     if let RateLimitDecision::RateLimited {
         retry_after_seconds,
-    } = check_rate_limit(&username_key, &rate_limit_config)
+    } = check_rate_limit(&username_key, &LOGIN_ATTEMPTS_PER_USERNAME)
     {
         warn!(
-            "Rate limit exceeded for username: {}",
-            login_information.username
+            "Rate limit exceeded for the logins of a username, requested from IP: {ip_for_logging}"
         );
         return Err(LoginError::TooManyRequests {
             retry_after_seconds,
@@ -354,31 +388,30 @@ pub async fn get_login_token(
     // that neither the database work nor the password hashing block the async runtime
     let outcome = match db_connection_pool
         .run_blocking(move |db_connection| {
-            // try to get the user record for the supplied username
+            let failed_login_description =
+                format!("Failed login attempt - invalid credentials from IP: {ip_for_logging}");
+
             let user = match lookup_user_by_name(db_connection, &username) {
                 Ok(user) => user,
                 Err(diesel::result::Error::NotFound) => {
-                    // ensure that we know what happened
-                    error!("Could not get the user record for '{username}'");
+                    debug!("Login failed for an unknown username from IP: {ip_for_logging}");
                     // just slow down the process to prevent easy checking if a username exists
                     // or not
                     let _ = verify("some_password", crate::DUMMY_PASSWORD_HASH.as_str());
 
-                    // log the failed attempt (use anonymous to avoid username enumeration)
-                    log_action(
+                    // the failed attempt is audited without a user to avoid username enumeration
+                    if let Err(error) = record_action(
                         db_connection,
-                        Some("anonymous".to_string()),
+                        None,
                         Action::FailedLogin,
-                        Some(format!(
-                            "Failed login attempt - invalid credentials from IP: {ip_for_logging}"
-                        )),
-                    );
-
-                    // finally we can tell teh user that he/she is not authorized
+                        Some(failed_login_description),
+                    ) {
+                        error!("Could not audit a failed login. The error was: {error}");
+                    }
                     return LoginCheckOutcome::Unauthorized;
                 }
                 Err(error) => {
-                    error!("Could not look up the user record for '{username}'. The error was: {error}");
+                    error!("Could not look up the user record for a login. The error was: {error}");
                     return LoginCheckOutcome::InternalServerError;
                 }
             };
@@ -386,28 +419,27 @@ pub async fn get_login_token(
             // check if the supplied password matches the one we stored in the database using the
             // same bcrypt parameters
             match verify(&password, user.password_hash.as_str()) {
-                Ok(is_password_correct) => {
-                    if !is_password_correct {
-                        log_action(
-                            db_connection,
-                            Some(user.username),
-                            Action::FailedLogin,
-                            Some(format!(
-                                "Failed login attempt - invalid credentials from IP: {ip_for_logging}"
-                            )),
-                        );
-                        return LoginCheckOutcome::Unauthorized;
+                Ok(true) => LoginCheckOutcome::Authenticated {
+                    user_id: user.id,
+                    session_epoch: user.session_epoch,
+                },
+                Ok(false) => {
+                    debug!("Login failed for the user '{}' with a wrong password", user.username);
+                    if let Err(error) = record_action(
+                        db_connection,
+                        Some(user.id),
+                        Action::FailedLogin,
+                        Some(failed_login_description),
+                    ) {
+                        error!("Could not audit a failed login. The error was: {error}");
                     }
+                    LoginCheckOutcome::Unauthorized
                 }
                 Err(error) => {
                     error!("Could not verify the supplied password with the one stored in the database. The error was: {error}");
-                    return LoginCheckOutcome::InternalServerError;
+                    LoginCheckOutcome::InternalServerError
                 }
             }
-
-            // if we get here, we ensured that the user is known and that the supplied password
-            // was valid
-            LoginCheckOutcome::Authenticated
         })
         .await
     {
@@ -418,64 +450,67 @@ pub async fn get_login_token(
         }
     };
 
-    match outcome {
-        LoginCheckOutcome::Authenticated => {}
+    let (user_id, session_epoch) = match outcome {
+        LoginCheckOutcome::Authenticated {
+            user_id,
+            session_epoch,
+        } => (user_id, session_epoch),
         LoginCheckOutcome::Unauthorized => return Err(LoginError::Unauthorized),
         LoginCheckOutcome::InternalServerError => {
             return Err(LoginError::InternalServerError);
         }
-    }
+    };
 
     // the user is known and the supplied password was valid, we can generate a new access
     // token and return it to the calling party
-    if let Some(expires_at) = issue_session_cookie(&login_information.username, config, cookies) {
-        // the session was issued successfully, so we can audit the successful login; if this
-        // fails we keep going because the user already received a valid token
-        let audit_username = login_information.username.clone();
-        if let Err(error) = db_connection_pool
-            .run_blocking(move |db_connection| {
-                log_action(
-                    db_connection,
-                    Some(audit_username.clone()),
-                    Action::SuccessfulLogin,
-                    Some(format!(
-                        "Successfully logged in user '{audit_username}' with a token"
-                    )),
-                )
-            })
-            .await
-        {
-            error!("Could not audit the successful login. The error was: {error}");
-        }
+    let Some(expires_at) =
+        issue_session_cookie(&login_information.username, session_epoch, config, cookies)
+    else {
+        error!("Could not issue a token for a successful login");
+        return Err(LoginError::InternalServerError);
+    };
 
-        if let Some(ip) = client_ip {
-            reset_rate_limit(&format!("ip:{ip}"));
-        }
-        reset_rate_limit(&format!("user:{}", login_information.username));
-
-        let now = crate::unix_time_now() as u64;
-        let expires_in = expires_at.saturating_sub(now);
-        return Ok(Json(UserInfo {
-            username: login_information.username.clone(),
-            expires_in,
-        }));
+    // the session was issued successfully, so we can audit the successful login; if this fails
+    // we keep going because the user already received a valid token
+    let audit_description = format!(
+        "Successfully logged in user '{}' with a token",
+        login_information.username
+    );
+    match db_connection_pool
+        .run_blocking(move |db_connection| {
+            record_action(
+                db_connection,
+                Some(user_id),
+                Action::SuccessfulLogin,
+                Some(audit_description),
+            )
+        })
+        .await
+    {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => error!("Could not audit the successful login. The error was: {error}"),
+        Err(error) => error!("Could not audit the successful login. The error was: {error}"),
     }
 
-    // it seems that we failed to generate a valid token. This should never happen, something
-    // seems REALLY wrong
-    Err(LoginError::InternalServerError)
+    if let Some(ip_key) = &ip_key {
+        reset_rate_limit(ip_key);
+    }
+    reset_rate_limit(&username_key);
+
+    let now = crate::unix_time_now() as u64;
+    Ok(Json(UserInfo {
+        username: login_information.username.clone(),
+        expires_in: expires_at.saturating_sub(now),
+    }))
 }
 
 #[post("/auth/refresh")]
 pub async fn refresh_session(
-    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
     authenticated_user: AuthenticatedUser,
     config: &State<BackendConfiguration>,
     cookies: &CookieJar<'_>,
 ) -> Result<Json<UserInfo>, Status> {
-    use crate::lookup_user_by_name;
     use crate::{get_token_for_user_with_auth_time, session_lifetime_in_seconds, unix_time_now};
-    use log::error;
 
     // a session has an absolute lifetime which starts at the original login; if it is exceeded,
     // the session is terminated and the user has to log in again
@@ -485,29 +520,12 @@ pub async fn refresh_session(
         return Err(Status::Forbidden);
     }
 
-    // a refresh is only possible as long as the user still exists
-    let username = authenticated_user.username.clone();
-    let user_exists = match db_connection_pool
-        .run_blocking(move |db_connection| lookup_user_by_name(db_connection, &username).is_ok())
-        .await
-    {
-        Ok(user_exists) => user_exists,
-        Err(error) => {
-            error!(
-                "Could not check the existence of the user for a refresh. The error was: {error}"
-            );
-            return Err(Status::InternalServerError);
-        }
-    };
-    if !user_exists {
-        cookies.remove(Cookie::from("auth_token"));
-        return Err(Status::Forbidden);
-    }
-
-    // the refresh issues a new token which preserves the auth_time of the original login, so the
-    // absolute session lifetime cannot be extended by refreshing
+    // the guard already ensured that the user still exists and that the session was not revoked;
+    // the refresh issues a new token for the same epoch which preserves the auth_time of the
+    // original login, so the absolute session lifetime cannot be extended by refreshing
     match get_token_for_user_with_auth_time(
         &authenticated_user.username,
+        authenticated_user.session_epoch,
         config.token_audience.clone(),
         config.api_host.clone(),
         &config.encoding_key,
@@ -526,10 +544,48 @@ pub async fn refresh_session(
     }
 }
 
+/// Removes the session cookie and, if the request carries a valid token, ends all sessions of
+/// its user by bumping the session epoch.
 #[post("/auth/logout")]
-pub fn logout(cookies: &CookieJar<'_>) -> NoContent {
+pub async fn logout(
+    db_connection_pool: &State<AdventskalenderDatabaseConnection>,
+    authenticated_user: Result<AuthenticatedUser, AuthorizationError>,
+    cookies: &CookieJar<'_>,
+) -> Result<NoContent, Custom<()>> {
+    use crate::schema::users::dsl::{session_epoch, users};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
+    use log::error;
+
+    // the cookie is removed in every case; the error responses below are no catchers, so the
+    // removal reaches the client
     cookies.remove(Cookie::from("auth_token"));
-    NoContent
+
+    let user_id = match authenticated_user {
+        Ok(user) => user.user_id,
+        Err(AuthorizationError::CannotValidateToken) => {
+            return Err(Custom(Status::InternalServerError, ()));
+        }
+        Err(_) => return Ok(NoContent),
+    };
+
+    match db_connection_pool
+        .run_blocking(move |db_connection| {
+            update(users.find(user_id))
+                .set(session_epoch.eq(session_epoch + 1))
+                .execute(db_connection)
+        })
+        .await
+    {
+        Ok(Ok(_)) => Ok(NoContent),
+        Ok(Err(error)) => {
+            error!("Could not end the sessions of a user on logout. The error was: {error}");
+            Err(Custom(Status::InternalServerError, ()))
+        }
+        Err(error) => {
+            error!("Could not end the sessions of a user on logout. The error was: {error}");
+            Err(Custom(Status::InternalServerError, ()))
+        }
+    }
 }
 
 #[derive(Serialize)]

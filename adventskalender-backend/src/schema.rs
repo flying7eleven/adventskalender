@@ -33,6 +33,7 @@ diesel::table! {
         username -> Varchar,
         #[max_length = 255]
         password_hash -> Varchar,
+        session_epoch -> Int4,
     }
 }
 
