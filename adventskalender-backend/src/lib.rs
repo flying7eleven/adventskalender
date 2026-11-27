@@ -46,6 +46,9 @@ struct Claims {
     /// user's current epoch is still the same.
     session_epoch: i32,
     sub: String,
+    /// The id of the user the token was issued for, so that a token of a deleted user does not
+    /// match a later user with the same name.
+    uid: i32,
     iss: String,
     aud: HashSet<String>,
 }
@@ -178,6 +181,7 @@ pub fn record_action(
 
 pub fn get_token_for_user(
     subject: &str,
+    user_id: i32,
     session_epoch: i32,
     audience: HashSet<String>,
     issuer: String,
@@ -185,6 +189,7 @@ pub fn get_token_for_user(
 ) -> Option<(String, u64)> {
     get_token_for_user_with_auth_time(
         subject,
+        user_id,
         session_epoch,
         audience,
         issuer,
@@ -198,6 +203,7 @@ pub fn get_token_for_user(
 /// lifetime. Returns the expiry of the new token (UNIX seconds).
 pub fn get_token_for_user_with_auth_time(
     subject: &str,
+    user_id: i32,
     session_epoch: i32,
     audience: HashSet<String>,
     issuer: String,
@@ -230,6 +236,7 @@ pub fn get_token_for_user_with_auth_time(
         auth_time,
         session_epoch,
         sub: subject.to_owned(),
+        uid: user_id,
         iss: issuer,
         aud: audience,
     };
@@ -295,6 +302,7 @@ mod tests {
         let document = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new()).unwrap();
         let (token, _) = super::get_token_for_user(
             "someone",
+            1,
             0,
             HashSet::from(["https://example.com".to_string()]),
             "https://example.com".to_string(),

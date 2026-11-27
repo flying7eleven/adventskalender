@@ -19,7 +19,7 @@ The backend tests start their own PostgreSQL container, so Docker must be runnin
 ## Authenticate against the backend
 The backend answers a successful login with the username and the remaining token lifetime in seconds, and returns the token as the HTTP-only cookie `auth_token`; only this cookie is accepted, an `Authorization` header is ignored. The token is valid for one hour and can be refreshed until the session reaches its absolute lifetime of 12 hours after the original login, which also bounds a single token.
 
-A logout and a password change end all sessions of the user: every token carries the session epoch of its user, and both bump the epoch, so all previously issued tokens are rejected, also on refresh. The session which changed the password receives a new cookie and stays logged in.
+A logout and a password change end all sessions of the user: every token carries the id and the session epoch of its user, and both bump the epoch, so all previously issued tokens are rejected, also on refresh. A token is also rejected once its user was deleted, even if a new user with the same name was created. The session which changed the password receives a new cookie and stays logged in.
 
 Usernames longer than 64 bytes and passwords longer than 72 bytes (the bcrypt limit) are rejected with `400 Bad Request`, and new passwords longer than 72 bytes are refused. JSON request bodies are limited to 16 KiB. Logins are rate limited to 5 attempts per client IP and 20 attempts per username within 15 minutes; IPv6 clients are grouped by their /64 prefix. The limiter tracks at most 100,000 keys; when it is full and no entry has expired, logins with untracked keys are rate limited until entries expire.
 

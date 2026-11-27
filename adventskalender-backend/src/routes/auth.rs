@@ -220,6 +220,7 @@ pub async fn update_user_password(
     // the session which changed the password keeps working with a token for the new epoch
     match crate::get_token_for_user_with_auth_time(
         &authenticated_user.username,
+        user_id,
         new_session_epoch,
         config.token_audience.clone(),
         config.api_host.clone(),
@@ -245,10 +246,11 @@ pub struct LoginInformation {
     password: String,
 }
 
-/// Issues a fresh token for `username` and sets it as the `auth_token` cookie, exactly like a
+/// Issues a fresh token for the user and sets it as the `auth_token` cookie, exactly like a
 /// successful login does. Returns the expiry of the new token (UNIX seconds).
 pub fn issue_session_cookie(
     username: &str,
+    user_id: i32,
     session_epoch: i32,
     config: &BackendConfiguration,
     cookies: &CookieJar<'_>,
@@ -257,6 +259,7 @@ pub fn issue_session_cookie(
 
     let (token, expires_at) = get_token_for_user(
         username,
+        user_id,
         session_epoch,
         config.token_audience.clone(),
         config.api_host.clone(),
@@ -463,9 +466,13 @@ pub async fn get_login_token(
 
     // the user is known and the supplied password was valid, we can generate a new access
     // token and return it to the calling party
-    let Some(expires_at) =
-        issue_session_cookie(&login_information.username, session_epoch, config, cookies)
-    else {
+    let Some(expires_at) = issue_session_cookie(
+        &login_information.username,
+        user_id,
+        session_epoch,
+        config,
+        cookies,
+    ) else {
         error!("Could not issue a token for a successful login");
         return Err(LoginError::InternalServerError);
     };
@@ -525,6 +532,7 @@ pub async fn refresh_session(
     // original login, so the absolute session lifetime cannot be extended by refreshing
     match get_token_for_user_with_auth_time(
         &authenticated_user.username,
+        authenticated_user.user_id,
         authenticated_user.session_epoch,
         config.token_audience.clone(),
         config.api_host.clone(),

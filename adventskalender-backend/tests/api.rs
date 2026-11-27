@@ -1154,6 +1154,7 @@ fn refreshing_a_session_after_the_absolute_session_lifetime_is_forbidden() {
         unix_now() - (adventskalender_backend::session_lifetime_in_seconds() as u64 + 1);
     let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        database.picking_user_id,
         0,
         HashSet::from(["http://localhost:5173".to_string()]),
         "http://localhost:5479".to_string(),
@@ -1383,6 +1384,7 @@ fn a_refresh_near_the_session_cap_returns_a_short_lived_token_which_keeps_the_or
     let auth_time = now - (adventskalender_backend::session_lifetime_in_seconds() as u64 - 60);
     let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        database.picking_user_id,
         0,
         audience.clone(),
         issuer.to_string(),
@@ -1444,6 +1446,7 @@ fn a_refresh_near_the_session_cap_returns_a_short_lived_token_which_keeps_the_or
 
     let (token, _) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        database.picking_user_id,
         0,
         audience,
         "http://localhost:5479".to_string(),
@@ -1702,6 +1705,32 @@ fn refreshing_with_a_token_replayed_after_logout_is_rejected() {
 }
 
 #[test]
+fn a_token_of_a_deleted_user_is_rejected_after_the_username_was_recreated() {
+    let database = TestDatabase::start(0);
+    let key_bytes = fresh_key_bytes();
+    let logged_in = logged_in_client_with_key_bytes(&database, &key_bytes);
+    let token = session_token_of(&logged_in);
+    database.execute("DELETE FROM performed_actions");
+    database.execute("DELETE FROM users");
+    database.execute(&format!(
+        "INSERT INTO users (username, password_hash) VALUES ('{}', '{}')",
+        database.picking_user,
+        bcrypt::hash(PICKING_USER_PASSWORD, 4).unwrap()
+    ));
+
+    let replaying_client = client_with_key_bytes(&database, &key_bytes);
+    assert_eq!(
+        me_status_with_token(&replaying_client, &token),
+        Status::Forbidden
+    );
+    let response = replaying_client
+        .post("/v1/auth/refresh")
+        .cookie(("auth_token", token))
+        .dispatch();
+    assert_eq!(response.status(), Status::Forbidden);
+}
+
+#[test]
 fn logging_out_without_a_valid_token_still_succeeds() {
     let database = TestDatabase::start(0);
     let client = client(&database);
@@ -1780,6 +1809,7 @@ fn an_expired_token_is_rejected() {
         unix_now() - (adventskalender_backend::session_lifetime_in_seconds() as u64 + 60 * 60);
     let (token, expires_at) = adventskalender_backend::get_token_for_user_with_auth_time(
         &database.picking_user,
+        database.picking_user_id,
         0,
         HashSet::from(["http://localhost:5173".to_string()]),
         "http://localhost:5479".to_string(),

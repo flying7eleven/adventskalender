@@ -20,6 +20,7 @@ pub struct TestDatabase {
     pub pool: AdventskalenderDatabaseConnection,
     /// Unique per database, since the login rate limiter is process-wide and keyed by username.
     pub picking_user: String,
+    pub picking_user_id: i32,
     raw_pool: Pool<ConnectionManager<PgConnection>>,
     container: Container<Postgres>,
 }
@@ -28,6 +29,12 @@ pub struct TestDatabase {
 struct Count {
     #[diesel(sql_type = BigInt)]
     count: i64,
+}
+
+#[derive(QueryableByName)]
+struct UserId {
+    #[diesel(sql_type = Integer)]
+    id: i32,
 }
 
 /// Code that depends on an isolation level has to request it explicitly, so the tests run with a
@@ -66,11 +73,13 @@ impl TestDatabase {
         );
         let connection = &mut raw_pool.get().unwrap();
         connection.run_pending_migrations(MIGRATIONS).unwrap();
-        sql_query("INSERT INTO users (username, password_hash) VALUES ($1, $2)")
-            .bind::<Text, _>(&picking_user)
-            .bind::<Text, _>(bcrypt::hash(PICKING_USER_PASSWORD, 4).unwrap())
-            .execute(connection)
-            .unwrap();
+        let picking_user_id =
+            sql_query("INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id")
+                .bind::<Text, _>(&picking_user)
+                .bind::<Text, _>(bcrypt::hash(PICKING_USER_PASSWORD, 4).unwrap())
+                .get_result::<UserId>(connection)
+                .unwrap()
+                .id;
         sql_query(
             "INSERT INTO participants (first_name, last_name) \
              SELECT 'First' || n, 'Last' || n FROM generate_series(1, $1) AS n",
@@ -82,6 +91,7 @@ impl TestDatabase {
         TestDatabase {
             pool: AdventskalenderDatabaseConnection::from(raw_pool.clone()),
             picking_user,
+            picking_user_id,
             raw_pool,
             container,
         }
