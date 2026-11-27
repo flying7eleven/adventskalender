@@ -1,13 +1,13 @@
 use crate::fairings::{AdventskalenderDatabaseConnection, BackendConfiguration};
 use crate::guards::{AuthenticatedUser, ClientIp};
-use crate::{Action, ServiceStatus, BACKOFF_HANDLER};
+use crate::{Action, BACKOFF_HANDLER, ServiceStatus};
 use chrono::{DateTime, NaiveDate};
 use rand::prelude::IndexedRandom;
 use rocket::http::{ContentType, Cookie, CookieJar, SameSite, Status};
-use rocket::response::status::NoContent;
 use rocket::response::Responder;
-use rocket::serde::json::{json, Json};
-use rocket::{delete, get, post, put, routes, Build, Rocket, State};
+use rocket::response::status::NoContent;
+use rocket::serde::json::{Json, json};
+use rocket::{Build, Rocket, State, delete, get, post, put, routes};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -73,8 +73,8 @@ pub struct JwksResponse {
 
 #[get("/jwks.json")]
 pub async fn get_jwks(config: &State<BackendConfiguration>) -> Result<Json<JwksResponse>, Status> {
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use base64::Engine;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use log::error;
     use ring::signature::{Ed25519KeyPair, KeyPair};
 
@@ -280,9 +280,15 @@ pub async fn get_won_participants_on_day(
         .await
     {
         Ok(result) => result
-            .inspect_err(|error| error!("Could not load the winners on {date} from the database. The error was: {error}"))
+            .inspect_err(|error| {
+                error!(
+                    "Could not load the winners on {date} from the database. The error was: {error}"
+                )
+            })
             .map_err(WinnersError::Database),
-        Err(BlockingDatabaseError::NoConnection(error)) => Err(WinnersError::NoDatabaseConnection(error)),
+        Err(BlockingDatabaseError::NoConnection(error)) => {
+            Err(WinnersError::NoDatabaseConnection(error))
+        }
         Err(BlockingDatabaseError::Join(error)) => {
             error!("Could not load the winners on a blocking thread. The error was: {error}");
             Err(WinnersError::BlockingThread(error))
@@ -311,7 +317,10 @@ pub async fn remove_participant_from_winner_list(
         Ok(()) => Status::NoContent,
         Err(RemoveWinnerError::UnknownParticipant) => Status::NotFound,
         Err(error) => {
-            error!("The user {} tried to mark the participant with the id {} as NOT won but it failed. The error was: {error:?}", authenticated_user.username, participant_id);
+            error!(
+                "The user {} tried to mark the participant with the id {} as NOT won but it failed. The error was: {error:?}",
+                authenticated_user.username, participant_id
+            );
             Status::InternalServerError
         }
     }
@@ -401,11 +410,11 @@ pub async fn update_user_password(
     use crate::log_action;
     use crate::lookup_user_by_name;
     use crate::rate_limiter::{
-        check_rate_limit, reset_rate_limit, RateLimitConfig, RateLimitDecision,
+        RateLimitConfig, RateLimitDecision, check_rate_limit, reset_rate_limit,
     };
     use crate::schema::users::dsl::{password_hash, username, users};
     use bcrypt::{hash, verify};
-    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::{debug, error, warn};
 
     let target_username = authenticated_user.username.clone();
@@ -555,7 +564,7 @@ pub async fn update_participant_values(
     use crate::log_action;
     use crate::models::Participant as DatabaseParticipant;
     use crate::schema::participants::dsl::{id, participants, present_identifier};
-    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::error;
 
     /// The outcome of trying to update the package selection of a participant.
@@ -737,7 +746,12 @@ pub async fn count_won_participants_on_day(
 
     // if we got a result, count the participants and return the amount
     if let Ok(winners) = maybe_result {
-        debug!("The user {} queried the number of winners for the {}. The answer is: {} participants won on that day so far", authenticated_user.username, date_as_str, winners.len());
+        debug!(
+            "The user {} queried the number of winners for the {}. The answer is: {} participants won on that day so far",
+            authenticated_user.username,
+            date_as_str,
+            winners.len()
+        );
         return Ok(Json(winners.len()));
     }
 
@@ -778,7 +792,7 @@ pub async fn pick_winners(
     use crate::models::{Participant as DatabaseParticipant, ParticipantPicking};
     use crate::schema::participants::dsl::{id, participants, won_on};
     use chrono::Utc;
-    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::error;
 
     let user_who_picked = user_who_picked.to_string();
@@ -797,7 +811,7 @@ pub async fn pick_winners(
                     let user = match lookup_user_by_name(connection, &user_who_picked) {
                         Ok(user) => user,
                         Err(diesel::result::Error::NotFound) => {
-                            return Err(PickWinnersError::UnknownUser)
+                            return Err(PickWinnersError::UnknownUser);
                         }
                         Err(error) => return Err(PickWinnersError::Database(error)),
                     };
@@ -949,7 +963,7 @@ pub async fn mark_participant_as_not_won(
     use crate::log_action;
     use crate::models::ParticipantPicking;
     use crate::schema::participants::dsl::{id, participants};
-    use diesel::{update, ExpressionMethods, QueryDsl, RunQueryDsl};
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, update};
     use log::debug;
 
     // reset the winning state of the participant and write the audit log entry on a blocking
@@ -1079,7 +1093,7 @@ pub async fn get_login_token(
     use crate::log_action;
     use crate::lookup_user_by_name;
     use crate::rate_limiter::{
-        check_rate_limit, reset_rate_limit, RateLimitConfig, RateLimitDecision,
+        RateLimitConfig, RateLimitDecision, check_rate_limit, reset_rate_limit,
     };
     use bcrypt::verify;
     use log::{error, warn};

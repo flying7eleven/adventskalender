@@ -18,7 +18,7 @@ use regex::RegexSet;
 use rocket::http::{self, Status};
 use rocket::request::{FromRequest, Request};
 use rocket::response;
-use rocket::{debug_, error_, info_, outcome::Outcome, State};
+use rocket::{State, debug_, error_, info_, outcome::Outcome};
 
 use crate::rocket_cors::headers::{
     AccessControlRequestHeaders, AccessControlRequestMethod, HeaderFieldName, HeaderFieldNamesSet,
@@ -124,17 +124,19 @@ impl fmt::Display for Error {
                  was available in Rocket's state"
             ),
             Error::MissingInjectedHeader => {
-                write!(f,
-                       "The `on_response` handler of Fairing could not find the injected header from the \
-                 Request. Either some other fairing has removed it, or this is a bug.")
+                write!(
+                    f,
+                    "The `on_response` handler of Fairing could not find the injected header from the \
+                 Request. Either some other fairing has removed it, or this is a bug."
+                )
             }
-            Error::OpaqueAllowedOrigin(ref origins) => write!(
+            Error::OpaqueAllowedOrigin(origins) => write!(
                 f,
                 "The configured Origins '{}' are Opaque Origins. \
                  Use regex instead.",
                 origins.join("; ")
             ),
-            Error::RegexError(ref e) => write!(f, "{}", e),
+            Error::RegexError(e) => write!(f, "{}", e),
         }
     }
 }
@@ -493,7 +495,7 @@ impl ParsedAllowedOrigins {
 
         let regex = match &origins.regex {
             None => None,
-            Some(ref regex) => Some(RegexSet::new(regex)?),
+            Some(regex) => Some(RegexSet::new(regex)?),
         };
 
         Ok(Self {
@@ -510,7 +512,7 @@ impl ParsedAllowedOrigins {
                 info_!("Origin is null. Allowing? {}", self.allow_null);
                 self.allow_null
             }
-            Origin::Parsed(ref parsed) => {
+            Origin::Parsed(parsed) => {
                 assert!(
                     parsed.is_tuple(),
                     "Parsed Origin is not tuple. This is a bug. Please report"
@@ -530,7 +532,7 @@ impl ParsedAllowedOrigins {
                 info!("Origin does not match anything");
                 false
             }
-            Origin::Opaque(ref opaque) => {
+            Origin::Opaque(opaque) => {
                 if let Some(regex_set) = &self.regex {
                     let regex_match = regex_set.is_match(opaque);
                     debug_!("Matching against regex set {:#?}", regex_set);
@@ -2017,11 +2019,13 @@ mod tests {
 
         // Build response and check built response header
         let response = response.response(response::Response::new());
-        assert!(response
-            .headers()
-            .get("Access-Control-Max-Age")
-            .next()
-            .is_none())
+        assert!(
+            response
+                .headers()
+                .get("Access-Control-Max-Age")
+                .next()
+                .is_none()
+        )
     }
 
     #[test]
@@ -2140,11 +2144,13 @@ mod tests {
         assert_eq!(expected_header, actual_header);
 
         // Check that `Access-Control-Max-Age` is removed
-        assert!(response
-            .headers()
-            .get("Access-Control-Max-Age")
-            .next()
-            .is_none());
+        assert!(
+            response
+                .headers()
+                .get("Access-Control-Max-Age")
+                .next()
+                .is_none()
+        );
     }
 
     #[test]

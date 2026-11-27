@@ -1,5 +1,5 @@
-use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::PgConnection;
+use diesel::r2d2::{ConnectionManager, Pool};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Request, Response};
@@ -80,7 +80,10 @@ impl Display for BlockingDatabaseError {
                 "could not get a connection from the database connection pool. The error was: {error}"
             ),
             BlockingDatabaseError::Join(error) => {
-                write!(f, "the blocking database task failed. The error was: {error}")
+                write!(
+                    f,
+                    "the blocking database task failed. The error was: {error}"
+                )
             }
         }
     }

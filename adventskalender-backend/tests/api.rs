@@ -2,13 +2,13 @@ mod common;
 
 use adventskalender_backend::fairings::BackendConfiguration;
 use adventskalender_backend::routes::mount_routes;
-use common::{TestDatabase, PICKING_USER_PASSWORD};
+use common::{PICKING_USER_PASSWORD, TestDatabase};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use ring::rand::SystemRandom;
 use ring::signature::{Ed25519KeyPair, KeyPair};
 use rocket::http::{ContentType, Header, Status};
 use rocket::local::blocking::Client;
-use rocket::serde::json::{json, Value};
+use rocket::serde::json::{Value, json};
 use std::collections::HashSet;
 
 fn fresh_key_bytes() -> Vec<u8> {

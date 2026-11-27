@@ -1,11 +1,7 @@
-#[macro_use]
-extern crate diesel;
-
 use crate::models::User;
 use chrono::{DateTime, Utc};
 use diesel::PgConnection;
 use jsonwebtoken::EncodingKey;
-use lazy_static::lazy_static;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -54,12 +50,10 @@ pub mod rocket_cors;
 pub mod routes;
 mod schema;
 
-lazy_static! {
-    /// The time in seconds a token is valid.
-    static ref TOKEN_LIFETIME_IN_SECONDS: usize = 60 * 60;
-    /// The absolute time in seconds a session may last, starting from the original login.
-    static ref SESSION_LIFETIME_IN_SECONDS: usize = 12 * 60 * 60;
-}
+/// The time in seconds a token is valid.
+const TOKEN_LIFETIME_IN_SECONDS: usize = 60 * 60;
+/// The absolute time in seconds a session may last, starting from the original login.
+const SESSION_LIFETIME_IN_SECONDS: usize = 12 * 60 * 60;
 
 pub static BACKOFF_HANDLER: LazyLock<Mutex<BackoffHandler>> =
     LazyLock::new(|| Mutex::new(BackoffHandler::from(Duration::from_secs(600))));
@@ -195,8 +189,8 @@ pub fn log_action(
     use crate::models::NewPerformedAction;
     use crate::schema::performed_actions::dsl::performed_actions;
     use chrono::Utc;
-    use diesel::insert_into;
     use diesel::RunQueryDsl;
+    use diesel::insert_into;
     use log::error;
 
     // failed logins are logged as "anonymous" to prevent username enumeration and have no user id
@@ -206,7 +200,9 @@ pub fn log_action(
             match lookup_user_by_name(db_connection, username_performing_action) {
                 Ok(user) => Some(user.id),
                 Err(error) => {
-                    error!("Could not look up the user object for the user '{username_performing_action}'. The error was: {error}");
+                    error!(
+                        "Could not look up the user object for the user '{username_performing_action}'. The error was: {error}"
+                    );
                     None
                 }
             }
@@ -250,7 +246,7 @@ pub fn get_token_for_user_with_auth_time(
     encoding_key: &EncodingKey,
     auth_time: usize,
 ) -> Option<(String, u64)> {
-    use jsonwebtoken::{encode, Algorithm, Header};
+    use jsonwebtoken::{Algorithm, Header, encode};
     use log::error;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -265,8 +261,8 @@ pub fn get_token_for_user_with_auth_time(
 
     // calculate the time when the token expires, but never later than the absolute session
     // lifetime which started at the original login
-    let token_expires_at = (token_issued_at + 1 + *TOKEN_LIFETIME_IN_SECONDS)
-        .min(auth_time + *SESSION_LIFETIME_IN_SECONDS);
+    let token_expires_at = (token_issued_at + 1 + TOKEN_LIFETIME_IN_SECONDS)
+        .min(auth_time + SESSION_LIFETIME_IN_SECONDS);
 
     // define the content of the actual token
     let token_claims = Claims {
@@ -300,7 +296,7 @@ pub fn unix_time_now() -> usize {
 
 /// The absolute lifetime of a session in seconds, starting from the original login.
 pub fn session_lifetime_in_seconds() -> usize {
-    *SESSION_LIFETIME_IN_SECONDS
+    SESSION_LIFETIME_IN_SECONDS
 }
 
 #[cfg(test)]

@@ -5,12 +5,12 @@ use adventskalender_backend::fairings::AdventskalenderDatabaseConnection;
 use chrono::NaiveDate;
 use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool};
 use diesel::sql_types::{BigInt, Integer, Text};
-use diesel::{sql_query, PgConnection, QueryableByName, RunQueryDsl};
-use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use diesel::{PgConnection, QueryableByName, RunQueryDsl, sql_query};
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use testcontainers_modules::postgres::Postgres;
-use testcontainers_modules::testcontainers::runners::SyncRunner;
 use testcontainers_modules::testcontainers::Container;
+use testcontainers_modules::testcontainers::runners::SyncRunner;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 pub const PICKING_USER_PASSWORD: &str = "picker-password";

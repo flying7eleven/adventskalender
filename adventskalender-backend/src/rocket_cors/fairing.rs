@@ -1,10 +1,10 @@
 //! Fairing implementation
 
 use crate::rocket_cors::{
-    actual_request_response, origin, preflight_response, request_headers, validate, Cors, Error,
+    Cors, Error, actual_request_response, origin, preflight_response, request_headers, validate,
 };
-use rocket::http::{self, uri::Origin, Status};
-use rocket::{self, error_, outcome::Outcome, Request};
+use rocket::http::{self, Status, uri::Origin};
+use rocket::{self, Request, error_, outcome::Outcome};
 
 /// Request Local State to store CORS validation results
 enum CorsValidation {
@@ -134,9 +134,9 @@ impl rocket::fairing::Fairing for Cors {
 
 #[cfg(test)]
 mod tests {
+    use rocket::Rocket;
     use rocket::http::{Method, Status};
     use rocket::local::blocking::Client;
-    use rocket::Rocket;
 
     use crate::rocket_cors::{AllowedHeaders, AllowedOrigins, Cors, CorsOptions};
 

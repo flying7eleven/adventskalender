@@ -1,5 +1,5 @@
 macro_rules! not_err {
-    ($e:expr) => {
+    ($e:expr_2021) => {
         match $e {
             Ok(e) => e,
             Err(e) => panic!("{} failed with {:?}", stringify!($e), e),
@@ -8,7 +8,7 @@ macro_rules! not_err {
 }
 
 macro_rules! is_err {
-    ($e:expr) => {
+    ($e:expr_2021) => {
         match $e {
             Ok(e) => panic!(
                 "{} did not return with an error, but with {:?}",
@@ -21,10 +21,10 @@ macro_rules! is_err {
 }
 
 macro_rules! assert_matches {
-    ($e:expr, $p:pat) => {
+    ($e:expr_2021, $p:pat) => {
         assert_matches!($e, $p, ())
     };
-    ($e:expr, $p:pat, $f:expr) => {
+    ($e:expr_2021, $p:pat, $f:expr_2021) => {
         match $e {
             $p => $f,
             e => panic!(

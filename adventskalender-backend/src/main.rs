@@ -1,9 +1,9 @@
 use adventskalender_backend::fairings::BackendConfiguration;
 use adventskalender_backend::routes::mount_routes;
-use adventskalender_backend::{log_action, Action};
+use adventskalender_backend::{Action, log_action};
 use chrono::DateTime;
 use diesel::PgConnection;
-use diesel_migrations::{embed_migrations, EmbeddedMigrations};
+use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use log::LevelFilter;
 use ring::signature::Ed25519KeyPair;
@@ -111,11 +111,10 @@ fn load_or_generate_keypair(key_file_path: &std::path::Path) -> Result<Vec<u8>, 
     };
 
     // create a parent directory if it doesn't exist
-    if let Some(parent) = key_file_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create key directory: {e}"))?;
-        }
+    if let Some(parent) = key_file_path.parent()
+        && !parent.exists()
+    {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create key directory: {e}"))?;
     }
 
     // write the key to a file which only the owner can read and write, right from its creation,
@@ -227,7 +226,9 @@ async fn main() {
     let jwks_uri = match api_host_url.join("/.well-known/jwks.json") {
         Ok(url) => url.to_string(),
         Err(error) => {
-            error!("Could not build the JWKS URL from the API host '{api_host}'. The error was: {error}");
+            error!(
+                "Could not build the JWKS URL from the API host '{api_host}'. The error was: {error}"
+            );
             return;
         }
     };
@@ -236,7 +237,9 @@ async fn main() {
     let database_connection_url =
         env::var("ADVENTSKALENDER_DB_CONNECTION").unwrap_or("".to_string());
     if database_connection_url.is_empty() {
-        error!("Could not get the configuration for the database server. Ensure ADVENTSKALENDER_DB_CONNECTION is set properly");
+        error!(
+            "Could not get the configuration for the database server. Ensure ADVENTSKALENDER_DB_CONNECTION is set properly"
+        );
         return;
     }
 
@@ -244,14 +247,18 @@ async fn main() {
     let healthcheck_io_project =
         env::var("ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT").unwrap_or("".to_string());
     if healthcheck_io_project.is_empty() {
-        error!("Could not get the healthchecks.io project UUID. Ensure ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT is set properly");
+        error!(
+            "Could not get the healthchecks.io project UUID. Ensure ADVENTSKALENDER_HEALTHCHECK_IO_PROJECT is set properly"
+        );
         return;
     }
 
     // get the audience for the token
     let token_audience_str = env::var("ADVENTSKALENDER_TOKEN_AUDIENCE").unwrap_or("".to_string());
     if token_audience_str.is_empty() {
-        error!("Could not get the token audience. Ensure ADVENTSKALENDER_TOKEN_AUDIENCE is set properly");
+        error!(
+            "Could not get the token audience. Ensure ADVENTSKALENDER_TOKEN_AUDIENCE is set properly"
+        );
         return;
     }
     let token_audience_hash_set = token_audience_str
@@ -429,7 +436,7 @@ async fn main() {
 
     // spawn background task for rate limiter cleanup
     rocket::tokio::spawn(async {
-        use adventskalender_backend::rate_limiter::{cleanup_old_entries, RateLimitConfig};
+        use adventskalender_backend::rate_limiter::{RateLimitConfig, cleanup_old_entries};
         use log::debug;
 
         let config = RateLimitConfig::default();
@@ -579,7 +586,7 @@ fn contains_end_of_headers(response: &[u8]) -> bool {
 }
 #[cfg(all(test, unix))]
 mod tests {
-    use super::{healthcheck, HealthcheckError};
+    use super::{HealthcheckError, healthcheck};
     use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
     use std::thread;

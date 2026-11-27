@@ -79,7 +79,7 @@ impl Origin {
     pub fn is_tuple(&self) -> bool {
         match self {
             Origin::Null => false,
-            Origin::Parsed(ref parsed) => parsed.is_tuple(),
+            Origin::Parsed(parsed) => parsed.is_tuple(),
             Origin::Opaque(_) => false,
         }
     }
@@ -122,8 +122,8 @@ impl fmt::Display for Origin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Origin::Null => write!(f, "null"),
-            Origin::Parsed(ref parsed) => write!(f, "{}", parsed.ascii_serialization()),
-            Origin::Opaque(ref opaque) => write!(f, "{}", opaque),
+            Origin::Parsed(parsed) => write!(f, "{}", parsed.ascii_serialization()),
+            Origin::Opaque(opaque) => write!(f, "{}", opaque),
         }
     }
 }
